@@ -22,12 +22,16 @@
 npm install
 npm run dev       # 개발 서버
 npm run build     # 배포용 빌드 (압축 + 난독화) → dist/
-npm run balance   # 자동 밸런스 점검 (봇이 여러 판 플레이)
+npm run balance   # 1단계 시험 전투 밸런스 점검
+node scripts/runbot.mjs 30          # 3막 여정 전체 자동 플레이 (막별 도달률)
+node scripts/validate-events.mjs    # 사건 데이터 검사 (화자·유물·플래그·결말 도달)
 ```
 
 ## 구조
 - `src/game/battle.js` — 화면과 분리된 전투 시뮬레이션 (밸런스 봇, 협동 동기화에 재사용)
 - `src/gfx/` — 픽셀 스프라이트(코드로 정의), 렌더러, 로비 배경
 - `src/core/audio.js` — Web Audio 칩튠 합성 (외부 음원 없음)
-- `src/data/` — 유닛 · 적 · 웨이브 · 문구 데이터
+- `src/data/` — 유닛 · 적 · 유물 · 사건 · 동료 · 결말 · 마스코트 데이터
+- `src/run/` — 여정(런) 상태, 지도 생성, 사건 엔진, 지도·사건·상점·야영·결말 화면
+- `src/meta/` — 업적 · 왕실 보물고
 - `src/ui/` — 로비, 왕족 선택, 패널, 스타일

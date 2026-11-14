@@ -4,6 +4,11 @@ import { store, save, reset } from '../core/storage.js';
 import { audio } from '../core/audio.js';
 import { UNITS, TIERS, CLASSES } from '../data/units.js';
 import { SPR, spriteURL, silhouetteURL } from '../gfx/sprites.js';
+import { RELICS, GRADE, SETS } from '../data/relics.js';
+import { EVENT_DATA } from '../data/events.js';
+import { ENDINGS, ENDING_ORDER } from '../data/endings.js';
+import { ACHS, PERKS } from '../meta/achievements.js';
+import { MASCOT_DEFS, MASCOT_ORDER } from '../data/mascots.js';
 
 export function sheet(root, ...content) {
   const close = () => { audio.sfxPlay('click'); s.remove(); };
@@ -73,42 +78,109 @@ export function settingsPanel(root, app) {
 }
 
 export function chroniclePanel(root) {
-  const seen = new Set(store().seen);
-  const detail = h('div.chron-detail', h('span', { style: { color: 'var(--dim)' } }, '유닛을 눌러 기록을 확인하세요.'));
-  let selCell = null;
-  const sections = TIERS.map((t, tier) => {
-    const list = UNITS.filter((u) => u.tier === tier);
-    return [
-      h('div.chron-tier', { style: { color: tier === 5 ? '#ff9ad9' : t.color } }, `${t.name}  ·  ${list.filter((u) => seen.has(u.id)).length}/${list.length}`),
-      h('div.chron-grid', list.map((u) => {
-        const known = seen.has(u.id);
-        const cell = h('button.chron-cell', {
-          'aria-label': known ? u.name : '미발견',
-          onclick: () => {
-            audio.sfxPlay('hover');
-            if (selCell) selCell.classList.remove('sel');
-            cell.classList.add('sel');
-            selCell = cell;
-            detail.replaceChildren(
-              known
-                ? h('div',
-                    h('div', { style: { fontSize: '12px', fontWeight: 600, color: tier === 5 ? '#ff9ad9' : t.color } }, u.name),
-                    h('div', { style: { color: 'var(--dim)', fontSize: '9px' } }, `${t.name} · ${CLASSES[u.cls].name}`),
-                    h('div', u.desc),
-                    h('div.q', `“${u.quip}”`))
-                : h('div', { style: { color: 'var(--dim)' } }, '아직 만나지 못한 유닛입니다. 잿더미 어딘가에 있을지도.'),
-            );
-          },
-        }, h('img', { src: known ? spriteURL(SPR.units[u.id].r, 3) : silhouetteURL(SPR.units[u.id].r, 3), alt: '' }));
-        return cell;
-      })),
-    ];
-  });
-  const total = UNITS.filter((u) => seen.has(u.id)).length;
-  return sheet(root,
-    h('h2', 'CHRONICLE'),
-    h('div.sub', `연대기 · 유닛 수집 ${total}/${UNITS.length} (${Math.round((total / UNITS.length) * 100)}%)`),
-    ...sections.flat(),
-    detail,
-  );
+  const d = store();
+  const seen = new Set(d.seen);
+  const body = h('div');
+  const tabs = [['유닛', unitsTab], ['유물', relicsTab], ['사건', eventsTab], ['결말', endingsTab], ['업적', achTab]];
+  const bar = h('div.tabs', tabs.map(([n, fn], i) => h('button.tab' + (i ? '' : '.on'), {
+    onclick: (e) => { audio.sfxPlay('hover'); bar.querySelectorAll('.tab').forEach((t) => t.classList.remove('on')); e.currentTarget.classList.add('on'); body.replaceChildren(fn()); },
+  }, n)));
+  body.appendChild(unitsTab());
+  const unitPct = Math.round((UNITS.filter((u) => seen.has(u.id)).length / UNITS.length) * 100);
+  return sheet(root, h('h2', 'CHRONICLE'), h('div.sub', `연대기 · 유닛 ${unitPct}% · 결말 ${(d.endings || []).length}/8 · 업적 ${(d.ach || []).length}/${ACHS.length}`), bar, body);
+
+  function unitsTab() {
+    const detail = h('div.chron-detail', h('span', { style: { color: 'var(--dim)' } }, '유닛을 눌러 기록을 확인하세요.'));
+    let selCell = null;
+    const sections = TIERS.map((t, tier) => {
+      const list = UNITS.filter((u) => u.tier === tier);
+      return [
+        h('div.chron-tier', { style: { color: tier === 5 ? '#ff9ad9' : t.color } }, `${t.name}  ·  ${list.filter((u) => seen.has(u.id)).length}/${list.length}`),
+        h('div.chron-grid', list.map((u) => {
+          const known = seen.has(u.id);
+          const cell = h('button.chron-cell', {
+            'aria-label': known ? u.name : '미발견',
+            onclick: () => {
+              audio.sfxPlay('hover');
+              if (selCell) selCell.classList.remove('sel');
+              cell.classList.add('sel');
+              selCell = cell;
+              detail.replaceChildren(known
+                ? h('div', h('div', { style: { fontSize: '13px', fontWeight: 600, color: tier === 5 ? '#ff9ad9' : t.color } }, u.name), h('div', { style: { color: 'var(--dim)', fontSize: '10.5px' } }, `${t.name} · ${CLASSES[u.cls].name}`), h('div', u.desc), h('div.q', `“${u.quip}”`))
+                : h('div', { style: { color: 'var(--dim)' } }, '아직 만나지 못한 유닛입니다. 잿더미 어딘가에 있을지도.'));
+            },
+          }, h('img', { src: known ? spriteURL(SPR.units[u.id].r, 3) : silhouetteURL(SPR.units[u.id].r, 3), alt: '' }));
+          return cell;
+        })),
+      ];
+    });
+    return h('div', ...sections.flat(), detail);
+  }
+  function relicsTab() {
+    const got = new Set(d.relicsSeen || []);
+    return h('div', h('div.note', `만난 유물 ${RELICS.filter((r) => got.has(r.id)).length}/${RELICS.length}`),
+      ...RELICS.map((r) => got.has(r.id)
+        ? h('div.relic-row', { style: { '--gc': GRADE[r.g].color } }, h('b', r.name), h('span.gr', GRADE[r.g].name + (r.set ? ` · ${SETS[r.set].name}` : '')), h('div', r.desc), h('div.fl', `“${r.flavor}”`))
+        : h('div.relic-row.unk', h('b', '???'), h('span.gr', GRADE[r.g].name))));
+  }
+  function eventsTab() {
+    const got = new Set(d.eventsSeen || []);
+    const list = Object.values(EVENT_DATA).filter((e) => !e.special);
+    return h('div', h('div.note', `겪은 사건 ${list.filter((e) => got.has(e.id)).length}/${list.length}`),
+      h('div.ev-list', list.map((e) => h('div.ev-li' + (got.has(e.id) ? '' : '.unk'), got.has(e.id) ? e.title : '???', h('small', e.kind === 'bond' ? '동료' : e.kind === 'faction' ? '진영' : e.kind === 'royal' ? '왕족' : `${(e.act || []).join('·')}막`)))));
+  }
+  function endingsTab() {
+    const got = new Set(d.endings || []);
+    return h('div', ...ENDING_ORDER.map((id) => h('div.relic-row' + (got.has(id) ? '' : '.unk'), { style: { '--gc': got.has(id) ? 'var(--gold2)' : '#555' } },
+      h('b', got.has(id) ? `결말 ${ENDINGS[id].no} · ${ENDINGS[id].title}` : `결말 ${ENDINGS[id].no} · ???`),
+      got.has(id) ? h('div.fl', ENDINGS[id].lines[0][2]) : null)));
+  }
+  function achTab() {
+    const got = new Set(d.ach || []);
+    const cats = [...new Set(ACHS.map((a) => a.cat))];
+    return h('div', ...cats.map((c) => [
+      h('div.chron-tier', { style: { color: 'var(--gold2)' } }, c),
+      ...ACHS.filter((a) => a.cat === c).map((a) => h('div.ach' + (got.has(a.id) ? '.on' : ''),
+        h('b', a.hidden && !got.has(a.id) ? '???' : a.name), h('span', `+${a.ash}`), h('div', a.hidden && !got.has(a.id) ? '숨겨진 업적' : a.desc))),
+    ]).flat());
+  }
+}
+
+export function treasuryPanel(root) {
+  const d = store();
+  d.perks = d.perks || {};
+  d.mascots = d.mascots || ['puru'];
+  const body = h('div');
+  const render = () => {
+    body.replaceChildren(
+      h('div.chron-tier', { style: { color: 'var(--gold2)' } }, '영구 강화'),
+      ...PERKS.map((p) => {
+        const lv = d.perks[p.id] || 0;
+        const max = lv >= p.max;
+        const cost = max ? 0 : p.cost(lv);
+        return h('div.perk-row',
+          h('div', h('b', `${p.name} `), h('small', `Lv.${lv}/${p.max}`), h('div', p.desc)),
+          h('button.btn' + (!max && d.ash >= cost ? '.primary' : ''), {
+            disabled: max || d.ash < cost,
+            onclick: () => { d.ash -= cost; d.perks[p.id] = lv + 1; save(); audio.sfxPlay('upgrade'); render(); },
+          }, max ? '완료' : `${cost}`));
+      }),
+      h('div.chron-tier', { style: { color: 'var(--gold2)' } }, '마스코트 입양'),
+      ...MASCOT_ORDER.filter((id) => MASCOT_DEFS[id].cost).map((id) => {
+        const m = MASCOT_DEFS[id];
+        const has = d.mascots.includes(id);
+        return h('div.perk-row',
+          h('div', h('b', `${m.name} `), h('small', m.kind), h('div', `${m.skill}: ${m.skillDesc}`)),
+          h('button.btn' + (!has && d.ash >= m.cost ? '.primary' : ''), {
+            disabled: has || d.ash < m.cost,
+            onclick: () => { d.ash -= m.cost; d.mascots.push(id); save(); audio.sfxPlay('win'); render(); },
+          }, has ? '함께함' : `${m.cost}`));
+      }),
+      h('div.note', { style: { marginTop: '10px' } }, '다른 마스코트는 사건, 동료 인연, 업적, 연대기 수집으로 해금됩니다.'),
+    );
+    sub.textContent = `잿빛 조각 ${d.ash}개 · 거미줄은 치웠습니다. 외상 장부는 아직 있습니다.`;
+  };
+  const sub = h('div.sub');
+  render();
+  return sheet(root, h('h2', 'TREASURY'), sub, body);
 }

@@ -1,7 +1,8 @@
 // 전투 시뮬레이션 (화면과 분리된 순수 로직)
 import { RNG } from '../core/rng.js';
 import { UNITS, UNIT, BY_TIER, TIERS, RECIPES, MAX_CELESTIAL, CLASS_ORDER, upgGroup, upgCost } from '../data/units.js';
-import { ENEMIES, WAVES, WAVE_TIME, REST_TIME, BOSS_TIME, FIELD_LIMIT, baseHp, BOSS_HP, BOSS_WAVE } from '../data/enemies.js';
+import { ENEMIES, TRIAL_WAVES, WAVE_TIME, REST_TIME, BOSS_TIME, FIELD_LIMIT, LEFTOVER_TIME, hpAt, BOSS_HP } from '../data/enemies.js';
+import { MASCOT_DEFS } from '../data/mascots.js';
 import { FAIL_LINES } from '../data/text.js';
 import { COLS, ROWS, PERIM, cellX, cellY, pathPos, NEIGHBORS } from './layout.js';
 
@@ -29,11 +30,24 @@ export class Battle {
     this.events = [];
     this.uid = 1;
 
-    this.gold = this.royal === 'kyle' ? 150 : 100;
-    this.stones = this.royal === 'seren' ? 3 : 0;
-    this.wallMax = 100 + (this.royal === 'edric' ? 20 : 0);
-    this.wall = this.wallMax;
+    this.R = opt.mods || {};
+    // 지도 칸 구성 (없으면 1단계 시험 전투 10웨이브)
+    this.node = opt.node || { L: 1, trial: true, waves: TRIAL_WAVES, kind: 'boss', boss: 'ogran' };
+    this.nWaves = this.node.waves.length;
+    const c = opt.carry;
+    if (c) {
+      this.gold = c.gold; this.stones = c.stones; this.wallMax = c.wallMax; this.wall = c.wall;
+    } else {
+      this.gold = this.royal === 'kyle' ? 150 : 100;
+      this.stones = this.royal === 'seren' ? 3 : 0;
+      this.wallMax = 100 + (this.royal === 'edric' ? 20 : 0);
+      this.wall = this.wallMax;
+    }
+    this.gold += this.R.battleGold || 0;
     this.badLuck = opt.badLuck || 0;
+    this.mdef = MASCOT_DEFS[this.mascot] || MASCOT_DEFS.puru;
+    this.mlv = Math.max(1, Math.min(5, opt.mascotLv || 1));
+    this.mboost = 1 + 0.08 * (this.mlv - 1);
 
     this.wave = 0;
     this.phase = 'prep';
@@ -44,12 +58,24 @@ export class Battle {
     this.boss = null;
     this.bossT = 0;
 
-    this.upg = [0, 0, 0];
-    this.summons = 0;
-    this.celestial = 0;
+    this.upg = c ? c.upg.slice() : [0, 0, 0];
+    this.summons = c ? c.summons : 0;
+    this.celestial = c ? c.celestial : 0;
+    this.maxCelestial = MAX_CELESTIAL + (this.R.celestialMax || 0);
     this.time = 0;
     this.skillT = 0;
-    this.skillCd = 60;
+    this.skillCd = this.mdef.cd * (1 - 0.04 * (this.mlv - 1));
+    this.buffT = 0;
+    this.buff = null;
+    this.eggKills = opt.eggKills || 0;
+    this.deliver = 0;
+    this.leftT = 0;
+    this.gimT = 0;
+    this.ashT = 0;
+    this.freezeRow = -1;
+    this.freezeT = 0;
+    this.freeSummon = this.R.firstSummonFree ? 1 : 0;
+    this.wallSaves = this.R.bossGuard || 0;
     this.cheerT = 0;
     this.timeStopT = 0;
     this.metT = 0;
@@ -62,7 +88,19 @@ export class Battle {
     this.mods = {};
     this.mergeable = new Array(N_CELLS).fill(false);
     this.dirty = true;
-    this.stats = { kills: 0, summons: 0, merges: 0, fails: 0, gambles: 0, best: null };
+    this.stats = { kills: 0, summons: 0, merges: 0, fails: 0, gambles: 0, best: null, celestials: 0, maxField: 0, wallLost: 0 };
+    if (c) {
+      c.units.forEach((x, i) => { if (x && UNIT[x.id]) this.place(UNIT[x.id], i, x.spent || 0, true); });
+    }
+  }
+
+  // 전투가 끝난 뒤 다음 칸으로 넘길 상태
+  exportCarry() {
+    return {
+      units: this.units.map((u) => (u ? { id: u.def.id, spent: u.spent } : null)),
+      gold: this.gold, stones: this.stones, wall: Math.max(0, Math.ceil(this.wall)), wallMax: this.wallMax,
+      upg: this.upg.slice(), summons: this.summons, celestial: this.celestial,
+    };
   }
 
   emit(type, data) {
@@ -79,35 +117,47 @@ export class Battle {
   }
   hasEmpty() { return this.units.includes(null); }
 
-  place(def, cell, spent = 0) {
+  place(def, cell, spent = 0, quiet = false) {
     const u = {
       uid: this.uid++, def, cell, cd: 0.2 + this.rng.next() * 0.4, hits: 0, stacks: 0, lastTgt: 0,
-      skT: 0, spent, anim: 0, dealt: 0, born: this.time,
+      skT: 0, spent, anim: 0, dealt: 0, born: this.time, corrupt: 0, ice: 0,
     };
     this.units[cell] = u;
     this.dirty = true;
-    this.emit('unit', { id: def.id });
+    if (!quiet) this.emit('unit', { id: def.id });
     return u;
   }
 
-  summonCost() { return 15 + Math.floor(this.summons / 3); }
+  summonCost() {
+    if (this.freeSummon > 0) return 0;
+    return Math.max(5, 15 + Math.floor(this.summons / 3) - (this.R.summonCost || 0));
+  }
 
   summon() {
     const cost = this.summonCost();
     if (this.gold < cost || !this.hasEmpty() || this.result) return false;
     const r = this.rng.next() * 100;
     const tier = r < SUMMON_W[0] ? 0 : r < SUMMON_W[0] + SUMMON_W[1] ? 1 : 2;
-    const def = this.pickUnit(tier, null);
-    const cell = this.rng.pick(this.emptyCells());
+    if (this.freeSummon > 0) this.freeSummon--;
     this.gold -= cost;
     this.summons++;
     this.stats.summons++;
-    this.place(def, cell, cost);
-    this.emit('summon', { cell, tier });
+    // 무한 가챠 부적: 가끔 2명, 가끔 0명
+    const dbl = this.R.double;
+    let n = 1;
+    if (dbl) { const r2 = this.rng.next(); n = r2 < dbl[0] ? 2 : r2 < dbl[0] + dbl[1] ? 0 : 1; }
+    if (n === 0) { this.emit('summonZero', {}); return true; }
+    for (let k = 0; k < n && this.hasEmpty(); k++) {
+      const def = this.pickUnit(k ? 0 : tier, null);
+      const cell = this.rng.pick(this.emptyCells());
+      this.place(def, cell, k ? 0 : cost);
+      this.emit('summon', { cell, tier: k ? 0 : tier });
+    }
     return true;
   }
 
   pickUnit(tier, prefCls) {
+    if (this.forceN > 0) { this.forceN--; return UNIT[this.forceUnit]; }
     const pool = BY_TIER[tier];
     if (prefCls) {
       const same = pool.filter((u) => u.cls === prefCls);
@@ -128,7 +178,8 @@ export class Battle {
     if (!g || this.stones < g.cost || !this.hasEmpty() || this.result) return false;
     this.stones -= g.cost;
     this.stats.gambles++;
-    if (this.rng.chance(g.p)) {
+    const rigged = this.forceFail > 0 ? (this.forceFail--, true) : false;
+    if (!rigged && this.rng.chance(Math.min(0.95, g.p + (this.R.gamble || 0)))) {
       const def = this.pickUnit(g.tier, null);
       const cell = this.rng.pick(this.emptyCells());
       this.place(def, cell, 0);
@@ -136,8 +187,10 @@ export class Battle {
     } else {
       this.badLuck = Math.min(PITY_MAX, this.badLuck + 1);
       this.stats.fails++;
-      let consol = 0;
-      if (this.mascot === 'puru' && this.rng.chance(0.2)) { consol = 30; this.gold += 30; }
+      let consol = this.R.consol || 0;
+      if (this.mascot === 'puru' && this.rng.chance(0.2 * this.mboost)) consol += 30;
+      if (this.R.gambleRefund && this.rng.chance(0.5)) this.stones += Math.ceil(g.cost / 2);
+      this.gold += consol;
       this.emit('gambleFail', { line: this.rng.pick(FAIL_LINES), consol });
     }
     return true;
@@ -207,7 +260,7 @@ export class Battle {
       }
       return -1;
     });
-    return { have, ok: have.every((x) => x >= 0) && this.celestial < MAX_CELESTIAL };
+    return { have, ok: have.every((x) => x >= 0) && this.celestial < this.maxCelestial };
   }
 
   craft(idx) {
@@ -219,13 +272,15 @@ export class Battle {
     const cell = st.have[0];
     this.place(UNIT[r.result], cell, 0);
     this.celestial++;
+    this.stats.celestials++;
     this.emit('celestial', { cell, id: r.result });
     return true;
   }
 
   upgradeCost(g) {
-    const c = upgCost(g, this.upg[g]);
-    return this.royal === 'kyle' ? Math.round(c * 0.85) : c;
+    let c = upgCost(g, this.upg[g]) * (1 - (this.R.upgCost || 0));
+    if (this.royal === 'kyle') c *= 0.85;
+    return Math.round(c);
   }
   upgrade(g) {
     const c = this.upgradeCost(g);
@@ -239,9 +294,67 @@ export class Battle {
   skill() {
     if (this.skillT < this.skillCd || this.result || this.phase === 'prep') return false;
     this.skillT = 0;
-    this.cheerT = 10;
-    this.emit('skill', { id: this.mascot });
+    const B = this.mboost;
+    let extra = {};
+    switch (this.mascot) {
+      case 'cat': {
+        const top = this.enemies.filter((e) => e.alive).sort((a, b) => b.hp - a.hp).slice(0, 5);
+        for (const e of top) { e.stunT = Math.max(e.stunT, e.boss ? 0.6 : 2); this.damage(e, this.powerUnit() * 6 * B, 't', null, false); }
+        extra.targets = top.map((e) => [e.x, e.y]);
+        break;
+      }
+      case 'mimic': {
+        const t = this.randomEnemy();
+        const s0 = t ? t.s - 60 : 0;
+        let eaten = 0;
+        for (const e of this.enemies) {
+          if (!e.alive || eaten >= Math.round(12 * B)) continue;
+          let rel = (e.s - s0) % PERIM; if (rel < 0) rel += PERIM;
+          if (rel > PERIM / 4) continue;
+          if (e.boss || e.elite) { this.damage(e, e.maxHp * 0.04, 't', null, false); continue; }
+          this.kill(e, null, true); eaten++;
+        }
+        this.gold += eaten * 3;
+        extra = { eaten, x: t ? t.x : 180, y: t ? t.y : 196 };
+        break;
+      }
+      case 'rock': {
+        const awake = this.rng.chance(0.01 * B);
+        extra.awake = awake;
+        if (awake) for (const e of this.enemies) { if (!e.alive) continue; if (e.boss || e.elite) this.damage(e, e.maxHp * 0.1, 't', null, false); else this.kill(e, null); }
+        break;
+      }
+      case 'owl': this.buff = 'owl'; this.buffT = 12; this.dirty = true; break;
+      case 'egg': {
+        const stage = this.eggStage();
+        if (stage < 2) {
+          for (const e of this.enemies) if (e.alive && !e.boss) { e.s = Math.max(0, e.s - 60); e.stunT = Math.max(e.stunT, 0.5); }
+        } else {
+          const t = this.randomEnemy();
+          if (t) this.zones.push({ s0: t.s - 160, s1: t.s + 20, t: 2, dur: 2, dps: this.powerUnit() * 10 * B, src: null, def: null });
+        }
+        extra.stage = stage;
+        break;
+      }
+      case 'snail': this.deliver = 5; break;
+      case 'potato': this.wall = Math.min(this.wallMax, this.wall + 8 * B); break;
+      default: this.cheerT = 10;
+    }
+    this.emit('skill', { id: this.mascot, ...extra });
     return true;
+  }
+
+  eggStage() { return this.eggKills >= 800 ? 2 : this.eggKills >= 300 ? 1 : 0; }
+  // 마스코트 스킬 위력 기준: 현재 웨이브 적 체력
+  powerUnit() { return hpAt(this.curL()) * 0.5; }
+  curL() { return this.node.trial ? Math.max(1, this.wave) : this.node.L + Math.max(0, this.wave - 1) * 0.45; }
+
+  cleanse(cell) {
+    const u = this.units[cell];
+    if (!u) return false;
+    if (u.corrupt > 0) { u.corrupt = Math.max(0, u.corrupt - 3); this.emit('cleanse', { cell, done: u.corrupt <= 0 }); return true; }
+    if (u.ice > 0) { u.ice = Math.max(0, u.ice - 1.6); this.emit('icebreak', { cell, done: u.ice <= 0 }); return true; }
+    return false;
   }
 
   // ───────────────────────── 보정치 계산 ─────────────────────────
@@ -265,14 +378,15 @@ export class Battle {
     this.mods = {
       knightStun: s.knight >= 3 ? 0.03 : 0,
       knightBoss: s.knight >= 4 ? 0.15 : 0,
-      crit: s.archer >= 4 ? 0.2 : 0,
-      magicMul: s.mage >= 3 ? 1.1 : 1,
+      crit: (s.archer >= 4 ? 0.2 : 0),
+      critAll: this.R.crit || 0,
+      magicMul: (s.mage >= 3 ? 1.1 : 1) * (this.buff === 'owl' ? 1.2 : 1),
       meteor: s.mage >= 4,
-      goldMul: (s.priest >= 3 ? 1.1 : 1) * (nameless ? 2 : 1),
-      killGold: s.rogue >= 2 ? 1 : 0,
-      stoneMul: s.rogue >= 3 ? 1.5 : 1,
+      goldMul: (s.priest >= 3 ? 1.1 : 1) * (nameless ? 2 : 1) * (1 + (this.R.goldMul || 0)),
+      killGold: (s.rogue >= 2 ? 1 : 0) + (this.R.goldKill || 0),
+      stoneMul: (s.rogue >= 3 ? 1.5 : 1) * (1 + (this.R.stoneMul || 0)),
       rogueExec: s.rogue >= 4 ? 0.05 : 0,
-      globalSlow: witch,
+      globalSlow: Math.min(0.6, witch + (this.R.slow || 0)),
       saint,
     };
     for (let i = 0; i < N_CELLS; i++) {
@@ -299,6 +413,11 @@ export class Battle {
         if (s.mage >= 2) splash = 1.15;
         if (this.royal === 'seren') spd += 0.1;
       }
+      const R = this.R;
+      dmg += (R.dmg || 0) + ((R.cls && R.cls[d.cls]) || 0) + ((R.grp && R.grp[upgGroup(d.tier)]) || 0);
+      spd += R.spd || 0;
+      range += R.range || 0;
+      if (this.buff === 'owl' && d.cls === 'mage') dmg += 0.5 * this.mboost;
       u.spd = spd;
       u.dmgMul = dmg;
       u.range = range;
@@ -316,28 +435,32 @@ export class Battle {
     this.waveT = 0;
     this.stoneWave = 0;
     const list = [];
-    for (const [type, n] of WAVES[w - 1]) {
-      if (ENEMIES[type].boss) continue;
+    const special = [];
+    for (const [type, n] of this.node.waves[w - 1]) {
+      const d = ENEMIES[type];
+      if (d.boss || d.elite) { special.push(type); continue; }
       for (let i = 0; i < n; i++) list.push(type);
     }
     this.rng.shuffle(list);
     const span = WAVE_TIME * 0.9;
     this.queue = list.map((type, i) => ({ type, t: (i / list.length) * span }));
     this.qi = 0;
-    if (w === BOSS_WAVE) {
-      this.queue.push({ type: 'ogran', t: 2.5 });
-      this.queue.sort((a, b) => a.t - b.t);
-    }
-    this.emit('wave', { wave: w, boss: w === BOSS_WAVE });
+    for (const type of special) this.queue.push({ type, t: ENEMIES[type].boss ? 2.5 : WAVE_TIME * 0.6 });
+    this.queue.sort((a, b) => a.t - b.t);
+    const boss = special.find((t) => ENEMIES[t].boss);
+    this.emit('wave', { wave: w, of: this.nWaves, boss: boss || null, elite: special.find((t) => ENEMIES[t].elite) || null });
+    if (this.R.wallDrain) this.hurtWall(this.R.wallDrain, 'curse');
   }
 
   waveReward() {
     const w = this.wave;
-    const g = 20 + w * 6;
+    const L = this.curL();
+    let g = Math.round((this.node.trial ? 20 + w * 6 : 16 + L * 4) + (this.R.waveGold || 0));
+    if (this.mascot === 'snail') g = Math.round(g * (1 + 0.05 * this.mboost));
     this.gold += g;
     let stone = 0;
-    if (w % 3 === 0) { this.stones++; stone = 1; }
-    let heal = 0;
+    if (this.node.trial ? w % 3 === 0 : w === this.nWaves - 1 && this.rng.chance(0.5)) { this.stones++; stone = 1; }
+    let heal = this.R.waveHeal || 0;
     for (const u of this.units) if (u && u.def.waveHeal) heal += u.def.waveHeal;
     if (heal) this.wall = Math.min(this.wallMax, this.wall + heal);
     this.emit('waveClear', { wave: w, gold: g, stone, heal });
@@ -346,7 +469,10 @@ export class Battle {
   spawn(type, sOff = 0) {
     const def = ENEMIES[type];
     const e = this.epool.pop() || {};
-    const hp = def.boss ? BOSS_HP : baseHp(Math.max(1, this.wave)) * def.hp;
+    const L = this.curL();
+    let hp;
+    if (def.boss) hp = (this.node.trial ? BOSS_HP : hpAt(L) * def.hp) * (1 + (this.R.bossHp || 0)) * (type === 'morven' ? 1 - (this.R.morvenWeak || 0) : 1);
+    else hp = hpAt(L) * def.hp * (1 + (this.R.enemyHp || 0));
     e.uid = this.uid++;
     e.type = type; e.def = def; e.boss = !!def.boss;
     e.hp = e.maxHp = hp;
@@ -356,11 +482,12 @@ export class Battle {
     e.slowT = 0; e.slowAmt = 0; e.stunT = 0;
     e.burnT = 0; e.burnDps = 0; e.burnSrc = null; e.boomR = 0; e.boomDmg = 0;
     e.phaseT = def.phase ? this.rng.next() * def.phase[0] : 0; e.invis = false;
-    e.flash = 0; e.numT = 0; e.alive = true; e.roarT = def.roar ? def.roar[0] : 0;
+    e.flash = 0; e.numT = 0; e.alive = true; e.roarT = def.gimmick === 'roar' ? 9 : 0;
+    e.abT = 2 + this.rng.next() * 2; e.raged = false; e.clone = false; e.splits = 0; e.elite = !!def.elite; e.shield = false;
     e.walk = this.rng.next() * 10;
     pathPos(e.s, TMP); e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
     this.enemies.push(e);
-    if (e.boss) { this.boss = e; this.bossT = BOSS_TIME; this.emit('boss', {}); }
+    if (e.boss) { this.boss = e; this.bossT = BOSS_TIME; this.gimT = 6; this.emit('boss', { id: type }); }
     return e;
   }
 
@@ -381,15 +508,44 @@ export class Battle {
         const g = ENEMIES[q.type].group || 1;
         for (let k = 0; k < g; k++) this.spawn(q.type, -k * 9);
       }
-      if (this.waveT >= WAVE_TIME && this.qi >= this.queue.length && this.wave < BOSS_WAVE) {
-        this.waveReward();
-        this.phase = 'rest';
-        this.timer = REST_TIME;
+      const hasBoss = this.boss && this.boss.alive;
+      if (this.waveT >= WAVE_TIME && this.qi >= this.queue.length && !hasBoss) {
+        if (this.wave < this.nWaves) {
+          this.waveReward();
+          this.phase = 'rest';
+          this.timer = REST_TIME;
+        } else if (!this.boss) {
+          this.waveReward();
+          this.phase = 'leftover';
+          this.leftT = LEFTOVER_TIME;
+        }
       }
     } else if (this.phase === 'rest') {
       this.timer -= dt;
       if (this.timer <= 0) this.startWave(this.wave + 1);
+    } else if (this.phase === 'leftover') {
+      this.leftT -= dt;
+      if (!this.enemies.some((e) => e.alive)) this.victory(0);
+      else if (this.leftT <= 0) {
+        const n = this.enemies.filter((e) => e.alive).length;
+        this.hurtWall(Math.min(15, Math.ceil(n * 0.5)), 'escape');
+        if (this.wall > 0) this.victory(n);
+      }
     }
+    if (this.result) return;
+    if (this.buffT > 0) { this.buffT -= dt; if (this.buffT <= 0) { this.buff = null; this.dirty = true; } }
+    if (this.deliver > 0) {
+      this.deliver -= dt;
+      if (this.deliver <= 0) {
+        for (let k = 0; k < 2; k++) {
+          if (this.hasEmpty()) { const cell = this.rng.pick(this.emptyCells()); this.place(this.pickUnit(1, null), cell, 0); this.emit('summon', { cell, tier: 1 }); }
+          else this.gold += 25;
+        }
+        this.emit('delivered', {});
+      }
+    }
+    if (this.freezeT > 0) { this.freezeT -= dt; if (this.freezeT <= 0) this.freezeRow = -1; }
+    if (this.ashT > 0) this.ashT -= dt;
 
     if (this.phase !== 'prep') this.skillT = Math.min(this.skillCd, this.skillT + dt);
     if (this.cheerT > 0) this.cheerT -= dt;
@@ -401,6 +557,7 @@ export class Battle {
         this.bossT = BOSS_TIME;
         this.hurtWall(25, 'timeout');
       }
+      this.bossGimmick(dt);
     }
 
     this.updateEnemies(dt);
@@ -413,12 +570,13 @@ export class Battle {
       if (this.metT >= 3) {
         this.metT = 0;
         const t = this.randomEnemy();
-        if (t) this.fireMeteor(null, t, baseHp(Math.max(1, this.wave)) * 1.2, 30, true);
+        if (t) this.fireMeteor(null, t, hpAt(this.curL()) * 1.2, 30, true);
       }
     }
 
     // 필드 한도
     const n = this.enemies.length;
+    if (n > this.stats.maxField) this.stats.maxField = n;
     this.overflow = n > FIELD_LIMIT;
     if (this.overflow) this.hurtWall((n - FIELD_LIMIT) * 0.08 * dt, null);
 
@@ -440,8 +598,64 @@ export class Battle {
   }
 
   hurtWall(v, why) {
+    if ((why === 'bossLap' || why === 'timeout') && this.wallSaves > 0) {
+      this.wallSaves--;
+      v *= 0.5;
+      this.emit('guarded', {});
+    }
     this.wall -= v;
+    this.stats.wallLost += v;
     if (why) this.emit('wallHit', { v, why });
+  }
+
+  // ── 보스 고유 기믹 ──
+  bossGimmick(dt) {
+    const b = this.boss;
+    const g = b.def.gimmick;
+    this.gimT -= dt;
+    if (g === 'split') {
+      const ratio = b.hp / b.maxHp;
+      if ((b.splits === 0 && ratio < 0.66) || (b.splits === 1 && ratio < 0.33)) {
+        b.splits++;
+        for (let k = 0; k < 2; k++) {
+          const c = this.spawn('shadow', b.s - 30 - k * 30);
+          c.boss = false; c.clone = true; c.elite = true;
+          c.hp = c.maxHp = b.maxHp * 0.14;
+          c.spd = b.spd * 1.3;
+        }
+        this.boss = b;
+        this.emit('split', { x: b.x, y: b.y });
+      }
+      b.shield = this.enemies.some((e) => e.alive && e.clone);
+      return;
+    }
+    if (this.gimT > 0) return;
+    if (g === 'corrupt') {
+      this.gimT = 12;
+      const cand = this.units.filter((u) => u && u.def.tier < 5 && !(u.corrupt > 0));
+      if (cand.length) {
+        const u = this.rng.pick(cand);
+        u.corrupt = 9;
+        this.emit('corrupt', { cell: u.cell });
+      }
+    } else if (g === 'freeze') {
+      this.gimT = 14;
+      const row = this.rng.int(3);
+      this.freezeRow = row;
+      this.freezeT = 7;
+      for (let c = 0; c < COLS; c++) { const u = this.units[row * COLS + c]; if (u) u.ice = 7; }
+      this.emit('freeze', { row });
+    } else if (g === 'steal') {
+      this.gimT = 10;
+      const took = Math.min(this.gold, Math.max(10, Math.floor(this.gold * 0.12)));
+      this.gold -= took;
+      this.emit('steal', { v: took, x: b.x, y: b.y });
+    } else if (g === 'ashrain') {
+      this.gimT = 11;
+      this.ashT = 5;
+      for (let k = 0; k < 4; k++) this.spawn('cultist', b.s - 20 - k * 12);
+      this.emit('ashrain', {});
+    } else this.gimT = 99;
   }
 
   updateEnemies(dt) {
@@ -472,18 +686,40 @@ export class Battle {
       }
       pathPos(e.s, TMP);
       e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
-      if (e.def.roar) {
+      if (e.def.gimmick === 'roar' && e.boss) {
         e.roarT -= dt;
         if (e.roarT <= 0) {
-          e.roarT = e.def.roar[0];
-          for (let k = 0; k < e.def.roar[1]; k++) {
+          e.roarT = 9;
+          for (let k = 0; k < 4; k++) {
             const m = this.spawn('rat', e.s - 16 - k * 10);
-            m.hp = m.maxHp = baseHp(BOSS_WAVE) * 0.6;
+            m.hp = m.maxHp = hpAt(this.node.trial ? 10 : this.curL()) * 0.6;
           }
           this.emit('roar', { x: e.x, y: e.y });
         }
       }
+      if (e.elite && !e.clone) this.eliteAbility(e, dt);
     }
+  }
+
+  eliteAbility(e, dt) {
+    const d = e.def;
+    if (d.enrage && !e.raged && e.hp < e.maxHp * d.enrage) { e.raged = true; e.spd *= 1.5; this.emit('enrage', { x: e.x, y: e.y }); }
+    e.abT -= dt;
+    if (e.abT > 0) return;
+    if (d.heal) {
+      e.abT = d.heal[0];
+      const r2 = d.heal[2] * d.heal[2];
+      for (const o of this.enemies) {
+        if (!o.alive || o.boss) continue;
+        const dx = o.x - e.x, dy = o.y - e.y;
+        if (dx * dx + dy * dy <= r2) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * d.heal[1]);
+      }
+      this.emit('heal', { x: e.x, y: e.y, r: d.heal[2] });
+    } else if (d.summon) {
+      e.abT = d.summon[0];
+      for (let k = 0; k < d.summon[2]; k++) this.spawn(d.summon[1], e.s - 14 - k * 10);
+      this.emit('raise', { x: e.x, y: e.y });
+    } else e.abT = 99;
   }
 
   // ───────────────────────── 유닛 공격 ─────────────────────────
@@ -510,11 +746,13 @@ export class Battle {
   }
 
   updateUnits(dt) {
-    const cheer = this.cheerT > 0 ? 0.3 : 0;
+    const cheer = (this.cheerT > 0 ? 0.3 * this.mboost : 0) - (this.ashT > 0 ? 0.35 : 0);
     for (let i = 0; i < N_CELLS; i++) {
       const u = this.units[i];
       if (!u) continue;
       if (u.anim > 0) u.anim -= dt;
+      if (u.corrupt > 0) { u.corrupt -= dt; continue; }
+      if (u.ice > 0) { u.ice -= dt; continue; }
       const d = u.def;
       const x = cellX(i), y = cellY(i);
 
@@ -524,7 +762,7 @@ export class Battle {
         this.unitSkill(u, x, y);
       }
 
-      u.cd -= dt * (u.spd + cheer);
+      u.cd -= dt * Math.max(0.2, u.spd + cheer);
       if (u.cd > 0) continue;
       const tgt = this.findTarget(x, y, u.r2, d.snipe, null);
       if (!tgt) { u.cd = 0; continue; }
@@ -695,9 +933,11 @@ export class Battle {
       if (def.backstab && e.dx * (e.x - ux) + e.dy * (e.y - uy) > 0) { d *= def.backstab; crit = true; }
       if (def.bossBonus && e.boss) d *= 1 + def.bossBonus;
       if (def.cls === 'knight' && e.boss && this.mods.knightBoss) d *= 1 + this.mods.knightBoss;
-      if (def.cls === 'archer' && this.mods.crit && this.rng.chance(this.mods.crit)) { d *= 2; crit = true; }
-      if (!e.boss && !secondary) {
-        const ex = (def.execute || 0) + (def.cls === 'rogue' ? this.mods.rogueExec : 0);
+      if (e.boss && this.R.bossDmg) d *= 1 + this.R.bossDmg;
+      const cp = (def.cls === 'archer' ? this.mods.crit : 0) + this.mods.critAll;
+      if (cp && this.rng.chance(cp)) { d *= 2; crit = true; }
+      if (!e.boss && !e.elite && !secondary) {
+        const ex = (def.execute || 0) + (def.cls === 'rogue' ? this.mods.rogueExec : 0) + (this.R.execute || 0);
         if (ex && this.rng.chance(ex)) {
           this.emit('execute', { x: e.x, y: e.y });
           this.damage(e, e.hp + 1, 't', u, false, true);
@@ -719,6 +959,7 @@ export class Battle {
 
   damage(e, raw, dtype, u, quiet, crit) {
     if (!e.alive) return 0;
+    if (e.shield) { if (!quiet && this.time - (e.numT || 0) > 0.5) { e.numT = this.time; this.emit('immune', { x: e.x, y: e.y - 20 }); } return 0; }
     let d = raw;
     if (dtype === 'p') d *= 1 - e.armor;
     else if (dtype === 'm') d *= (1 - e.mres) * this.mods.magicMul;
@@ -737,22 +978,26 @@ export class Battle {
     return d;
   }
 
-  kill(e, u) {
+  kill(e, u, eaten) {
     e.alive = false;
     e.hp = 0;
     this.stats.kills++;
+    this.eggKills++;
     const def = u ? u.def : null;
     if (e.boss) {
       this.emit('kill', { x: e.x, y: e.y, type: e.type, boss: true });
       this.stones += 3;
-      this.victory();
+      this.victory(0);
       return;
     }
+    if (e.elite && !e.clone) { this.stones += 1; this.gold += 30; this.emit('eliteDown', { x: e.x, y: e.y }); }
     let g = 2 + this.mods.killGold + (def && def.killGold ? def.killGold : 0);
+    if (this.mascot === 'mimic' && this.rng.chance(0.05 * this.mboost)) g *= 2;
     this.goldFrac += g * this.mods.goldMul;
     const whole = Math.floor(this.goldFrac);
     this.gold += whole; this.goldFrac -= whole;
-    let stoneP = 0.0035 * this.mods.stoneMul;
+    if (eaten) { this.emit('eat', { x: e.x, y: e.y }); }
+    let stoneP = (0.0035 + (this.R.stone || 0)) * this.mods.stoneMul;
     if (def && def.stoneOnKill && this.stoneWave < 1) stoneP += def.stoneOnKill;
     if (this.rng.chance(stoneP)) {
       this.stones++;
@@ -763,7 +1008,7 @@ export class Battle {
     if (e.def.split) {
       for (let k = 0; k < e.def.split; k++) {
         const m = this.spawn('mini', e.s - k * 8);
-        m.hp = m.maxHp = baseHp(Math.max(1, this.wave)) * ENEMIES.mini.hp;
+        m.hp = m.maxHp = hpAt(this.curL()) * ENEMIES.mini.hp;
         m.dist = e.dist - k * 8;
       }
     }
@@ -788,10 +1033,10 @@ export class Battle {
     }
   }
 
-  victory() {
+  victory(escaped = 0) {
     for (const e of this.enemies) if (e.alive) { e.alive = false; this.emit('ash', { x: e.x, y: e.y }); }
     this.result = 'victory';
-    this.emit('victory', {});
+    this.emit('victory', { escaped });
   }
 
   updateProjs(dt) {
@@ -874,6 +1119,8 @@ export class Battle {
 
   // HUD용
   liveCount() { return this.enemies.length; }
+  bossInfo() { return this.boss && this.boss.alive ? this.boss : null; }
+
   ashReward() {
     return Math.round(this.wave * 3 + this.stats.kills / 25 + (this.result === 'victory' ? 30 : 0));
   }

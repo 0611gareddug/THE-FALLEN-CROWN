@@ -133,6 +133,14 @@ class Audio {
     }
   }
 
+  // 대사 목소리음 (인물마다 음높이·파형이 다름)
+  blip(freq, type) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running' || this.sfxVol <= 0) return;
+    const t = ctx.currentTime + 0.005;
+    this.tone(t, freq * (0.94 + Math.random() * 0.12), 0.045, type === 'pulse' ? 'square' : type, 0.035, this.sfx);
+  }
+
   // ── 효과음 ──
   sfxPlay(name, arg) {
     const ctx = this.ctx;
@@ -171,6 +179,13 @@ class Audio {
       case 'ready':
         [0, 7, 12].forEach((n, i) => this.tone(t + i * 0.07, mtof(84 + n), 0.25, 'triangle', 0.09, d, { echo: true }));
         break;
+      case 'dice':
+        for (let i = 0; i < 8; i++) this.noiseHit(t + i * 0.09 + Math.random() * 0.03, 0.03, 0.08, 3000 + Math.random() * 2000, d, 'bandpass');
+        break;
+      case 'win':
+        [0, 4, 7, 12].forEach((n, i) => this.tone(t + i * 0.08, mtof(72 + n), 0.3, 'pulse', 0.08, d, { echo: true }));
+        break;
+      case 'page': this.tone(t, 1200, 0.03, 'triangle', 0.03, d); break;
       case 'coin':
         this.tone(t, 1319, 0.06, 'square', 0.05, d);
         this.tone(t + 0.06, 1760, 0.14, 'square', 0.05, d);
@@ -242,7 +257,30 @@ const BATTLE_MEL = N('69 . 72 . 76 . 74 72 . . 69 . 67 . 69 . 65 . 69 . 72 . 74 
 const BOSS_CH = [[38, 45, 50, 53], [34, 41, 46, 50], [43, 50, 55, 58], [45, 52, 57, 61]]; // Dm Bb Gm A
 const BOSS_MEL = N('74 . 74 77 . 74 . 72 74 . . . 69 . 70 . 72 . 72 74 . 72 . 70 69 . . . 65 . 67 . 67 . 67 70 . 74 . 77 79 . 77 . 74 . 70 . 69 . 69 73 . 76 . 81 . 79 . 77 . 76 . 73 .');
 
+const MAP_CH = [[50, 57, 62, 65], [48, 55, 60, 64], [46, 53, 58, 62], [45, 52, 57, 61]];
+const EVENT_MEL = N('76 . 79 . 81 . 79 76 . . 74 . 76 . . . 72 . 74 . 76 . 74 72 . . 69 . . . . . 76 . 79 . 84 . 83 81 . . 79 . 81 . . . 79 . 76 . 74 . 72 . 74 . . . . . . .');
 const TRACKS = {
+  map: {
+    bpm: 84,
+    fn(a, step, t, sp) {
+      const bar = ((step / 16) | 0) % 4, s = step % 16;
+      const ch = MAP_CH[bar];
+      if (s % 4 === 0) a.tone(t, mtof(ch[0] - 12), sp * 3.5, 'triangle', 0.1, a.mus);
+      if (s % 2 === 0) a.tone(t, mtof(ch[(s / 2) % 4] + 12), sp * 1.6, 'triangle', 0.045, a.mus, { echo: true });
+      if (s === 8) a.noiseHit(t, 0.06, 0.03, 6000, a.mus);
+    },
+  },
+  event: {
+    bpm: 72,
+    fn(a, step, t, sp) {
+      const bar = ((step / 16) | 0) % 4, s = step % 16;
+      const ch = MAP_CH[(bar + 2) % 4];
+      if (s % 4 === 0) a.tone(t, mtof(ch[s / 4] + 24), sp * 3, 'sine', 0.05, a.mus, { echo: true });
+      const m = EVENT_MEL[step % 64];
+      if (m > 0) a.tone(t, mtof(m + 12), sp * 2, 'sine', 0.03, a.mus, { echo: true });
+      if (s === 0) a.tone(t, mtof(ch[0] - 12), sp * 15, 'triangle', 0.06, a.mus, { attack: 0.2 });
+    },
+  },
   lobby: {
     bpm: 66,
     fn(a, step, t, sp) {

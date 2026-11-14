@@ -8,6 +8,12 @@ import { TIERS } from './data/units.js';
 import { lobbyScene } from './ui/lobby.js';
 import { selectScene } from './ui/select.js';
 import { battleScene } from './game/scene.js';
+import { mapScene } from './run/mapScene.js';
+import { eventScene } from './run/eventScene.js';
+import { shopScene, campScene, treasureScene, altarScene, rewardScene, actIntroScene, endingScene } from './run/nodeScenes.js';
+import { prologueScene } from './run/prologue.js';
+import { onAchievement, unlockAch } from './meta/achievements.js';
+import { achQueue } from './run/events.js';
 
 const RAINBOW = ['#ff6b6b', '#ffb36b', '#ffe36b', '#7fe08a', '#6bc8ff', '#c99bff'];
 
@@ -28,7 +34,11 @@ const app = {
   go(name, params) {
     if (app.scene) app.scene.exit();
     app.ui.replaceChildren();
-    const make = { lobby: lobbyScene, select: selectScene, battle: battleScene }[name];
+    const make = {
+      lobby: lobbyScene, select: selectScene, battle: battleScene, map: mapScene, event: eventScene,
+      shop: shopScene, camp: campScene, treasure: treasureScene, altar: altarScene, reward: rewardScene,
+      actIntro: actIntroScene, ending: endingScene, prologue: prologueScene,
+    }[name];
     app.scene = make(app, params || {});
     app.scene.enter();
   },
@@ -85,10 +95,23 @@ function loop(now) {
   if (hidden) return;
   if (dt > 0.1) dt = 0.1;
   app.bg.frame(dt);
+  while (achQueue.length) unlockAch(achQueue.shift());
   if (app.scene && app.scene.frame) app.scene.frame(dt);
 }
 
 if (import.meta.env.DEV) window.__tfc = app;
+
+// 업적 알림
+onAchievement((a) => {
+  audio.sfxPlay('win');
+  const n = document.createElement('div');
+  n.className = 'ach-pop';
+  n.innerHTML = `<small>업적 달성</small><b></b><span></span>`;
+  n.querySelector('b').textContent = a.name;
+  n.querySelector('span').textContent = `${a.desc} · 잿빛 조각 +${a.ash}`;
+  stage.appendChild(n);
+  setTimeout(() => n.remove(), 3600);
+});
 
 const start = () => { app.go('lobby'); requestAnimationFrame(loop); };
 // 글꼴이 준비되면 시작 (최대 1.5초 대기)

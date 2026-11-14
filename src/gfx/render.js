@@ -220,7 +220,26 @@ export class Renderer {
       case 'timeStop': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 320, t: 0, d: 0.6, col: '#c99bff' }); break;
       case 'roar': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 70, t: 0, d: 0.4, col: '#ff8a3a' }); this.doShake(3); break;
       case 'wallHit': this.flash = { col: '#e0463a', t: 0, d: 0.4, a: ev.why === 'timeout' ? 0.35 : 0.22 }; this.doShake(ev.why ? 6 : 0); break;
-      case 'skill': this.flash = { col: '#ffe36b', t: 0, d: 0.3, a: 0.15 }; break;
+      case 'skill': {
+        this.flash = { col: ev.awake ? '#ffffff' : '#ffe36b', t: 0, d: ev.awake ? 0.8 : 0.3, a: ev.awake ? 0.7 : 0.15 };
+        if (ev.targets) for (const [x, y] of ev.targets) this.addFx({ k: 'slash', x, y, t: 0, d: 0.3, big: true, col: '#ffb070', a: 0 });
+        if (ev.eaten !== undefined) { this.burst(ev.x, ev.y, 24, ['#8a5a2a', '#e8c25a', '#ffffff'], 120, 0.6); this.doShake(4); }
+        if (ev.awake) this.doShake(12);
+        break;
+      }
+      case 'corrupt': this.burst(cellX(ev.cell), cellY(ev.cell), 16, ['#c99bff', '#5a2a6a'], 70, 0.6); break;
+      case 'cleanse': if (ev.done) this.burst(cellX(ev.cell), cellY(ev.cell), 18, ['#ffffff', '#fff2a8'], 90, 0.6, 2, -40); break;
+      case 'freeze': this.flash = { col: '#a8e4ff', t: 0, d: 0.5, a: 0.25 }; this.doShake(4); break;
+      case 'icebreak': if (ev.done) this.burst(cellX(ev.cell), cellY(ev.cell), 14, ['#a8e4ff', '#ffffff'], 90, 0.5, 2, 60); break;
+      case 'steal': this.burst(ev.x, ev.y - 10, 18, ['#e8c25a', '#a87a2a'], 80, 0.7, 2, 40); break;
+      case 'ashrain': this.flash = { col: '#6a6470', t: 0, d: 0.6, a: 0.3 }; break;
+      case 'split': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 90, t: 0, d: 0.6, col: '#c99bff' }); this.doShake(5); break;
+      case 'heal': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: ev.r, t: 0, d: 0.5, col: '#9be08a' }); break;
+      case 'raise': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 40, t: 0, d: 0.5, col: '#c99bff' }); break;
+      case 'enrage': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 50, t: 0, d: 0.5, col: '#ff6b6b' }); this.doShake(3); break;
+      case 'eliteDown': this.burst(ev.x, ev.y, 30, ['#ffe36b', '#c99bff', '#ffffff'], 120, 0.8, 2, 20); break;
+      case 'eat': this.burst(ev.x, ev.y, 4, ['#8a5a2a'], 40, 0.3); break;
+      case 'immune': this.num(ev.x, ev.y, '0', false); break;
       case 'upgrade': {
         for (let i = 0; i < COLS * ROWS; i++) {
           const u = battle.units[i];
@@ -260,6 +279,13 @@ export class Renderer {
     this.drawNums(ctx, dt);
     this.drawDrag(ctx, battle);
 
+    if (battle.ashT > 0 && !this.settings.low) {
+      ctx.globalAlpha = 0.12;
+      ctx.fillStyle = '#4a4550';
+      ctx.fillRect(0, 90, W, 210);
+      ctx.globalAlpha = 1;
+      if (Math.random() < 0.8) this.part(Math.random() * W, 92, (Math.random() - 0.5) * 20, 60 + Math.random() * 40, 2.5, Math.random() < 0.2 ? '#ff8a3a' : '#8a8490', 2);
+    }
     if (battle.timeStopT > 0) {
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = '#7a5ad0';
@@ -362,6 +388,29 @@ export class Renderer {
         if (gl) ctx.drawImage(left ? gl[1] : gl[0], x - 2, y - 2, 36, 36);
       }
       ctx.drawImage(left ? spr.l : spr.r, x, y, 32, 32);
+      if (u.corrupt > 0) {
+        ctx.globalAlpha = 0.45 + Math.sin(t * 8) * 0.15;
+        ctx.fillStyle = '#5a2a6a';
+        ctx.fillRect(cx + 4, cy + 4, CELL - 8, CELL - 8);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#c99bff';
+        for (let k = 0; k < 3; k++) ctx.fillRect(cx + 10 + k * 12, cy + 10 + ((t * 20 + k * 7) % 24), 3, 3);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cx + 22, cy + 2, 4, 2);
+        ctx.fillRect(cx + 23, cy, 2, 6);
+      } else if (u.ice > 0) {
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = '#a8e4ff';
+        ctx.fillRect(cx + 4, cy + 4, CELL - 8, CELL - 8);
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cx + 6, cy + 6, CELL - 12, 2);
+        ctx.fillRect(cx + 6, cy + 6, 2, 14);
+        const cracks = Math.max(0, 7 - u.ice) | 0;
+        ctx.fillStyle = '#4f86d6';
+        for (let k = 0; k < cracks; k++) ctx.fillRect(cx + 12 + ((k * 13) % 24), cy + 12 + ((k * 7) % 22), 6, 2);
+        ctx.globalAlpha = 1;
+      }
       if (tier >= 4 && !this.settings.low && Math.random() < 0.08) {
         this.part(cx + 10 + Math.random() * 28, cy + 36, 0, -20 - Math.random() * 20, 0.8, tier === 5 ? RAINBOW[(Math.random() * 6) | 0] : TIERS[tier].glow, 1);
       }
@@ -443,12 +492,15 @@ export class Renderer {
       if (!e.alive) continue;
       const left = e.dx < 0;
       let spr, size;
-      if (e.boss) { spr = SPR.boss; size = 48; }
-      else { spr = SPR.enemies[e.type]; size = 24; }
+      spr = SPR.enemies[e.type] || SPR.boss;
+      size = e.def.boss ? 48 : e.def.size || 24;
+      if (e.type === 'ogran') spr = SPR.boss;
+      if (e.clone) size = 32;
       const bob = (e.walk | 0) % 2 ? -2 : 0;
       const x = Math.round(e.x - size / 2), y = Math.round(e.y - size + 8 + bob);
       if (e.invis) ctx.globalAlpha = 0.25;
       const img = e.flash > 0 ? (left ? spr.fl : spr.fr) : left ? spr.l : spr.r;
+      if (e.shield) { ctx.globalAlpha = 0.35 + Math.sin(this.t * 10) * 0.15; ctx.fillStyle = '#c99bff'; ctx.fillRect(x - 3, y - 3, size + 6, size + 6); ctx.globalAlpha = e.invis ? 0.25 : 1; }
       ctx.drawImage(img, x, y, size, size);
       ctx.globalAlpha = 1;
       if (e.slowAmt > 0) {
@@ -464,7 +516,7 @@ export class Renderer {
       }
       if (e.burnT > 0 && !low && Math.random() < 0.15) this.part(e.x + Math.random() * 10 - 5, e.y - 6, 0, -30, 0.4, '#ff8a3a', 2);
       if (e.hp < e.maxHp) {
-        const bw = e.boss ? 44 : 18;
+        const bw = e.boss ? 44 : e.elite ? 28 : 18;
         const bx = Math.round(e.x - bw / 2), by = y - 4;
         ctx.fillStyle = '#1b1622';
         ctx.fillRect(bx - 1, by - 1, bw + 2, 4);

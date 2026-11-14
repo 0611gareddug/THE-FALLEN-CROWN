@@ -7,7 +7,15 @@ import { store, save, markSeen } from '../core/storage.js';
 import { settingsPanel } from '../ui/panels.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { UNIT, TIERS, CLASSES, CLASS_ORDER, SYNERGY, RECIPES, MAX_CELESTIAL, UPG_NAMES, upgGroup } from '../data/units.js';
-import { WAVES, BOSS_WAVE, FIELD_LIMIT, ENEMIES } from '../data/enemies.js';
+import { FIELD_LIMIT, ENEMIES, BOSS_GIMMICK_TEXT, makeBattle } from '../data/enemies.js';
+import { MASCOT_DEFS } from '../data/mascots.js';
+import { COMPANIONS } from '../data/companions.js';
+import { RNG } from '../core/rng.js';
+import { nodeOf, buildMods, runFx, mascotLevel, saveRun, ACTS } from '../run/run.js';
+import { finalBoss } from '../run/flow.js';
+import { tickMods } from '../run/events.js';
+import { unlockAch } from '../meta/achievements.js';
+import { portraitURL } from '../run/mapScene.js';
 import { MASCOTS, TIPS, DEFEAT_LINES, VICTORY_LINES } from '../data/text.js';
 import { cellAt, W, H } from './layout.js';
 
@@ -23,6 +31,29 @@ export function battleScene(app, params) {
   let battle, rend, el, hud = {};
   let paused = false, acc = 0, slowmo = 0, hudT = 0, alarmT = 0, tipI = 0, tipT = 0, endT = -1;
   let selected = -1, drag = null, pop = null;
+  const run = params.run || null;
+  const mascotId = run ? run.mascot : params.mascot || 'puru';
+  let node = null, nodeTitle = null, lastEscaped = 0, tut = null, moved = false;
+  const TUT = [
+    ['소환', "아래 '소환' 버튼을 3번 눌러 병사를 불러보세요.", (b) => b.stats.summons >= 3],
+    ['진화', "같은 병사 3명이 모였습니다! 빛나는 칸의 유닛을 누르고 '진화 ▲'를 누르세요.", (b) => b.stats.merges >= 1],
+    ['옮기기', '유닛을 끌어서 다른 칸에 놓아보세요. 근거리 유닛은 길 옆 칸이 좋아요.', () => moved],
+    ['도박', "행운석 1개를 드렸어요. '도박 소환'에서 정예 도전을 눌러보세요.", (b) => b.stats.gambles >= 1],
+    ['방어', '꽝이 10번 쌓이면 영웅이 확정으로 나와요. 이제 3웨이브를 버텨보세요!', (b) => b.result === 'victory'],
+  ];
+  function tutTick() {
+    if (!tut) return;
+    const s = TUT[tut.step];
+    if (!s) return;
+    if (!hud.coach) { hud.coach = h('div.coach'); el.appendChild(hud.coach); }
+    if (tut.shown !== tut.step) { tut.shown = tut.step; hud.coach.replaceChildren(h('b', `${tut.step + 1}/5 · ${s[0]}`), h('div', s[1])); }
+    if (s[2](battle)) {
+      tut.step++;
+      audio.sfxPlay('win');
+      if (tut.step === 3) battle.stones += 1;
+      if (tut.step === 4) { setTimeout(() => toast('브란: "폐하, 이것이… 운명입니다."', 'fail'), 2600); battle.timer = 3; }
+    }
+  }
   let speed = SPEEDS.includes(st.speed) ? st.speed : 1;
 
   // ───────── HUD 구성 ─────────
@@ -48,7 +79,7 @@ export function battleScene(app, params) {
     hud.pityBtn.style.display = 'none';
     hud.pity.appendChild(hud.pityBtn);
 
-    hud.boss = h('div.bossbar', h('div.lbl', h('span', ENEMIES.ogran.name), hud.bossT = h('span', '1:30')), h('div.track', hud.bossF = h('div.fill')));
+    hud.boss = h('div.bossbar', h('div.lbl', hud.bossName = h('span', ''), hud.bossT = h('span', '1:30')), h('div.track', hud.bossF = h('div.fill')));
 
     hud.synRows = {};
     const syn = h('div.syn', CLASS_ORDER.map((k) => {
@@ -62,12 +93,12 @@ export function battleScene(app, params) {
     hud.card = h('div.card');
     hud.mid = h('div.mid', syn, hud.tip, hud.card);
 
-    const m = MASCOTS.find((x) => x.id === params.mascot) || MASCOTS[0];
+    const m = MASCOT_DEFS[mascotId] || MASCOT_DEFS.puru;
     hud.speed = h('button.tool', { onclick: cycleSpeed, 'aria-label': '배속' }, h('span', '배속'), h('small', `×${speed}`));
     hud.skill = h('button.tool', { onclick: useSkill, 'aria-label': m.skill },
-      h('img', { src: spriteURL(SPR.puru.r, 2), alt: '' }), hud.skillTxt = h('small', m.skill), hud.skillCd = h('div.cdfill'));
+      h('img', { src: spriteURL((SPR.mascots[mascotId] || SPR.puru).r, 2), alt: '' }), hud.skillTxt = h('small', m.skill), hud.skillCd = h('div.cdfill'));
     hud.upTool = h('button.tool', { onclick: () => togglePop('upgrade') }, h('span', '강화'), h('small', 'E'));
-    hud.recTool = h('button.tool', { onclick: () => togglePop('recipe') }, h('span', '천상 조합'), hud.recSmall = h('small', `0/${MAX_CELESTIAL}`));
+    hud.recTool = h('button.tool', { onclick: () => togglePop('recipe') }, h('span', '천상 조합'), hud.recSmall = h('small', `0/${battle.maxCelestial}`));
     const tools = h('div.tools', hud.upTool, hud.recTool, hud.speed, hud.skill);
 
     hud.summon = h('button.summon', { onclick: doSummon },
@@ -198,7 +229,7 @@ export function battleScene(app, params) {
           h('button.opt', { disabled: battle.stones < cost || full, onclick: () => { battle.gamble(i); renderPop(); } },
             h('div.l', name, h('small', sub)), h('div.r', `행운석 ${cost}`))));
     } else if (pop.kind === 'recipe') {
-      p.replaceChildren(x, h('h3', `천상 조합  ·  ${battle.celestial}/${MAX_CELESTIAL}`),
+      p.replaceChildren(x, h('h3', `천상 조합  ·  ${battle.celestial}/${battle.maxCelestial}`),
         ...RECIPES.map((r, i) => {
           const s = battle.recipeState(r);
           const res = UNIT[r.result];
@@ -227,17 +258,24 @@ export function battleScene(app, params) {
     rend.handle(ev, battle);
     switch (ev.type) {
       case 'unit':
-        if (markSeen(ev.id)) save();
+        if (markSeen(ev.id)) {
+          save();
+          const n = data.seen.length;
+          if (n >= 8) { data.mascots = data.mascots || ['puru']; if (!data.mascots.includes('owl')) { data.mascots.push('owl'); save(); toast('연대기 30% 달성! 마스코트 부엉박사 해금', 'good'); } }
+          if (n >= 13) unlockAch('codex50');
+        }
         break;
       case 'summon': audio.sfxPlay(ev.tier >= 2 ? 'rare' : 'summon', ev.tier); break;
       case 'gambleWin':
         audio.sfxPlay('rare', ev.tier);
         toast(ev.pity ? '불운의 결정! 영웅 확정 소환.' : `도박 성공! ${TIERS[ev.tier].name} 등급 소환.`, 'good');
+        if (ev.pity) unlockAch('pity');
+        if (ev.tier === 4 && !ev.pity) unlockAch('gamble3');
         persistLuck();
         break;
       case 'gambleFail':
         audio.sfxPlay('fail');
-        toast(ev.line + (ev.consol ? `  (뿌루의 위로금 +${ev.consol})` : ''), 'fail');
+        toast(ev.line + (ev.consol ? `  (위로금 +${ev.consol})` : ''), 'fail');
         persistLuck();
         break;
       case 'merge':
@@ -260,10 +298,11 @@ export function battleScene(app, params) {
         if (ev.boss) {
           audio.sfxPlay('boss');
           audio.play('boss');
-          announce('BOSS', ENEMIES.ogran.name, 'boss');
+          announce('BOSS', ENEMIES[ev.boss].name, 'boss');
+          setTimeout(() => toast(BOSS_GIMMICK_TEXT[ENEMIES[ev.boss].gimmick] || ''), 2000);
         } else {
           audio.sfxPlay('wave');
-          announce(`WAVE ${ev.wave}`, ev.wave === 1 ? '잿더미에서 그들이 온다' : null);
+          announce(`WAVE ${ev.wave}`, ev.elite ? `정예 출현 · ${ENEMIES[ev.elite].name}` : ev.wave === 1 ? (nodeTitle || '잿더미에서 그들이 온다') : null);
         }
         break;
       case 'waveClear':
@@ -272,14 +311,44 @@ export function battleScene(app, params) {
         break;
       case 'judgment': audio.sfxPlay('judgment'); break;
       case 'timeStop': audio.sfxPlay('timestop'); break;
-      case 'skill': audio.sfxPlay('skill'); toast('뿌루: "삐약!" 아군 공격 속도 +30%', 'good'); break;
-      case 'wallHit':
-        audio.sfxPlay('wall');
-        if (ev.why === 'bossLap') toast('오그란이 성벽을 들이받았다! 성벽 -15');
-        if (ev.why === 'timeout') toast('오그란이 분노했다! 성벽 -25');
+      case 'skill': {
+        audio.sfxPlay('skill');
+        const md = MASCOT_DEFS[mascotId] || MASCOT_DEFS.puru;
+        let line = `${md.name}: "${md.lines[0]}" ${md.skill}!`;
+        if (mascotId === 'rock') line = ev.awake ? '돌쇠: "……!" 돌의 각성!!!' : '돌쇠: "......"';
+        if (mascotId === 'mimic') line = `덥석이: "덥석!" ${ev.eaten}마리 꿀꺽, 금화 +${ev.eaten * 3}`;
+        if (mascotId === 'snail') line = '느릿: "빠른 등기 접수… 했…습…니…다…" (5초 후 도착)';
+        toast(line, 'good');
+        if (ev.awake) { slowmo = 0.8; announce('AWAKENING', '돌의 각성'); }
         break;
+      }
+      case 'wallHit': {
+        audio.sfxPlay('wall');
+        const bn = battle.boss ? battle.boss.def.name.split(' ').pop() : '';
+        if (ev.why === 'bossLap') toast(`${bn}이(가) 성벽을 들이받았다! 성벽 -15`);
+        if (ev.why === 'timeout') toast(`${bn}이(가) 분노했다! 성벽 -25`);
+        if (ev.why === 'escape') toast(`도망친 적들이 성벽을 할퀴었다! 성벽 -${Math.round(ev.v)}`);
+        if (ev.why === 'curse') toast('짝퉁 왕관이 성벽을 갉아먹는다… 성벽 -1');
+        break;
+      }
+      case 'guarded': toast('브란: "이 늙은 몸이 막겠습니다!" 피해 절반', 'good'); break;
+      case 'corrupt': audio.sfxPlay('fail'); toast(`모르벤이 ${battle.units[ev.cell] ? battle.units[ev.cell].def.name : '유닛'}을(를) 타락시켰다! 여러 번 눌러 정화하자!`); break;
+      case 'cleanse': audio.sfxPlay(ev.done ? 'win' : 'hover'); break;
+      case 'freeze': audio.sfxPlay('timestop'); toast('실바나의 숨결! 한 줄이 얼어붙었다. 눌러서 얼음을 깨자!'); break;
+      case 'icebreak': audio.sfxPlay(ev.done ? 'win' : 'hit'); break;
+      case 'steal': audio.sfxPlay('coin'); toast(`왕관이 금화 ${ev.v}을(를) 훔쳐 갔다!`); break;
+      case 'ashrain': audio.sfxPlay('wall'); toast('재의 비가 내린다! 공격 속도 -35% (5초)'); break;
+      case 'split': audio.sfxPlay('boss'); toast('그림자가 분열했다! 분신을 먼저 쓰러뜨려야 본체에 피해가 들어간다.'); break;
+      case 'heal': audio.sfxPlay('upgrade'); break;
+      case 'raise': audio.sfxPlay('boss'); break;
+      case 'enrage': toast('늑대인간이 광폭화했다!'); break;
+      case 'eliteDown': audio.sfxPlay('win'); toast('정예 처치! 금화 +30, 행운석 +1', 'good'); break;
+      case 'delivered': toast('느릿: "등기… 도착…했습니다…"', 'good'); break;
+      case 'summonZero': audio.sfxPlay('fail'); toast('무한 가챠 부적: 0명 소환. 금화만 사라졌다.', 'fail'); unlockAch('zero'); break;
       case 'upgrade': audio.sfxPlay('upgrade'); break;
-      case 'victory': case 'defeat': endT = 1.6; break;
+      case 'victory': lastEscaped = ev.escaped || 0; endT = 1.6; break;
+      case 'defeat': endT = 1.6; break;
+      case 'gambleWin2': break;
     }
   }
 
@@ -288,10 +357,10 @@ export function battleScene(app, params) {
   // ───────── HUD 갱신 (초당 10회) ─────────
   function updateHud() {
     const b = battle;
-    if (b.phase === 'prep') { hud.wave.textContent = 'PREPARE'; hud.timer.textContent = fmtT(b.timer); hud.timer.className = 'timer rest'; }
+    if (b.phase === 'prep') { hud.wave.textContent = 'PREPARE'; hud.timer.textContent = b.timer > 99 ? '준비 중' : fmtT(b.timer); hud.timer.className = 'timer rest'; }
     else {
-      hud.wave.replaceChildren('WAVE ', h('b', String(b.wave)), ` / ${BOSS_WAVE}`);
-      const t = b.phase === 'rest' ? b.timer : b.wave === BOSS_WAVE ? b.bossT : Math.max(0, 20 - b.waveT);
+      hud.wave.replaceChildren('WAVE ', h('b', String(b.wave)), ` / ${b.nWaves}`);
+      const t = b.phase === 'rest' ? b.timer : b.phase === 'leftover' ? b.leftT : b.bossInfo() ? b.bossT : Math.max(0, 20 - b.waveT);
       hud.timer.textContent = fmtT(t);
       hud.timer.className = 'timer' + (b.phase === 'rest' ? ' rest' : '');
     }
@@ -318,8 +387,8 @@ export function battleScene(app, params) {
     const ready = b.skillT >= b.skillCd && b.phase !== 'prep';
     hud.skill.classList.toggle('ready', ready);
     hud.skillCd.style.width = (b.skillT / b.skillCd) * 100 + '%';
-    hud.skillTxt.textContent = ready ? '삐약 응원!' : `${Math.ceil(b.skillCd - b.skillT)}초`;
-    hud.recSmall.textContent = `${b.celestial}/${MAX_CELESTIAL}`;
+    hud.skillTxt.textContent = ready ? (MASCOT_DEFS[mascotId] || MASCOT_DEFS.puru).skill.split(' / ')[0] + '!' : `${Math.ceil(b.skillCd - b.skillT)}초`;
+    hud.recSmall.textContent = `${b.celestial}/${b.maxCelestial}`;
     hud.recTool.classList.toggle('hot', RECIPES.some((r) => b.recipeState(r).ok));
     hud.upTool.classList.toggle('hot', [0, 1, 2].some((g) => b.gold >= b.upgradeCost(g) && b.gold > cost * 3));
 
@@ -328,7 +397,8 @@ export function battleScene(app, params) {
     hud.mid.classList.toggle('boss', !!boss);
     if (boss) {
       hud.bossF.style.width = (b.boss.hp / b.boss.maxHp) * 100 + '%';
-      hud.bossT.textContent = fmtT(b.bossT);
+      hud.bossT.textContent = (b.boss.shield ? '무적 · ' : '') + fmtT(b.bossT);
+      hud.bossName.textContent = b.boss.def.name;
     }
 
     for (const k of CLASS_ORDER) {
@@ -385,14 +455,18 @@ export function battleScene(app, params) {
     if (d.moved) {
       if (d.over >= 0 && d.over !== d.from) {
         battle.move(d.from, d.over);
+        moved = true;
         audio.sfxPlay('hover');
         select(d.over);
       }
     } else {
+      const u = battle.units[d.from];
+      if (u && (u.corrupt > 0 || u.ice > 0)) { battle.cleanse(d.from); rend.burst(...cellCenter(d.from), 6, u.corrupt > 0 ? ['#c99bff', '#ffffff'] : ['#a8e4ff', '#ffffff'], 60, 0.3); return; }
       audio.sfxPlay('hover');
       select(selected === d.from ? -1 : d.from);
     }
   }
+  function cellCenter(i) { return [36 + (i % 6) * 48 + 24, 124 + ((i / 6) | 0) * 48 + 24]; }
   function onKey(e) {
     if (e.repeat) return;
     const k = e.key.toLowerCase();
@@ -417,7 +491,8 @@ export function battleScene(app, params) {
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
         h('button.btn.primary', { onclick: closePause }, '계속하기'),
         h('button.btn', { onclick: () => settingsPanel(app.ui, app) }, '설정'),
-        h('button.btn.danger', { onclick: () => { closePause(); finish(true); } }, '포기하고 로비로'))));
+        run ? h('button.btn', { onclick: () => { closePause(); app.go('lobby'); } }, '로비로 (이 전투는 처음부터)') : null,
+        h('button.btn.danger', { onclick: () => { closePause(); if (run) { battle.result = 'defeat'; finishRun(false); } else finish(true); } }, run ? '여정 포기' : '포기하고 로비로'))));
     app.ui.appendChild(pauseEl);
   }
   function closePause() {
@@ -427,7 +502,41 @@ export function battleScene(app, params) {
   }
   app.pauseHook = () => { if (!battle.result) openPause(); };
 
+  function finishRun(win) {
+    const b = battle;
+    data.badLuck = b.badLuck;
+    data.tips = true;
+    save();
+    const s = run.stats;
+    s.kills += b.stats.kills; s.merges += b.stats.merges; s.celestials += b.stats.celestials; s.fails += b.stats.fails; s.gambles += b.stats.gambles;
+    if (!win) { audio.stop(); app.go('ending', { run, defeat: true }); return; }
+    run.carry = b.exportCarry();
+    s.battles++;
+    if (b.freeSummon === 0) run.firstFree = 0;
+    const kind = node.type;
+    tickMods(run, kind === 'boss' || kind === 'dragon');
+    if (kind === 'boss' && run.act < 3) { run.shards = Math.min(5, run.shards + 1); unlockAch(run.act === 1 ? 'act1' : 'act2'); }
+    if (kind === 'dragon') { run.shards = Math.min(5, run.shards + 1); unlockAch('dragonKill'); }
+    if (b.wall <= 5) unlockAch('wall1');
+    if (b.stats.maxField >= 120) unlockAch('overflow');
+    if (b.stats.celestials > 0 || s.celestials > 0) unlockAch('cel1');
+    if (b.celestial >= 2) unlockAch('cel2');
+    if (s.fails >= 10) unlockAch('fail10');
+    if (run.shards >= 5) unlockAch('shards5');
+    if (run.relics.length >= 10) unlockAch('relic10');
+    saveRun(run);
+    audio.stop();
+    if (kind === 'boss' && run.act === 3) { app.go('ending', { run }); return; }
+    app.go('reward', { run, kind, escaped: lastEscaped });
+  }
+
   function finish(quit) {
+    if (run) { finishRun(battle.result === 'victory'); return; }
+    if (tut) {
+      if (battle.result === 'victory') { data.prologue = true; save(); audio.stop(); app.go('prologue', { part: 2 }); }
+      else { audio.stop(); app.go('prologue', { part: 3 }); }
+      return;
+    }
     const b = battle;
     const win = b.result === 'victory';
     const ash = quit ? Math.floor(b.ashReward() / 2) : b.ashReward();
@@ -449,7 +558,7 @@ export function battleScene(app, params) {
       h('h1', win ? 'VICTORY' : 'DEFEAT'),
       h('div.line', lines[(Math.random() * lines.length) | 0]),
       h('div.stats',
-        h('div', h('span', '도달 웨이브'), h('span', `${b.wave} / ${BOSS_WAVE}`)),
+        h('div', h('span', '도달 웨이브'), h('span', `${b.wave} / ${b.nWaves}`)),
         h('div', h('span', '처치'), h('span', String(b.stats.kills))),
         h('div', h('span', '소환 / 진화'), h('span', `${b.stats.summons} / ${b.stats.merges}`)),
         h('div', h('span', '도박 꽝'), h('span', `${b.stats.fails} / ${b.stats.gambles}`)),
@@ -463,7 +572,25 @@ export function battleScene(app, params) {
 
   // ───────── 수명 주기 ─────────
   function enter() {
-    battle = new Battle({ royal: params.royal, mascot: params.mascot, badLuck: data.badLuck });
+    if (run) {
+      node = nodeOf(run, params.nodeId);
+      const rng = new RNG(run.seed * 13 + [...node.id].reduce((a, c) => a * 7 + c.charCodeAt(0), 1) % 100000);
+      let kind = node.type === 'dragon' ? 'boss' : node.type;
+      let bossId = null;
+      if (node.type === 'boss') bossId = run.act < 3 ? ACTS[run.act - 1].boss : (run.finalBoss = finalBoss(run));
+      if (node.type === 'dragon') bossId = 'silvana';
+      const cfg = makeBattle(rng, run.act, node.row, kind, bossId);
+      const mods = buildMods(run);
+      mods.morvenWeak = runFx(run).morvenWeak;
+      nodeTitle = node.type === 'elite' ? '정예의 길' : node.type === 'boss' ? null : `${ACTS[run.act - 1].name} · ${node.row + 1}번째 별`;
+      battle = new Battle({ seed: rng.int(1e9), royal: run.royal, mascot: mascotId, badLuck: data.badLuck, carry: run.carry, node: cfg, mods, mascotLv: mascotLevel(mascotId) });
+    } else if (params.tutorial) {
+      battle = new Battle({ royal: 'edric', mascot: 'puru', badLuck: 0, node: { L: 1, kind: 'battle', waves: [[['skel', 10]], [['skel', 8], ['rat', 8]], [['bat', 4], ['skel', 10]]] } });
+      battle.timer = 9999;
+      battle.forceUnit = 'spear'; battle.forceN = 3; battle.forceFail = 1;
+      battle.gold = 80;
+      tut = { step: 0 };
+    } else battle = new Battle({ royal: params.royal, mascot: mascotId, badLuck: data.badLuck, mascotLv: mascotLevel(mascotId) });
     rend = new Renderer(app.gameCv, st);
     resize();
     app.gameCv.style.display = 'block';
@@ -475,7 +602,8 @@ export function battleScene(app, params) {
     app.gameCv.addEventListener('pointerup', onUp);
     app.gameCv.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey);
-    toast(params.royal === 'kyle' ? '카일: "일단 금고부터 확인하자."' : params.royal === 'seren' ? '세렌: "금서 3권 챙겼어. 아니, 행운석 3개."' : '에드릭: "정의는 승리한다. 아마도."');
+    const royal = run ? run.royal : params.royal || 'edric';
+    toast(royal === 'kyle' ? '카일: "일단 금고부터 확인하자."' : royal === 'seren' ? '세렌: "금서 3권 챙겼어. 아니, 행운석 3개."' : '에드릭: "정의는 승리한다. 아마도."');
   }
   function exit() {
     app.gameCv.removeEventListener('pointerdown', onDown);
@@ -519,7 +647,17 @@ export function battleScene(app, params) {
       if (alarmT <= 0) { alarmT = 2; audio.sfxPlay('alarm'); }
     }
     tipT += dt;
-    if (tipT > 9) { tipT = 0; tipI = (tipI + 1) % TIPS.length; hud.tip.textContent = TIPS[tipI]; }
+    if (tipT > 9) {
+      tipT = 0;
+      tipI = (tipI + 1) % TIPS.length;
+      // 동료가 있으면 팁 대신 가끔 참견한다
+      if (run && run.party.length && tipI % 2 === 1 && !paused) {
+        const id = run.party[(tipI >> 1) % run.party.length];
+        const c = COMPANIONS[id];
+        hud.tip.replaceChildren(h('img.tip-por', { src: portraitURL(id, 'neutral'), alt: '' }), h('b', { style: { color: c.color } }, c.name + ' '), c.quips[(tipI * 7 + battle.wave) % c.quips.length]);
+      } else hud.tip.textContent = TIPS[tipI];
+    }
+    tutTick();
     if (endT > 0) { endT -= dt; if (endT <= 0) { endT = -1; finish(false); } }
   }
 

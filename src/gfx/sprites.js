@@ -1,5 +1,7 @@
 // 코드로 정의한 픽셀아트 → 시작 시 한 번만 오프스크린 캔버스로 굽는다.
 
+import { buildArt2 } from './art2.js';
+
 const BASE = {
   o: '#1b1622', s: '#f1c9a5', S: '#c9946f', e: '#2a1d2e', b: '#f08a8a',
   g: '#e8c25a', G: '#a87a2a', w: '#d9dde6', W: '#8a90a0', x: '#7a4b2a', X: '#4e2f1a',
@@ -372,7 +374,7 @@ function flip(src) {
 }
 
 
-export const SPR = { units: {}, enemies: {}, boss: null, puru: null, royals: {}, ready: false };
+export const SPR = { units: {}, enemies: {}, boss: null, puru: null, royals: {}, mascots: {}, ready: false };
 
 export function buildSprites(tierGlows) {
   for (const [id, p] of Object.entries(UP)) {
@@ -410,6 +412,8 @@ export function buildSprites(tierGlows) {
     paint(CROWN, {}, 16, 4, 0, p.crown, g);
     SPR.royals[id] = c;
   }
+  buildArt2(SPR, flip, silhouette);
+  SPR.mascots.puru = SPR.puru;
   SPR.ready = true;
 }
 
