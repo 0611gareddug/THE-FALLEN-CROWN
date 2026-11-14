@@ -22,6 +22,7 @@ const app = {
   gameCv: document.getElementById('game'),
   bg: new Background(document.getElementById('bg'), st),
   scale: 1,
+  land: null,
   scene: null,
   pauseHook: null,
   go(name, params) {
@@ -37,12 +38,19 @@ const app = {
   },
 };
 
+// PC처럼 가로로 넓은 화면은 960×540 가로 배치, 그 외는 360×640 세로 배치
+const coarse = matchMedia('(pointer: coarse)').matches;
 function fit() {
-  const f = Math.min(innerWidth / 360, innerHeight / 640);
+  const land = innerWidth / innerHeight >= 1.2 && !(coarse && innerHeight < 500);
+  const changed = land !== app.land;
+  app.land = land;
+  document.body.classList.toggle('land', land);
+  const [sw, sh] = land ? [960, 540] : [360, 640];
+  const f = Math.min(innerWidth / sw, innerHeight / sh);
   app.scale = f;
   stage.style.transform = `translate(-50%, -50%) scale(${f})`;
   app.bg.resize();
-  if (app.scene && app.scene.resize) app.scene.resize();
+  if (app.scene && app.scene.resize) app.scene.resize(changed);
 }
 let rt;
 window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fit, 80); });

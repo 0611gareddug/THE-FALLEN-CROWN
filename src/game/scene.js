@@ -325,7 +325,8 @@ export function battleScene(app, params) {
   // ───────── 입력 ─────────
   function toLogical(e) {
     const r = app.gameCv.getBoundingClientRect();
-    return [((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H];
+    const v = rend.view;
+    return [v.x + ((e.clientX - r.left) / r.width) * v.w, v.y + ((e.clientY - r.top) / r.height) * v.h];
   }
   function onDown(e) {
     audio.resume();
@@ -460,11 +461,13 @@ export function battleScene(app, params) {
     if (pauseEl) pauseEl.remove();
     app.ui.querySelectorAll('.result, .sheet').forEach((x) => x.remove());
   }
+  const LAND_VIEW = { x: 0, y: 80, w: W, h: 228 };
   function resize() {
     const dpr = window.devicePixelRatio || 1;
-    let s = Math.ceil(app.scale * dpr);
-    s = Math.max(1, Math.min(st.low ? 2 : 4, s));
-    rend.resize(s);
+    const zoom = app.land ? 630 / LAND_VIEW.w : 1;
+    let s = Math.ceil(app.scale * zoom * dpr);
+    s = Math.max(1, Math.min(st.low ? 3 : 6, s));
+    rend.resize(s, app.land ? LAND_VIEW : null);
   }
 
   function frame(dt) {

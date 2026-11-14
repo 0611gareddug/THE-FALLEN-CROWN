@@ -29,13 +29,16 @@ export class Renderer {
     this.drag = null;
     this.selected = -1;
     this.scale = 1;
+    this.view = { x: 0, y: 0, w: W, h: H };
     this.buildStatic();
   }
 
-  resize(scale) {
+  // 보여줄 영역(논리 좌표)과 배율. 가로 화면에서는 전장만 잘라 크게 보여준다.
+  resize(scale, view) {
     this.scale = scale;
-    this.cv.width = W * scale;
-    this.cv.height = H * scale;
+    this.view = view || { x: 0, y: 0, w: W, h: H };
+    this.cv.width = Math.round(this.view.w * scale);
+    this.cv.height = Math.round(this.view.h * scale);
   }
 
   // ── 정적 배경 (아트 해상도 180×320) ──
@@ -209,7 +212,8 @@ export class Renderer {
       sx = (Math.random() * 2 - 1) * this.shake;
       sy = (Math.random() * 2 - 1) * this.shake;
     }
-    ctx.setTransform(S, 0, 0, S, Math.round(sx * S), Math.round(sy * S));
+    const v = this.view;
+    ctx.setTransform(S, 0, 0, S, Math.round((sx - v.x) * S), Math.round((sy - v.y) * S));
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = 1;
     ctx.drawImage(this.bg, 0, 0, W, H);
