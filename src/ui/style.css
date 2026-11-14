@@ -165,6 +165,13 @@ button:disabled { cursor: default; }
 .res .ic { display: inline-block; width: 9px; height: 9px; margin-right: 5px; vertical-align: -1px; }
 .ic.gold { background: var(--gold2); box-shadow: inset -2px -2px 0 #a87a2a; border-radius: 50%; }
 .ic.stone { background: #c99bff; transform: rotate(45deg) scale(.85); box-shadow: inset -2px -2px 0 #7a4bb0; }
+.evo {
+  display: none; font-family: var(--serif); font-size: 11px; color: #1b1622; background: var(--gold2); padding: 2px 8px;
+  letter-spacing: .04em; animation: evoPulse 1s ease-in-out infinite; box-shadow: 0 0 10px rgba(232, 194, 90, .55);
+}
+.evo b { font-family: var(--pixel); font-weight: 400; }
+.evo.show { display: inline-block; }
+@keyframes evoPulse { 50% { box-shadow: 0 0 2px rgba(232, 194, 90, .2); transform: translateY(-1px); } }
 .pity { margin-left: auto; display: flex; align-items: center; gap: 2px; font-family: var(--serif); font-size: 9.5px; color: var(--dim); }
 .pity i { width: 6px; height: 6px; background: #2c2d38; display: inline-block; }
 .pity i.on { background: #8a8490; }

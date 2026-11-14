@@ -38,6 +38,7 @@ export function battleScene(app, params) {
       h('div.res',
         h('span', h('i.ic.gold'), hud.gold = h('span', '0')),
         h('span', h('i.ic.stone'), hud.stone = h('span', '0')),
+        hud.evo = h('button.evo', { onclick: cycleEvo, 'aria-label': '진화 가능한 유닛 보기', title: '진화 가능한 유닛 선택' }, '▲ 진화 ', hud.evoN = h('b', '0')),
         hud.pity = h('div.pity', { title: '불운 게이지: 꽝 10번이면 영웅 확정 소환' }, '불운'),
       ),
     );
@@ -86,7 +87,7 @@ export function battleScene(app, params) {
     audio.resume();
     if (!battle.summon()) {
       audio.sfxPlay('deny');
-      if (!battle.hasEmpty()) toast('보드가 가득 찼습니다. 합성하거나 판매하세요.');
+      if (!battle.hasEmpty()) toast('보드가 가득 찼습니다. 진화하거나 판매하세요.');
     }
   }
   function cycleSpeed() {
@@ -94,6 +95,31 @@ export function battleScene(app, params) {
     st.speed = speed; save();
     hud.speed.lastChild.textContent = `×${speed}`;
     audio.sfxPlay('click');
+  }
+  let evoIdx = 0;
+  function cycleEvo() {
+    const cells = [];
+    const seenIds = new Set();
+    battle.units.forEach((u, i) => { if (u && battle.mergeable[i] && !seenIds.has(u.def.id)) { seenIds.add(u.def.id); cells.push(i); } });
+    if (!cells.length) return;
+    evoIdx = (evoIdx + 1) % cells.length;
+    select(cells[evoIdx]);
+    audio.sfxPlay('hover');
+  }
+  let prevEvo = new Set();
+  function checkEvo() {
+    const ids = new Set();
+    battle.units.forEach((u, i) => { if (u && battle.mergeable[i]) ids.add(u.def.id); });
+    for (const id of ids) {
+      if (!prevEvo.has(id)) {
+        audio.sfxPlay('ready');
+        toast(`▲ ${UNIT[id].name} 3명이 모였다! 눌러서 진화하자.`, 'good');
+        break;
+      }
+    }
+    prevEvo = ids;
+    hud.evoN.textContent = ids.size;
+    hud.evo.classList.toggle('show', ids.size > 0);
   }
   function useSkill() {
     if (!battle.skill()) audio.sfxPlay('deny');
@@ -127,7 +153,8 @@ export function battleScene(app, params) {
           disabled: !partners,
           style: partners ? null : { opacity: 0.4 },
           onclick: () => { if (battle.merge(selected)) renderCard(); },
-        }, partners ? '합성 ▲' : `합성 (${countSame(d)}/3)`) : null,
+        }, partners ? '진화 ▲' : `진화 (${countSame(d)}/3)`) : null,
+        d.tier === 4 ? h('span', { style: { fontSize: '10.5px', color: 'var(--dim)', alignSelf: 'center' } }, '천상 조합 재료') : null,
         d.tier < 5 ? h('button.btn', { onclick: () => { battle.sell(selected); select(-1); } }, `판매 +${refund}`) : null),
     );
     c.classList.add('show');
@@ -283,6 +310,7 @@ export function battleScene(app, params) {
     hud.pity.classList.toggle('full', full);
     hud.pityBtn.style.display = full ? '' : 'none';
 
+    checkEvo();
     const cost = b.summonCost();
     hud.cost.textContent = `금화 ${cost}`;
     hud.summon.disabled = b.gold < cost || !b.hasEmpty();
@@ -423,7 +451,7 @@ export function battleScene(app, params) {
       h('div.stats',
         h('div', h('span', '도달 웨이브'), h('span', `${b.wave} / ${BOSS_WAVE}`)),
         h('div', h('span', '처치'), h('span', String(b.stats.kills))),
-        h('div', h('span', '소환 / 합성'), h('span', `${b.stats.summons} / ${b.stats.merges}`)),
+        h('div', h('span', '소환 / 진화'), h('span', `${b.stats.summons} / ${b.stats.merges}`)),
         h('div', h('span', '도박 꽝'), h('span', `${b.stats.fails} / ${b.stats.gambles}`)),
         best ? h('div', h('span', '최고의 일꾼'), h('span', { style: { color: tierCol(best.def.tier), fontFamily: 'var(--serif)' } }, best.def.name)) : null,
         h('div', h('span', '잿빛 조각'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),

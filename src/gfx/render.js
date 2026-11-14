@@ -1,7 +1,36 @@
 // 전투 화면 렌더러
 import { SPR } from './sprites.js';
 import { drawNum, fmtNum } from './pixelfont.js';
-import { TIERS } from '../data/units.js';
+import { TIERS, RECIPES } from '../data/units.js';
+
+// 진화 표식 ▲▲ (색별로 한 번만 굽는다)
+const EVO = [
+  '...ooo...',
+  '..oyyyo..',
+  '.oyyyyyo.',
+  'oyyoooyyo',
+  'ooo...ooo',
+  '...ooo...',
+  '..oyyyo..',
+  '.oyyyyyo.',
+  'oyyoooyyo',
+  'ooo...ooo',
+];
+const evoCache = new Map();
+function evoBadge(col) {
+  let c = evoCache.get(col);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = 9; c.height = 10;
+  const g = c.getContext('2d');
+  EVO.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '.') return;
+    g.fillStyle = ch === 'o' ? '#1b1622' : y % 5 === 1 ? '#ffffff' : col;
+    g.fillRect(x, y, 1, 1);
+  }));
+  evoCache.set(col, c);
+  return c;
+}
 import { W, H, COLS, ROWS, CELL, BX, BY, PL, PR, PT, PB, PERIM, cellX, cellY, pathPos } from '../game/layout.js';
 
 const RAINBOW = ['#ff6b6b', '#ffb36b', '#ffe36b', '#7fe08a', '#6bc8ff', '#c99bff'];
@@ -30,6 +59,8 @@ export class Renderer {
     this.selected = -1;
     this.scale = 1;
     this.view = { x: 0, y: 0, w: W, h: H };
+    this._readyT = 0;
+    this._ready = new Set();
     this.buildStatic();
   }
 
@@ -220,6 +251,7 @@ export class Renderer {
 
     this.drawTorches(ctx);
     this.drawZones(ctx, battle);
+    this.drawCellHints(ctx, battle);
     this.drawUnits(ctx, battle);
     this.drawEnemies(ctx, battle);
     this.drawProjs(ctx, battle);
@@ -334,16 +366,75 @@ export class Renderer {
         this.part(cx + 10 + Math.random() * 28, cy + 36, 0, -20 - Math.random() * 20, 0.8, tier === 5 ? RAINBOW[(Math.random() * 6) | 0] : TIERS[tier].glow, 1);
       }
       ctx.globalAlpha = 1;
-      // 합성 가능 표시
-      if (b.mergeable[i] && ((t * 3) | 0) % 2 === 0) {
-        ctx.fillStyle = '#1b1622';
-        ctx.fillRect(cx + 21, cy - 1, 7, 5);
-        ctx.fillStyle = '#ffe36b';
-        ctx.fillRect(cx + 24, cy, 1, 1);
-        ctx.fillRect(cx + 23, cy + 1, 3, 1);
-        ctx.fillRect(cx + 22, cy + 2, 5, 1);
+      // 진화 가능: 다음 등급 색 반짝이 + 통통 튀는 ▲▲ 표식
+      if (b.mergeable[i]) {
+        const next = tier + 1;
+        if (!this.settings.low && Math.random() < 0.12)
+          this.part(cx + 8 + Math.random() * 32, cy + 40, 0, -24 - Math.random() * 16, 0.7, TIERS[next].glow, 2);
+        const hop = Math.abs(Math.sin(t * 5 + i)) * 4;
+        ctx.drawImage(evoBadge(TIERS[next].color), cx + CELL - 15, cy - 7 - hop, 18, 20);
       }
     }
+  }
+
+  // 칸 테두리 강조 (유닛 아래에 그린다)
+  drawCellHints(ctx, b) {
+    const t = this.t;
+    const pulse = 0.55 + Math.sin(t * 5) * 0.35;
+    // 천상 조합 준비 완료 재료
+    const ready = this.readyCells(b);
+    // 선택한 유닛의 진화 재료
+    const sel = this.selected;
+    const partners = sel >= 0 && b.mergeable[sel] ? b.mergePartners(sel) : null;
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const u = b.units[i];
+      if (!u) continue;
+      const cx = BX + (i % COLS) * CELL, cy = BY + ((i / COLS) | 0) * CELL;
+      let col = null, a = 0;
+      if (ready.has(i)) { col = RAINBOW[((t * 8 + i) | 0) % 6]; a = 0.9; }
+      else if (b.mergeable[i]) { col = TIERS[u.def.tier + 1].color; a = pulse; }
+      if (!col) continue;
+      ctx.globalAlpha = a * 0.22;
+      ctx.fillStyle = col;
+      ctx.fillRect(cx + 3, cy + 3, CELL - 6, CELL - 6);
+      ctx.globalAlpha = a;
+      ctx.fillRect(cx + 2, cy + 2, CELL - 4, 2);
+      ctx.fillRect(cx + 2, cy + CELL - 4, CELL - 4, 2);
+      ctx.fillRect(cx + 2, cy + 2, 2, CELL - 4);
+      ctx.fillRect(cx + CELL - 4, cy + 2, 2, CELL - 4);
+    }
+    if (partners) {
+      const x0 = cellX(sel), y0 = cellY(sel);
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = '#ffe36b';
+      for (const p of partners) {
+        const x1 = cellX(p), y1 = cellY(p);
+        const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 6));
+        const off = (t * 3) % 1;
+        for (let k = 0; k < n; k++) {
+          const f = (k + off) / n;
+          ctx.fillRect(Math.round(x0 + (x1 - x0) * f) - 1, Math.round(y0 + (y1 - y0) * f) - 1, 3, 3);
+        }
+        const cx = BX + (p % COLS) * CELL, cy = BY + ((p / COLS) | 0) * CELL;
+        ctx.fillRect(cx + 1, cy + 1, CELL - 2, 3);
+        ctx.fillRect(cx + 1, cy + CELL - 4, CELL - 2, 3);
+        ctx.fillRect(cx + 1, cy + 1, 3, CELL - 2);
+        ctx.fillRect(cx + CELL - 4, cy + 1, 3, CELL - 2);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  readyCells(b) {
+    if (this._readyT > this.t) return this._ready;
+    this._readyT = this.t + 0.25;
+    const set = new Set();
+    for (const r of RECIPES) {
+      const st = b.recipeState(r);
+      if (st.ok) for (const c of st.have) set.add(c);
+    }
+    this._ready = set;
+    return set;
   }
 
   drawEnemies(ctx, b) {

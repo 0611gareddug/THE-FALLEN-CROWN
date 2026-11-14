@@ -168,6 +168,9 @@ class Audio {
         this.noiseHit(t + 0.05, 0.6, 0.12, 900, d, 'lowpass');
         this.tone(t + 0.45, 98, 0.25, 'triangle', 0.1, d);
         break;
+      case 'ready':
+        [0, 7, 12].forEach((n, i) => this.tone(t + i * 0.07, mtof(84 + n), 0.25, 'triangle', 0.09, d, { echo: true }));
+        break;
       case 'coin':
         this.tone(t, 1319, 0.06, 'square', 0.05, d);
         this.tone(t + 0.06, 1760, 0.14, 'square', 0.05, d);
