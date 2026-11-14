@@ -1,0 +1,496 @@
+// 전투 장면: 시뮬레이션 + 렌더러 + HUD + 입력
+import { Battle, PITY_MAX } from './battle.js';
+import { Renderer } from '../gfx/render.js';
+import { h, svg, ICON } from '../ui/dom.js';
+import { audio } from '../core/audio.js';
+import { store, save, markSeen } from '../core/storage.js';
+import { settingsPanel } from '../ui/panels.js';
+import { SPR, spriteURL } from '../gfx/sprites.js';
+import { UNIT, TIERS, CLASSES, CLASS_ORDER, SYNERGY, RECIPES, MAX_CELESTIAL, UPG_NAMES, upgGroup } from '../data/units.js';
+import { WAVES, BOSS_WAVE, FIELD_LIMIT, ENEMIES } from '../data/enemies.js';
+import { MASCOTS, TIPS, DEFEAT_LINES, VICTORY_LINES } from '../data/text.js';
+import { cellAt, W, H } from './layout.js';
+
+const TICK = 1 / 60;
+const SPEEDS = [1, 1.5, 2];
+const tierCol = (t) => (t === 5 ? '#ff9ad9' : TIERS[t].color);
+const unitImg = (id, s = 3) => spriteURL(SPR.units[id].r, s);
+const fmtT = (s) => { s = Math.max(0, Math.ceil(s)); return `${(s / 60) | 0}:${String(s % 60).padStart(2, '0')}`; };
+
+export function battleScene(app, params) {
+  const data = store();
+  const st = data.settings;
+  let battle, rend, el, hud = {};
+  let paused = false, acc = 0, slowmo = 0, hudT = 0, alarmT = 0, tipI = 0, tipT = 0, endT = -1;
+  let selected = -1, drag = null, pop = null;
+  let speed = SPEEDS.includes(st.speed) ? st.speed : 1;
+
+  // ───────── HUD 구성 ─────────
+  function build() {
+    const top = h('div.top',
+      h('div.top-row',
+        hud.wave = h('div.wave', 'PREPARE'),
+        hud.timer = h('div.timer', '0:06'),
+        h('button.pause', { 'aria-label': '일시정지', onclick: openPause }, svg(ICON.pause))),
+      h('div.bars',
+        hud.field = h('div.bar.field', h('div.lbl', h('span', '필드 몬스터'), hud.fieldN = h('span', `0/${FIELD_LIMIT}`)), h('div.track', hud.fieldF = h('div.fill'))),
+        hud.wall = h('div.bar.wall', h('div.lbl', h('span', '성벽'), hud.wallN = h('span', '100')), h('div.track', hud.wallF = h('div.fill')))),
+      h('div.res',
+        h('span', h('i.ic.gold'), hud.gold = h('span', '0')),
+        h('span', h('i.ic.stone'), hud.stone = h('span', '0')),
+        hud.pity = h('div.pity', { title: '불운 게이지: 꽝 10번이면 영웅 확정 소환' }, '불운'),
+      ),
+    );
+    hud.pips = [];
+    for (let i = 0; i < PITY_MAX; i++) { const p = h('i'); hud.pips.push(p); hud.pity.appendChild(p); }
+    hud.pityBtn = h('button', { onclick: () => { if (battle.pity()) audio.sfxPlay('click'); } }, '영웅 확정');
+    hud.pityBtn.style.display = 'none';
+    hud.pity.appendChild(hud.pityBtn);
+
+    hud.boss = h('div.bossbar', h('div.lbl', h('span', ENEMIES.ogran.name), hud.bossT = h('span', '1:30')), h('div.track', hud.bossF = h('div.fill')));
+
+    hud.synRows = {};
+    const syn = h('div.syn', CLASS_ORDER.map((k) => {
+      const pips = h('div.pips', [0, 1, 2, 3].map(() => h('i')));
+      const fx = h('div.fx');
+      const row = h('div.syn-row', { style: { '--cc': CLASSES[k].color } }, h('div.nm', CLASSES[k].name), pips, fx);
+      hud.synRows[k] = { row, pips: [...pips.children], fx, last: -1 };
+      return row;
+    }));
+    hud.tip = h('div.tip', TIPS[0]);
+    hud.card = h('div.card');
+    hud.mid = h('div.mid', syn, hud.tip, hud.card);
+
+    const m = MASCOTS.find((x) => x.id === params.mascot) || MASCOTS[0];
+    hud.speed = h('button.tool', { onclick: cycleSpeed, 'aria-label': '배속' }, h('span', '배속'), h('small', `×${speed}`));
+    hud.skill = h('button.tool', { onclick: useSkill, 'aria-label': m.skill },
+      h('img', { src: spriteURL(SPR.puru.r, 2), alt: '' }), hud.skillTxt = h('small', m.skill), hud.skillCd = h('div.cdfill'));
+    hud.upTool = h('button.tool', { onclick: () => togglePop('upgrade') }, h('span', '강화'), h('small', 'E'));
+    hud.recTool = h('button.tool', { onclick: () => togglePop('recipe') }, h('span', '천상 조합'), hud.recSmall = h('small', `0/${MAX_CELESTIAL}`));
+    const tools = h('div.tools', hud.upTool, hud.recTool, hud.speed, hud.skill);
+
+    hud.summon = h('button.summon', { onclick: doSummon },
+      h('span.big', '소환'), hud.cost = h('span.cost', '15'));
+    hud.gamble = h('button.gamble', { onclick: () => togglePop('gamble') },
+      h('span.big', '도박 소환'), h('span.cost', '행운석으로 고등급 노리기'));
+    const actions = h('div.actions', hud.summon, hud.gamble);
+
+    hud.toast = h('div.toast');
+    hud.popHost = h('div');
+    el = h('div.hud', top, hud.boss, hud.mid, tools, actions, hud.popHost, hud.toast);
+    app.ui.appendChild(el);
+  }
+
+  // ───────── 동작 ─────────
+  function doSummon() {
+    audio.resume();
+    if (!battle.summon()) {
+      audio.sfxPlay('deny');
+      if (!battle.hasEmpty()) toast('보드가 가득 찼습니다. 합성하거나 판매하세요.');
+    }
+  }
+  function cycleSpeed() {
+    speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+    st.speed = speed; save();
+    hud.speed.lastChild.textContent = `×${speed}`;
+    audio.sfxPlay('click');
+  }
+  function useSkill() {
+    if (!battle.skill()) audio.sfxPlay('deny');
+  }
+  function select(i) {
+    selected = i;
+    rend.selected = i;
+    renderCard();
+  }
+
+  function renderCard() {
+    const c = hud.card;
+    const u = selected >= 0 ? battle.units[selected] : null;
+    if (!u) { c.classList.remove('show'); c.replaceChildren(); return; }
+    const d = u.def;
+    const partners = battle.mergePartners(selected);
+    const refund = d.tier >= 5 ? 0 : u.spent ? Math.floor(u.spent * 0.5) : TIERS[d.tier].sell;
+    const dps = battle.unitDmg(u) * d.rate * u.spd;
+    c.replaceChildren(
+      h('button.x', { onclick: () => select(-1), 'aria-label': '닫기' }, '×'),
+      h('div.head',
+        h('img', { src: unitImg(d.id, 3), alt: '' }),
+        h('div',
+          h('div.nm', { style: { color: tierCol(d.tier) } }, d.name),
+          h('div.meta', h('b', { style: { color: tierCol(d.tier) } }, TIERS[d.tier].name), ` · ${CLASSES[d.cls].name} · ${d.dtype === 'p' ? '물리' : '마법'}`),
+          h('div.stats', h('span', `피해 ${Math.round(battle.unitDmg(u))}`), h('span', `초당 ${Math.round(dps)}`), h('span', `사거리 ${d.range > 500 ? '∞' : Math.round(u.range / 24)}`)))),
+      h('div.desc', d.desc),
+      h('div.quip', `“${d.quip}”`),
+      h('div.acts',
+        d.tier < 4 ? h('button.btn' + (partners ? '.primary' : ''), {
+          disabled: !partners,
+          style: partners ? null : { opacity: 0.4 },
+          onclick: () => { if (battle.merge(selected)) renderCard(); },
+        }, partners ? '합성 ▲' : `합성 (${countSame(d)}/3)`) : null,
+        d.tier < 5 ? h('button.btn', { onclick: () => { battle.sell(selected); select(-1); } }, `판매 +${refund}`) : null),
+    );
+    c.classList.add('show');
+  }
+  const countSame = (d) => battle.units.filter((x) => x && x.def === d).length;
+
+  // ───────── 팝업 (강화 · 도박 · 천상) ─────────
+  function togglePop(kind) {
+    audio.resume();
+    audio.sfxPlay('click');
+    if (pop && pop.kind === kind) { closePop(); return; }
+    closePop();
+    pop = { kind, el: h('div.pop') };
+    hud.popHost.appendChild(pop.el);
+    renderPop();
+  }
+  function closePop() { if (pop) { pop.el.remove(); pop = null; } }
+
+  function renderPop() {
+    if (!pop) return;
+    const p = pop.el;
+    const x = h('button.x', { onclick: closePop, 'aria-label': '닫기' }, '×');
+    if (pop.kind === 'upgrade') {
+      p.replaceChildren(x, h('h3', '강화'),
+        ...[0, 1, 2].map((g) => {
+          const c = battle.upgradeCost(g);
+          return h('button.opt', { disabled: battle.gold < c, onclick: () => { if (battle.upgrade(g)) renderPop(); } },
+            h('div.l', `${UPG_NAMES[g]}  Lv.${battle.upg[g]}`, h('small', `공격력 +${battle.upg[g] * 10}% → +${(battle.upg[g] + 1) * 10}%`)),
+            h('div.r', `${c} 금화`));
+        }));
+    } else if (pop.kind === 'gamble') {
+      const full = !battle.hasEmpty();
+      const opts = [
+        ['정예 도전', '성공 60% · 정예 등급', 1],
+        ['영웅 도전', '성공 30% · 영웅 등급', 2],
+        ['전설 도전', '성공 15% · 전설 등급', 3],
+      ];
+      p.replaceChildren(x, h('h3', '도박 소환'),
+        h('div.note', full ? '보드가 가득 찼습니다.' : `실패하면 아무것도 나오지 않습니다. 대신 불운 게이지가 찹니다. (${battle.badLuck}/${PITY_MAX})`),
+        ...opts.map(([name, sub, cost], i) =>
+          h('button.opt', { disabled: battle.stones < cost || full, onclick: () => { battle.gamble(i); renderPop(); } },
+            h('div.l', name, h('small', sub)), h('div.r', `행운석 ${cost}`))));
+    } else if (pop.kind === 'recipe') {
+      p.replaceChildren(x, h('h3', `천상 조합  ·  ${battle.celestial}/${MAX_CELESTIAL}`),
+        ...RECIPES.map((r, i) => {
+          const s = battle.recipeState(r);
+          const res = UNIT[r.result];
+          return h('div.recipe',
+            h('img', { src: unitImg(r.result, 2), alt: '' }),
+            h('div.info', h('span', { style: { color: '#ff9ad9' } }, res.name), h('small', r.mats.map((m) => UNIT[m].name).join(' + '))),
+            h('div.mats', r.mats.map((m, j) => h('img' + (s.have[j] >= 0 ? '.have' : ''), { src: unitImg(m, 2), alt: '' }))),
+            h('button.btn' + (s.ok ? '.primary' : ''), { disabled: !s.ok, style: s.ok ? null : { opacity: 0.35 }, onclick: () => { if (battle.craft(i)) { closePop(); select(-1); } } }, '조합'));
+        }));
+    }
+  }
+
+  // ───────── 알림 ─────────
+  function toast(text, cls = '') {
+    const d = h('div' + (cls ? '.' + cls : ''), text);
+    hud.toast.replaceChildren(d);
+  }
+  function announce(text, sub, cls = '') {
+    const a = h('div.announce' + (cls ? '.' + cls : ''), text, sub ? h('small', sub) : null);
+    el.appendChild(a);
+    setTimeout(() => a.remove(), 1900);
+  }
+
+  // ───────── 이벤트 → 소리/연출/HUD ─────────
+  function onEvent(ev) {
+    rend.handle(ev, battle);
+    switch (ev.type) {
+      case 'unit':
+        if (markSeen(ev.id)) save();
+        break;
+      case 'summon': audio.sfxPlay(ev.tier >= 2 ? 'rare' : 'summon', ev.tier); break;
+      case 'gambleWin':
+        audio.sfxPlay('rare', ev.tier);
+        toast(ev.pity ? '불운의 결정! 영웅 확정 소환.' : `도박 성공! ${TIERS[ev.tier].name} 등급 소환.`, 'good');
+        persistLuck();
+        break;
+      case 'gambleFail':
+        audio.sfxPlay('fail');
+        toast(ev.line + (ev.consol ? `  (뿌루의 위로금 +${ev.consol})` : ''), 'fail');
+        persistLuck();
+        break;
+      case 'merge':
+        audio.sfxPlay('merge', ev.tier);
+        if (ev.tier >= 2) setTimeout(() => audio.sfxPlay('rare', ev.tier), 120);
+        if (selected === ev.cell || ev.from.includes(selected)) select(ev.cell);
+        break;
+      case 'celestial':
+        audio.sfxPlay('celestial');
+        slowmo = 0.9;
+        announce('CELESTIAL', UNIT[ev.id].name);
+        break;
+      case 'sell': audio.sfxPlay('sell'); break;
+      case 'slash': case 'hit': audio.sfxPlay('hit'); break;
+      case 'zap': audio.sfxPlay('zap'); break;
+      case 'boom': if (ev.kind === 'meteor' || ev.kind === 'flask') audio.sfxPlay('boom'); break;
+      case 'kill': audio.sfxPlay(ev.boss ? 'boom' : 'kill'); break;
+      case 'stone': audio.sfxPlay('stone'); toast('행운석을 주웠다!', 'good'); break;
+      case 'wave':
+        if (ev.boss) {
+          audio.sfxPlay('boss');
+          audio.play('boss');
+          announce('BOSS', ENEMIES.ogran.name, 'boss');
+        } else {
+          audio.sfxPlay('wave');
+          announce(`WAVE ${ev.wave}`, ev.wave === 1 ? '잿더미에서 그들이 온다' : null);
+        }
+        break;
+      case 'waveClear':
+        audio.sfxPlay('coin');
+        toast(`웨이브 보상  금화 +${ev.gold}${ev.stone ? '  행운석 +1' : ''}${ev.heal ? `  성벽 +${ev.heal}` : ''}`);
+        break;
+      case 'judgment': audio.sfxPlay('judgment'); break;
+      case 'timeStop': audio.sfxPlay('timestop'); break;
+      case 'skill': audio.sfxPlay('skill'); toast('뿌루: "삐약!" 아군 공격 속도 +30%', 'good'); break;
+      case 'wallHit':
+        audio.sfxPlay('wall');
+        if (ev.why === 'bossLap') toast('오그란이 성벽을 들이받았다! 성벽 -15');
+        if (ev.why === 'timeout') toast('오그란이 분노했다! 성벽 -25');
+        break;
+      case 'upgrade': audio.sfxPlay('upgrade'); break;
+      case 'victory': case 'defeat': endT = 1.6; break;
+    }
+  }
+
+  function persistLuck() { data.badLuck = battle.badLuck; save(); }
+
+  // ───────── HUD 갱신 (초당 10회) ─────────
+  function updateHud() {
+    const b = battle;
+    if (b.phase === 'prep') { hud.wave.textContent = 'PREPARE'; hud.timer.textContent = fmtT(b.timer); hud.timer.className = 'timer rest'; }
+    else {
+      hud.wave.replaceChildren('WAVE ', h('b', String(b.wave)), ` / ${BOSS_WAVE}`);
+      const t = b.phase === 'rest' ? b.timer : b.wave === BOSS_WAVE ? b.bossT : Math.max(0, 20 - b.waveT);
+      hud.timer.textContent = fmtT(t);
+      hud.timer.className = 'timer' + (b.phase === 'rest' ? ' rest' : '');
+    }
+    const n = b.liveCount();
+    hud.fieldN.textContent = `${n}/${FIELD_LIMIT}`;
+    hud.fieldF.style.width = Math.min(100, n) + '%';
+    hud.field.classList.toggle('warn', n >= 70 && n <= FIELD_LIMIT);
+    hud.field.classList.toggle('danger', n > FIELD_LIMIT);
+    hud.wallN.textContent = `${Math.ceil(b.wall)}/${b.wallMax}`;
+    hud.wallF.style.width = (b.wall / b.wallMax) * 100 + '%';
+    hud.wall.classList.toggle('low', b.wall < b.wallMax * 0.3);
+    hud.gold.textContent = b.gold;
+    hud.stone.textContent = b.stones;
+    hud.pips.forEach((p, i) => p.classList.toggle('on', i < b.badLuck));
+    const full = b.badLuck >= PITY_MAX;
+    hud.pity.classList.toggle('full', full);
+    hud.pityBtn.style.display = full ? '' : 'none';
+
+    const cost = b.summonCost();
+    hud.cost.textContent = `금화 ${cost}`;
+    hud.summon.disabled = b.gold < cost || !b.hasEmpty();
+    hud.gamble.disabled = b.stones < 1 && !pop;
+    const ready = b.skillT >= b.skillCd && b.phase !== 'prep';
+    hud.skill.classList.toggle('ready', ready);
+    hud.skillCd.style.width = (b.skillT / b.skillCd) * 100 + '%';
+    hud.skillTxt.textContent = ready ? '삐약 응원!' : `${Math.ceil(b.skillCd - b.skillT)}초`;
+    hud.recSmall.textContent = `${b.celestial}/${MAX_CELESTIAL}`;
+    hud.recTool.classList.toggle('hot', RECIPES.some((r) => b.recipeState(r).ok));
+    hud.upTool.classList.toggle('hot', [0, 1, 2].some((g) => b.gold >= b.upgradeCost(g) && b.gold > cost * 3));
+
+    const boss = b.boss && b.boss.alive;
+    hud.boss.style.display = boss ? 'block' : 'none';
+    hud.mid.classList.toggle('boss', !!boss);
+    if (boss) {
+      hud.bossF.style.width = (b.boss.hp / b.boss.maxHp) * 100 + '%';
+      hud.bossT.textContent = fmtT(b.bossT);
+    }
+
+    for (const k of CLASS_ORDER) {
+      const r = hud.synRows[k];
+      const c = b.syn[k];
+      if (r.last === c) continue;
+      r.last = c;
+      const tiers = SYNERGY[k];
+      r.pips.forEach((p, i) => { p.style.display = i < tiers[tiers.length - 1].n ? '' : 'none'; p.classList.toggle('on', i < c); });
+      const active = tiers.filter((t) => c >= t.n);
+      const next = tiers.find((t) => c < t.n);
+      r.row.classList.toggle('act', active.length > 0);
+      r.fx.replaceChildren(
+        active.length ? active[active.length - 1].text : '',
+        next ? h('em', `${active.length ? '  ·  ' : ''}${next.n}종: ${next.text}`) : '',
+      );
+    }
+    if (pop) renderPop();
+    if (selected >= 0 && !b.units[selected]) select(-1);
+  }
+
+  // ───────── 입력 ─────────
+  function toLogical(e) {
+    const r = app.gameCv.getBoundingClientRect();
+    return [((e.clientX - r.left) / r.width) * W, ((e.clientY - r.top) / r.height) * H];
+  }
+  function onDown(e) {
+    audio.resume();
+    if (paused || battle.result) return;
+    const [x, y] = toLogical(e);
+    const c = cellAt(x, y);
+    if (c >= 0 && battle.units[c]) {
+      drag = { from: c, sx: x, sy: y, x, y, moved: false, over: c, id: e.pointerId };
+      app.gameCv.setPointerCapture(e.pointerId);
+      rend.drag = drag;
+    } else if (y > 90 && y < 300) {
+      select(-1);
+      closePop();
+    }
+  }
+  function onMove(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const [x, y] = toLogical(e);
+    drag.x = x; drag.y = y;
+    if (!drag.moved && Math.hypot(x - drag.sx, y - drag.sy) > 7) drag.moved = true;
+    drag.over = cellAt(x, y);
+  }
+  function onUp(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    rend.drag = null;
+    if (d.moved) {
+      if (d.over >= 0 && d.over !== d.from) {
+        battle.move(d.from, d.over);
+        audio.sfxPlay('hover');
+        select(d.over);
+      }
+    } else {
+      audio.sfxPlay('hover');
+      select(selected === d.from ? -1 : d.from);
+    }
+  }
+  function onKey(e) {
+    if (e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (k === 'escape') { if (pop) closePop(); else openPause(); return; }
+    if (paused || battle.result) return;
+    if (k === 'q') doSummon();
+    else if (k === 'w') togglePop('gamble');
+    else if (k === 'e') togglePop('upgrade');
+    else if (k === 'r') useSkill();
+    else if (k === ' ') { e.preventDefault(); cycleSpeed(); }
+  }
+
+  // ───────── 일시정지 · 결과 ─────────
+  let pauseEl = null;
+  function openPause() {
+    if (battle.result || pauseEl) return;
+    paused = true;
+    audio.sfxPlay('click');
+    pauseEl = h('div.sheet', h('div.panel', { style: { textAlign: 'center' } },
+      h('h2', 'PAUSED'),
+      h('div.sub', `웨이브 ${battle.wave} · 성벽 ${Math.ceil(battle.wall)}`),
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+        h('button.btn.primary', { onclick: closePause }, '계속하기'),
+        h('button.btn', { onclick: () => settingsPanel(app.ui, app) }, '설정'),
+        h('button.btn.danger', { onclick: () => { closePause(); finish(true); } }, '포기하고 로비로'))));
+    app.ui.appendChild(pauseEl);
+  }
+  function closePause() {
+    if (pauseEl) { pauseEl.remove(); pauseEl = null; }
+    paused = false;
+    audio.sfxPlay('click');
+  }
+  app.pauseHook = () => { if (!battle.result) openPause(); };
+
+  function finish(quit) {
+    const b = battle;
+    const win = b.result === 'victory';
+    const ash = quit ? Math.floor(b.ashReward() / 2) : b.ashReward();
+    data.ash += ash;
+    data.runs++;
+    if (win) data.wins++;
+    data.bestWave = Math.max(data.bestWave, b.wave);
+    data.badLuck = b.badLuck;
+    data.tips = true;
+    save();
+    if (quit) { app.go('lobby'); return; }
+    audio.stop();
+    audio.sfxPlay(win ? 'victory' : 'defeat');
+    let best = null;
+    for (const u of b.units) if (u && (!best || u.dealt > best.dealt)) best = u;
+    const lines = win ? VICTORY_LINES : DEFEAT_LINES;
+    const res = h('div.result' + (win ? '.win' : ''),
+      h('div.eyebrow', win ? 'THE GIANT FALLS' : 'THE WALLS CRUMBLE'),
+      h('h1', win ? 'VICTORY' : 'DEFEAT'),
+      h('div.line', lines[(Math.random() * lines.length) | 0]),
+      h('div.stats',
+        h('div', h('span', '도달 웨이브'), h('span', `${b.wave} / ${BOSS_WAVE}`)),
+        h('div', h('span', '처치'), h('span', String(b.stats.kills))),
+        h('div', h('span', '소환 / 합성'), h('span', `${b.stats.summons} / ${b.stats.merges}`)),
+        h('div', h('span', '도박 꽝'), h('span', `${b.stats.fails} / ${b.stats.gambles}`)),
+        best ? h('div', h('span', '최고의 일꾼'), h('span', { style: { color: tierCol(best.def.tier), fontFamily: 'var(--serif)' } }, best.def.name)) : null,
+        h('div', h('span', '잿빛 조각'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),
+      h('div.btns',
+        h('button.btn', { onclick: () => { audio.sfxPlay('click'); app.go('lobby'); } }, '로비로'),
+        h('button.btn.primary', { onclick: () => { audio.sfxPlay('click'); app.go('battle', params); } }, '다시 도전')));
+    app.ui.appendChild(res);
+  }
+
+  // ───────── 수명 주기 ─────────
+  function enter() {
+    battle = new Battle({ royal: params.royal, mascot: params.mascot, badLuck: data.badLuck });
+    rend = new Renderer(app.gameCv, st);
+    resize();
+    app.gameCv.style.display = 'block';
+    app.bg.setMode('game');
+    audio.play('battle');
+    build();
+    app.gameCv.addEventListener('pointerdown', onDown);
+    app.gameCv.addEventListener('pointermove', onMove);
+    app.gameCv.addEventListener('pointerup', onUp);
+    app.gameCv.addEventListener('pointercancel', onUp);
+    window.addEventListener('keydown', onKey);
+    toast(params.royal === 'kyle' ? '카일: "일단 금고부터 확인하자."' : params.royal === 'seren' ? '세렌: "금서 3권 챙겼어. 아니, 행운석 3개."' : '에드릭: "정의는 승리한다. 아마도."');
+  }
+  function exit() {
+    app.gameCv.removeEventListener('pointerdown', onDown);
+    app.gameCv.removeEventListener('pointermove', onMove);
+    app.gameCv.removeEventListener('pointerup', onUp);
+    app.gameCv.removeEventListener('pointercancel', onUp);
+    window.removeEventListener('keydown', onKey);
+    app.gameCv.style.display = 'none';
+    app.pauseHook = null;
+    if (el) el.remove();
+    if (pauseEl) pauseEl.remove();
+    app.ui.querySelectorAll('.result, .sheet').forEach((x) => x.remove());
+  }
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    let s = Math.ceil(app.scale * dpr);
+    s = Math.max(1, Math.min(st.low ? 2 : 4, s));
+    rend.resize(s);
+  }
+
+  function frame(dt) {
+    if (!paused && !battle.result) {
+      let sdt = dt * speed;
+      if (slowmo > 0) { slowmo -= dt; sdt *= 0.3; }
+      acc += sdt;
+      let n = 0;
+      while (acc >= TICK && n < 10) { battle.tick(TICK); acc -= TICK; n++; }
+      if (n === 10) acc = 0;
+    }
+    const evs = battle.events;
+    for (let i = 0; i < evs.length; i++) onEvent(evs[i]);
+    evs.length = 0;
+    rend.draw(battle, paused ? 0 : dt * (slowmo > 0 ? 0.4 : 1));
+
+    hudT -= dt;
+    if (hudT <= 0) { hudT = 0.1; updateHud(); }
+    if (battle.overflow && !paused) {
+      alarmT -= dt;
+      if (alarmT <= 0) { alarmT = 2; audio.sfxPlay('alarm'); }
+    }
+    tipT += dt;
+    if (tipT > 9) { tipT = 0; tipI = (tipI + 1) % TIPS.length; hud.tip.textContent = TIPS[tipI]; }
+    if (endT > 0) { endT -= dt; if (endT <= 0) { endT = -1; finish(false); } }
+  }
+
+  return { enter, exit, frame, resize, get battle() { return battle; }, select, get speed() { return speed; }, set speed(v) { speed = v; } };
+}

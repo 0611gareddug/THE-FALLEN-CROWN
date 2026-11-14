@@ -1,0 +1,17 @@
+{
+  "name": "the-fallen-crown",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/obfuscate.mjs",
+    "preview": "vite preview",
+    "balance": "node scripts/balance.mjs"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "4.2.2",
+    "terser": "5.36.0",
+    "vite": "6.4.6"
+  }
+}
