@@ -10,7 +10,7 @@ import { store, save } from '../core/storage.js';
 export const EVENTS = EVENT_DATA;
 // 유물 획득 등으로 생긴 업적 (화면 쪽에서 비운다)
 export const achQueue = [];
-const FNAME = { church: '빛의 교회', cult: '재의 교단', tribe: '숲의 부족', guild: '떠돌이 길드' };
+const FNAME = { church: '구름 수도원', cult: '들판 요정', tribe: '숲 동물 마을', guild: '항구 상인회' };
 
 export function condOk(run, c) {
   if (!c) return true;

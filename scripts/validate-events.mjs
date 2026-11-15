@@ -31,7 +31,7 @@ for (const id of ids) {
   const e = EVENT_DATA[id];
   if (!e.title) err(`${id}: 제목 없음`);
   if (!PLACES[e.bg]) err(`${id}: 없는 배경 ${e.bg}`);
-  if (!e.special && (!e.act || !e.act.every((a) => a >= 1 && a <= 3))) err(`${id}: act 오류`);
+  if (!e.special && (!e.act || !e.act.every((a) => a >= 1 && a <= 4))) err(`${id}: act 오류`);
   checkLines(id, e.intro);
   if (!e.choices || e.choices.length < 2) err(`${id}: 선택지 2개 미만`);
   if (e.cond && e.cond.flag) usedFlags.push([id, e.cond.flag]);

@@ -77,7 +77,7 @@ export function nextAct(app, run) {
 // 최종 보스 결정
 export function finalBoss(run) {
   if (run.flags.brotherRoute) return 'shadow';
-  if ((run.rep.cult || 0) >= 6 || run.flags.ashRite) return 'aspel';
+  if (run.flags.ashRite) return 'aspel'; // 요정 여왕의 그림자 꽃가루를 받으면 마왕이 어둠에 물든다
   return 'crown';
 }
 

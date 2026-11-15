@@ -64,7 +64,7 @@ export function battleScene(app, params) {
       tut.step++;
       audio.sfxPlay('win');
       if (tut.step === 3) battle.stones += 1;
-      if (tut.step === 4) { setTimeout(() => toast('브란: "폐하, 이것이… 운명입니다."', 'fail'), 2600); battle.timer = 3; }
+      if (tut.step === 4) { setTimeout(() => toast('바르톨: "이것이… 운이라는 걸세."', 'fail'), 2600); battle.timer = 3; }
     }
   }
   let speed = SPEEDS.includes(st.speed) ? st.speed : 1;
@@ -443,7 +443,7 @@ export function battleScene(app, params) {
         if (ev.why === 'curse') toast('짝퉁 마왕 왕관이 성벽을 갉아먹는다… 성벽 -1');
         break;
       }
-      case 'guarded': toast('브란: "이 늙은 몸이 막겠습니다!" 피해 절반', 'good'); break;
+      case 'guarded': toast('바르톨: "이 늙은 몸이 막겠네!" 피해 절반', 'good'); break;
       case 'corrupt': audio.sfxPlay('fail'); toast(`먹물수염이 ${battle.units[ev.cell] ? battle.units[ev.cell].def.name : '유닛'}에게 먹물을 뿌렸다! 여러 번 눌러 닦아 주자!`); break;
       case 'cleanse': audio.sfxPlay(ev.done ? 'win' : 'hover'); break;
       case 'freeze': audio.sfxPlay(ev.kind === 'thunder' ? 'boom' : 'timestop'); toast(ev.kind === 'thunder' ? '천둥 그리핀의 번개! 한 줄이 마비됐다. 눌러서 깨워 주자!' : '실바나의 숨결! 한 줄이 얼어붙었다. 눌러서 얼음을 깨자!'); break;

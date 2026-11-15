@@ -81,7 +81,7 @@ export function shopScene(app, { run }) {
 
   function render() {
     if (el) el.remove();
-    const greet = run.party.includes('toto') ? '토토: "이 가게 사장님 제 사촌이에요. 할인 받아드림!"' : run.flags.guildDebt ? '상인: "길드 계약서에 서명하셨죠? 가격이 좀… 올랐습니다."' : '상인: "어서 오세요! 잿더미 특가! 환불은 안 됩니다."';
+    const greet = run.party.includes('toto') ? '토토: "이 가게 사장님 제 사촌이에요. 할인 받아드림!"' : run.flags.guildDebt ? '상인: "상인회 계약서에 서명하셨죠? 가격이 좀… 올랐습니다."' : '상인: "어서 오세요! 들판 특가! 환불은 안 됩니다."';
     el = frame(app, 'market', 'WANDERING MERCHANT', '떠돌이 상인',
       resBar(run),
       h('div.note', { style: { marginBottom: '8px' } }, greet),
@@ -95,7 +95,7 @@ export function shopScene(app, { run }) {
     if (it.kind === 'relic') body = relicCard(it.id);
     else if (it.kind === 'unit') { const d = UNIT[it.id]; body = h('div.rcard', { style: { '--gc': TIERS[d.tier].color } }, h('div.rg', `${TIERS[d.tier].name} 유닛`), h('div.uimg', h('img', { src: spriteURL(SPR.units[d.id].r, 2), alt: '' }), h('b', d.name)), h('div.rd', d.desc)); }
     else if (it.kind === 'stone') body = h('div.rcard', { style: { '--gc': '#c99bff' } }, h('div.rg', '소모품'), h('b', '행운석 1개'), h('div.rd', '도박 소환, 주사위 재굴림에 쓴다.'));
-    else body = h('div.rcard', { style: { '--gc': '#ff9a5a' } }, h('div.rg', '서비스'), h('b', '성벽 수리 +25'), h('div.rd', '잿빛 시멘트로 땜질한다.'));
+    else body = h('div.rcard', { style: { '--gc': '#ff9a5a' } }, h('div.rg', '서비스'), h('b', '성벽 수리 +25'), h('div.rd', '튼튼한 통나무로 땜질한다.'));
     return h('button.shop-item' + (sold ? '.sold' : ''), {
       disabled: !can,
       onclick: () => {
@@ -276,21 +276,21 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     const r = run.rep;
     const trueOk = run.shards >= 5 && (run.bonds.aila || 0) >= 5 && (run.bonds.bran || 0) >= 5 && run.stats.celestials > 0;
     const list = [
-      { id: 'rebuild', t: '왕관을 봉인하고 왕국을 다시 세운다', ok: true },
-      { id: 'saint', t: '왕관을 정화한다', ok: (r.church || 0) >= 7, need: '빛의 교회 평판 7' },
-      { id: 'ash', t: '왕관을 쓴다', ok: (r.cult || 0) >= 7, need: '재의 교단 평판 7' },
-      { id: 'forest', t: '왕관을 부순다', ok: (r.tribe || 0) >= 7, need: '숲의 부족 평판 7' },
-      { id: 'republic', t: '왕관을 경매에 부친다', ok: (r.guild || 0) >= 7, need: '떠돌이 길드 평판 7' },
+      { id: 'rebuild', t: '마왕을 물리치고 마을로 돌아간다', ok: true },
+      { id: 'saint', t: '구름 수도원과 함께 마왕의 힘을 봉인한다', ok: (r.church || 0) >= 7, need: '구름 수도원 평판 7' },
+      { id: 'ash', t: '들판 요정들과 마왕성을 꽃밭으로 바꾼다', ok: (r.cult || 0) >= 7, need: '들판 요정 평판 7' },
+      { id: 'forest', t: '숲 동물들과 마왕성을 숲으로 돌려보낸다', ok: (r.tribe || 0) >= 7, need: '숲 동물 마을 평판 7' },
+      { id: 'republic', t: '항구 상인회와 마왕성을 관광지로 만든다', ok: (r.guild || 0) >= 7, need: '항구 상인회 평판 7' },
     ];
-    if (run.finalBoss === 'shadow') list.splice(1, 0, { id: 'brother', t: '그림자 속 형제에게 손을 내민다', ok: !!run.flags.brotherBond, need: '형제와의 추억 (왕족 사건)' });
-    list.unshift({ id: 'dawn', t: '다섯 조각을 맞춰 왕관을 없앤다', ok: trueOk, need: '왕관 조각 5 · 브란과 에일라 인연 5 · 천상 유닛', hidden: !trueOk && run.shards < 3 });
+    if (run.finalBoss === 'shadow') list.splice(1, 0, { id: 'brother', t: '마왕의 그림자 속 노아에게 손을 내민다', ok: !!run.flags.brotherBond, need: '친구와의 추억 (용사 사건)' });
+    list.unshift({ id: 'dawn', t: '다섯 무지개 조각으로 다리를 놓아 저주를 끝낸다', ok: trueOk, need: '무지개 조각 5 · 바르톨과 에일라 인연 5 · 천상 유닛', hidden: !trueOk && run.shards < 3 });
     return list.filter((x) => !x.hidden);
   }
   function choose() {
     el = h('div.screen.act-intro',
-      h('div.eyebrow.rise', 'THE HEART OF THE CROWN'),
-      h('h1.rise', '왕관 앞에서'),
-      h('div.sub.rise', '쓰러진 적 뒤로 무너진 왕관이 떠 있다. 이제 정해야 한다.'),
+      h('div.eyebrow.rise', 'THE DEMON CASTLE'),
+      h('h1.rise', '마왕성 꼭대기에서'),
+      h('div.sub.rise', '쓰러진 마왕 뒤로 보랏빛 왕관이 굴러다닌다. 이제 정해야 한다.'),
       h('div.end-opts.rise', { style: { animationDelay: '.4s' } }, options().map((o) => h('button.ev-choice' + (o.ok ? '' : '.locked'), { disabled: !o.ok, onclick: () => { audio.sfxPlay('click'); el.remove(); play(o.id); } }, h('span.t', o.t), o.ok ? null : h('small', o.need)))));
     app.ui.appendChild(el);
   }

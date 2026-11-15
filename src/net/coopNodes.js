@@ -275,7 +275,7 @@ export function coopActIntroScene(app, { run }) {
   };
 }
 
-// ───────── 결말: 왕관의 운명을 투표 ─────────
+// ───────── 결말: 마왕성의 운명을 투표 ─────────
 export function coopEndingScene(app, params) {
   const coop = app.coop;
   const { run, defeat } = params;
@@ -284,14 +284,14 @@ export function coopEndingScene(app, params) {
     const r = run.rep;
     const trueOk = run.shards >= 5 && (run.bonds.aila || 0) >= 5 && (run.bonds.bran || 0) >= 5 && run.stats.celestials > 0;
     const list = [
-      { v: 'dawn', t: '다섯 조각을 맞춰 왕관을 없앤다', ok: trueOk, need: '왕관 조각 5 · 브란과 에일라 인연 5 · 천상 유닛' },
-      { v: 'rebuild', t: '왕관을 봉인하고 왕국을 다시 세운다', ok: true },
-      { v: 'saint', t: '왕관을 정화한다', ok: (r.church || 0) >= 7, need: '빛의 교회 평판 7' },
-      { v: 'ash', t: '왕관을 쓴다', ok: (r.cult || 0) >= 7, need: '재의 교단 평판 7' },
-      { v: 'forest', t: '왕관을 부순다', ok: (r.tribe || 0) >= 7, need: '숲의 부족 평판 7' },
-      { v: 'republic', t: '왕관을 경매에 부친다', ok: (r.guild || 0) >= 7, need: '떠돌이 길드 평판 7' },
+      { v: 'dawn', t: '다섯 무지개 조각으로 다리를 놓아 저주를 끝낸다', ok: trueOk, need: '무지개 조각 5 · 바르톨과 에일라 인연 5 · 천상 유닛' },
+      { v: 'rebuild', t: '마왕을 물리치고 마을로 돌아간다', ok: true },
+      { v: 'saint', t: '구름 수도원과 함께 마왕의 힘을 봉인한다', ok: (r.church || 0) >= 7, need: '구름 수도원 평판 7' },
+      { v: 'ash', t: '들판 요정들과 마왕성을 꽃밭으로 바꾼다', ok: (r.cult || 0) >= 7, need: '들판 요정 평판 7' },
+      { v: 'forest', t: '숲 동물들과 마왕성을 숲으로 돌려보낸다', ok: (r.tribe || 0) >= 7, need: '숲 동물 마을 평판 7' },
+      { v: 'republic', t: '항구 상인회와 마왕성을 관광지로 만든다', ok: (r.guild || 0) >= 7, need: '항구 상인회 평판 7' },
     ];
-    if (run.finalBoss === 'shadow') list.splice(2, 0, { v: 'brother', t: '그림자 속 형제에게 손을 내민다', ok: !!run.flags.brotherBond, need: '형제와의 추억' });
+    if (run.finalBoss === 'shadow') list.splice(2, 0, { v: 'brother', t: '마왕의 그림자 속 노아에게 손을 내민다', ok: !!run.flags.brotherBond, need: '친구와의 추억' });
     return list;
   }
   return {
@@ -305,9 +305,9 @@ export function coopEndingScene(app, params) {
       audio.sfxPlay('victory');
       const box = h('div.ev-choices', { style: { width: '100%', maxWidth: '440px' } });
       el = h('div.screen.act-intro',
-        h('div.eyebrow.rise', 'THE HEART OF THE CROWN'),
-        h('h1.rise', '왕관 앞에서'),
-        h('div.sub.rise', '두 왕족이 함께 정한다. 왕관의 운명을.'), box);
+        h('div.eyebrow.rise', 'THE DEMON CASTLE'),
+        h('h1.rise', '마왕성 꼭대기에서'),
+        h('div.sub.rise', '두 용사가 함께 정한다. 마왕성의 운명을.'), box);
       app.ui.appendChild(el);
       voteBlock(coop, el, box, `end:${run.seed}`, options().map((o) => ({ v: o.v, t: o.t, sub: o.ok ? '' : o.need, disabled: !o.ok })), {
         vote: true,

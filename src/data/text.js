@@ -22,7 +22,7 @@ export const ROYALS = [
 ];
 
 export const MASCOTS = [
-  { id: 'puru', name: '뿌루', kind: '잿빛 병아리', skill: '삐약 응원', cd: 60,
+  { id: 'puru', name: '뿌루', kind: '솜털 병아리', skill: '삐약 응원', cd: 60,
     skillDesc: '10초 동안 아군 전체 공격 속도 +30%.', passive: '꽝이 나면 20% 확률로 위로금 금화 30.' },
   { id: 'cat', name: '왕관냥', locked: true },
   { id: 'mimic', name: '덥석이', locked: true },

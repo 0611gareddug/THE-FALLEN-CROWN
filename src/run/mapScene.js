@@ -17,10 +17,10 @@ import { FATE, FATE_TITLES, fateId, fateTally } from '../data/fate.js';
 
 const ROMAN = ['I', 'II', 'III', 'IV'];
 export const FACTIONS = {
-  church: { name: '빛의 교회', color: '#f1e3a6' },
-  cult: { name: '재의 교단', color: '#e0663a' },
-  tribe: { name: '숲의 부족', color: '#7fbf6a' },
-  guild: { name: '떠돌이 길드', color: '#e8c25a' },
+  church: { name: '구름 수도원', color: '#4a8ac8' },
+  cult: { name: '들판 요정', color: '#d0559a' },
+  tribe: { name: '숲 동물 마을', color: '#3f8f3a' },
+  guild: { name: '항구 상인회', color: '#c27510' },
 };
 const TYPE_COL = { battle: '#6e4a2a', elite: '#c0392b', event: '#2f6fb8', shop: '#b07818', camp: '#d0601e', treasure: '#c89a10', altar: '#7a4bc0', boss: '#c0392b', dragon: '#2a8ab8', fate: '#c27510' };
 
