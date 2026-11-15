@@ -876,11 +876,6 @@ export function battleScene(app, params) {
     app.bg.setMode('game');
     audio.play('battle');
     build();
-    if (coop && L.kind === 'ring') {
-      minimap = makeMinimap(L, battle, () => { fullView = !fullView; audio.sfxPlay('click'); resize(); minimap.el.classList.toggle('on', fullView); });
-      el.appendChild(minimap.el);
-      toast(`${NP}인 협동! 오른쪽 위 작은 지도를 누르면 전장 전체를 볼 수 있어요.`);
-    }
     app.gameCv.addEventListener('pointerdown', onDown);
     app.gameCv.addEventListener('pointermove', onMove);
     app.gameCv.addEventListener('pointerup', onUp);
@@ -910,8 +905,10 @@ export function battleScene(app, params) {
     const dpr = window.devicePixelRatio || 1;
     let view = app.land ? (coop ? COOP.landView : LAND_VIEW) : null;
     // 3~4인 전체 보기: 고리 전체가 보이도록 (화면 비율은 그대로)
-    if (coop && L.kind === 'ring' && fullView) {
-      view = app.land ? { x: 0, y: 248 - (720 * 520 / 488) / 2, w: 720, h: 720 * 520 / 488 } : { x: 0, y: 0, w: 720, h: 1280 };
+    // 3~4인: 전장 전체를 작게, 아래쪽(조작 버튼 바로 위)에 붙여 보여 준다
+    if (coop && L.kind === 'ring') {
+      const lh = 720 * 520 / 488;
+      view = app.land ? { x: 0, y: 452 - lh, w: 720, h: lh } : { x: 0, y: 444 - 872, w: 720, h: 1280 };
     }
     const zoom = app.land ? (coop ? 488 : 630) / view.w : view ? W / view.w : 1;
     let s = Math.ceil(app.scale * zoom * dpr);
