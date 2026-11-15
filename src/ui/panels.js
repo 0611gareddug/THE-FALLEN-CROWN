@@ -107,7 +107,7 @@ export function chroniclePanel(root) {
               selCell = cell;
               detail.replaceChildren(known
                 ? h('div', h('div', { style: { fontSize: '13px', fontWeight: 600, color: tier === 5 ? '#ff9ad9' : t.color } }, u.name), h('div', { style: { color: 'var(--dim)', fontSize: '10.5px' } }, `${t.name} · ${CLASSES[u.cls].name}`), h('div', u.desc), h('div.q', `“${u.quip}”`))
-                : h('div', { style: { color: 'var(--dim)' } }, '아직 만나지 못한 유닛입니다. 잿더미 어딘가에 있을지도.'));
+                : h('div', { style: { color: 'var(--dim)' } }, '아직 만나지 못한 유닛입니다. 들판 어딘가에 있을지도.'));
             },
           }, h('img', { src: known ? spriteURL(SPR.units[u.id].r, 3) : silhouetteURL(SPR.units[u.id].r, 3), alt: '' }));
           return cell;
@@ -184,7 +184,7 @@ export function treasuryPanel(root) {
       }),
       h('div.note', { style: { marginTop: '10px' } }, '다른 마스코트는 사건, 동료 인연, 업적, 연대기 수집으로 해금됩니다.'),
     );
-    sub.textContent = `잿빛 조각 ${d.ash}개 · 거미줄은 치웠습니다. 외상 장부는 아직 있습니다.`;
+    sub.textContent = `별가루 ${d.ash}개 · 창고 문은 삐걱거리지만 잘 열립니다. 외상 장부도 있습니다.`;
   };
   const sub = h('div.sub');
   render();

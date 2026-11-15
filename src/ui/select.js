@@ -1,4 +1,4 @@
-// 왕족 · 마스코트 선택
+// 용사 · 마스코트 선택
 import { h } from './dom.js';
 import { audio } from '../core/audio.js';
 import { ROYALS } from '../data/text.js';

@@ -1,16 +1,16 @@
-// 업적 43개 · 달성 시 잿빛 조각 + 알림
+// 업적 43개 · 달성 시 별가루 + 알림
 import { store, save } from '../core/storage.js';
 
 export const ACHS = [
   // 진행 (8)
-  { id: 'act1', cat: '진행', name: '첫 걸음', desc: '1막 보스 오그란 처치', ash: 10 },
-  { id: 'act2', cat: '진행', name: '배신자의 최후', desc: '2막 보스 모르벤 처치', ash: 15 },
+  { id: 'act1', cat: '진행', name: '첫 걸음', desc: '1막 보스 슬라임왕 퐁퐁 처치', ash: 10 },
+  { id: 'act2', cat: '진행', name: '바다는 우리 것', desc: '2막 보스 먹물수염 처치', ash: 15 },
   { id: 'dragonKill', cat: '진행', name: '용의 둥지', desc: '실바나와의 전투에서 승리', ash: 15 },
   { id: 'finish', cat: '진행', name: '왕의 귀환', desc: '아무 결말이나 보기', ash: 20 },
   { id: 'edricWin', cat: '진행', name: '방패는 거들 뿐', desc: '레오로 결말 보기', ash: 10 },
   { id: 'serenWin', cat: '진행', name: '반납 기한은 지킵시다', desc: '미나로 결말 보기', ash: 10 },
   { id: 'kyleWin', cat: '진행', name: '전설의 빵집', desc: '피크로 결말 보기', ash: 10 },
-  { id: 'runs10', cat: '진행', name: '잿더미 단골', desc: '여정을 10번 끝내기', ash: 20 },
+  { id: 'runs10', cat: '진행', name: '모험 단골', desc: '여정을 10번 끝내기', ash: 20 },
   // 수집 (8)
   { id: 'cel1', cat: '수집', name: '하늘이 열렸다', desc: '천상 유닛 처음 만들기', ash: 10 },
   { id: 'cel2', cat: '수집', name: '천상의 듀오', desc: '한 판에 천상 유닛 2명', ash: 15 },
@@ -18,7 +18,7 @@ export const ACHS = [
   { id: 'set3', cat: '수집', name: '풀세트', desc: '세트 유물 3개 모두 모으기', ash: 15 },
   { id: 'party3', cat: '수집', name: '든든한 일행', desc: '동료 3명과 함께 여행', ash: 10 },
   { id: 'bond5', cat: '수집', name: '평생 친구', desc: '동료 한 명과 인연 5 달성', ash: 15 },
-  { id: 'shards5', cat: '수집', name: '왕관 맞추기', desc: '왕관 조각 5개 모두 모으기', ash: 20 },
+  { id: 'shards5', cat: '수집', name: '무지개 맞추기', desc: '무지개 조각 5개 모두 모으기', ash: 20 },
   { id: 'codex50', cat: '수집', name: '연대기 기록관', desc: '유닛 도감 50% 달성', ash: 10 },
   // 운 · 망함 (10)
   { id: 'fail10', cat: '운 · 망함', name: '운명의 여신 읽씹', desc: '도박 소환 꽝 누적 10번', ash: 10 },
@@ -29,10 +29,10 @@ export const ACHS = [
   { id: 'overflow', cat: '운 · 망함', name: '만원 사례', desc: '필드 몬스터 120마리 돌파', ash: 5 },
   { id: 'cursed2', cat: '운 · 망함', name: '저주 수집가', desc: '저주 유물 2개 보유', ash: 10 },
   { id: 'broke', cat: '운 · 망함', name: '빈털터리', desc: '금화 0으로 상점 나가기', ash: 5 },
-  { id: 'defeat1', cat: '운 · 망함', name: '잿더미', desc: '처음으로 패배하기', ash: 5 },
+  { id: 'defeat1', cat: '운 · 망함', name: '넘어진 용사', desc: '처음으로 패배하기', ash: 5 },
   { id: 'zero', cat: '운 · 망함', name: '0명 소환', desc: '무한 가챠 부적으로 아무도 안 나오기', ash: 5 },
   // 스토리 (8)
-  { id: 'trueEnd', cat: '스토리', name: '잿빛 새벽', desc: '진엔딩 보기', ash: 50 },
+  { id: 'trueEnd', cat: '스토리', name: '무지개 다리', desc: '진엔딩 보기', ash: 50 },
   { id: 'tax', cat: '스토리', name: '납세의 의무', desc: '용에게 세금 받기', ash: 15 },
   { id: 'dragon', cat: '스토리', name: '용 기수의 귀환', desc: '실바나를 싸우지 않고 되찾기', ash: 20 },
   { id: 'darkEnd', cat: '스토리', name: '재의 군주', desc: '왕관을 쓰는 결말 보기', ash: 15 },
@@ -73,9 +73,9 @@ export function unlockAch(id) {
   return true;
 }
 
-// 왕실 보물고 영구 강화
+// 용사단 보물창고 영구 강화
 export const PERKS = [
-  { id: 'gold', name: '왕실 금고 열쇠', desc: '시작 금화 +5', max: 3, cost: (lv) => 30 + lv * 30 },
+  { id: 'gold', name: '용사단 금고 열쇠', desc: '시작 금화 +5', max: 3, cost: (lv) => 30 + lv * 30 },
   { id: 'wall', name: '튼튼한 주춧돌', desc: '시작 성벽 최대 체력 +5', max: 2, cost: (lv) => 40 + lv * 40 },
   { id: 'free', name: '첫 소환 무료권', desc: '여정 첫 소환 1회 무료', max: 1, cost: () => 60 },
   { id: 'relic', name: '유산 상자', desc: '여정 시작 시 유물 3개 중 1개 선택', max: 1, cost: () => 120 },

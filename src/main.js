@@ -112,7 +112,7 @@ onAchievement((a) => {
   n.className = 'ach-pop';
   n.innerHTML = `<small>업적 달성</small><b></b><span></span>`;
   n.querySelector('b').textContent = a.name;
-  n.querySelector('span').textContent = `${a.desc} · 잿빛 조각 +${a.ash}`;
+  n.querySelector('span').textContent = `${a.desc} · 별가루 +${a.ash}`;
   stage.appendChild(n);
   setTimeout(() => n.remove(), 3600);
 });

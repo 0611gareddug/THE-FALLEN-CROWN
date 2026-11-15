@@ -171,7 +171,7 @@ export function applyFx(run, fx, meta) {
     const idx = c.units.map((u, i) => (u && UNIT[u.id].tier < 5 ? i : -1)).filter((i) => i >= 0);
     if (idx.length) { const i = rng(run).pick(idx); out.push(`${UNIT[c.units[i].id].name}을(를) 잃었다`); c.units[i] = null; }
   }
-  if (fx.shard) { run.shards = Math.min(5, run.shards + fx.shard); out.push(`왕관 조각 +${fx.shard} (${run.shards}/5)`); }
+  if (fx.shard) { run.shards = Math.min(5, run.shards + fx.shard); out.push(`무지개 조각 +${fx.shard} (${run.shards}/5)`); }
   if (fx.flag) run.flags[fx.flag] = fx.flag === 'blessed3' ? 3 : 1;
   if (fx.flag2) run.flags[fx.flag2] = 1;
   if (fx.flagInc) {

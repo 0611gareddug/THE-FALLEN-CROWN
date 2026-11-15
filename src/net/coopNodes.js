@@ -225,7 +225,7 @@ export function coopRewardScene(app, { run, kind, escaped }) {
     const title = kind === 'boss' ? '보스 격파' : kind === 'elite' ? '정예 격파' : kind === 'dragon' ? '용의 둥지' : '전투 승리';
     el = frame(app, kind === 'boss' ? 'hall' : 'road', 'VICTORY', title, resBar(coop.run || run),
       escaped ? h('div.note', `도망친 적 ${escaped}마리가 성벽을 할퀴고 갔다.`) : null,
-      (kind === 'boss' || kind === 'dragon') ? h('div.note', { style: { color: 'var(--gold2)' } }, '왕관 조각을 손에 넣었다!') : null,
+      (kind === 'boss' || kind === 'dragon') ? h('div.note', { style: { color: 'var(--gold2)' } }, '무지개 조각을 손에 넣었다!') : null,
       box);
     if (done) { continueBlock(coop, el, box, run, 'rw-go', () => { if (coop.host) finishNode(app, run); }); return; }
     if (picks.length) {

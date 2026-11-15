@@ -414,7 +414,7 @@ export function battleScene(app, params) {
           setTimeout(() => toast(BOSS_GIMMICK_TEXT[ENEMIES[ev.boss].gimmick] || ''), 2000);
         } else {
           audio.sfxPlay('wave');
-          announce(`WAVE ${ev.wave}`, ev.elite ? `정예 출현 · ${ENEMIES[ev.elite].name}` : ev.wave === 1 ? (nodeTitle || '잿더미에서 그들이 온다') : null);
+          announce(`WAVE ${ev.wave}`, ev.elite ? `정예 출현 · ${ENEMIES[ev.elite].name}` : ev.wave === 1 ? (nodeTitle || '마왕군이 몰려온다!') : null);
         }
         break;
       case 'waveClear':
@@ -440,7 +440,7 @@ export function battleScene(app, params) {
         if (ev.why === 'bossLap') toast(`${bn}이(가) 성벽을 들이받았다! 성벽 -15`);
         if (ev.why === 'timeout') toast(`${bn}이(가) 분노했다! 성벽 -25`);
         if (ev.why === 'escape') toast(`도망친 적들이 성벽을 할퀴었다! 성벽 -${Math.round(ev.v)}`);
-        if (ev.why === 'curse') toast('짝퉁 왕관이 성벽을 갉아먹는다… 성벽 -1');
+        if (ev.why === 'curse') toast('짝퉁 마왕 왕관이 성벽을 갉아먹는다… 성벽 -1');
         break;
       }
       case 'guarded': toast('브란: "이 늙은 몸이 막겠습니다!" 피해 절반', 'good'); break;
@@ -756,7 +756,7 @@ export function battleScene(app, params) {
         h('div', h('span', '소환 / 진화'), h('span', `${b.stats.summons} / ${b.stats.merges}`)),
         h('div', h('span', '도박 꽝'), h('span', `${b.stats.fails} / ${b.stats.gambles}`)),
         best ? h('div', h('span', '최고의 일꾼'), h('span', { style: { color: tierCol(best.def.tier), fontFamily: 'var(--serif)' } }, best.def.name)) : null,
-        h('div', h('span', '잿빛 조각'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),
+        h('div', h('span', '별가루'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),
       h('div.btns',
         h('button.btn', { onclick: () => { audio.sfxPlay('click'); app.go('lobby'); } }, '로비로'),
         h('button.btn.primary', { onclick: () => { audio.sfxPlay('click'); app.go('battle', params); } }, '다시 도전')));

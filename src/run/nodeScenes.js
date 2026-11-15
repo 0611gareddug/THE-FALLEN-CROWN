@@ -227,7 +227,7 @@ export function rewardScene(app, { run, kind, gold, escaped }) {
     const body = [];
     body.push(resBar(run));
     if (escaped) body.push(h('div.note', `도망친 적 ${escaped}마리가 성벽을 할퀴고 갔다.`));
-    if (kind === 'boss' || kind === 'dragon') body.push(h('div.note', { style: { color: 'var(--gold2)' } }, '왕관 조각을 손에 넣었다!'));
+    if (kind === 'boss' || kind === 'dragon') body.push(h('div.note', { style: { color: 'var(--gold2)' } }, '무지개 조각을 손에 넣었다!'));
     if (picks.length && !done) {
       body.push(h('div.note', '유물 하나를 고르세요.'));
       body.push(h('div.picks', picks.map((id) => h('button.pick', { onclick: () => { addRelic(run, id, []); audio.sfxPlay('win'); render(true); } }, relicCard(id)))));
@@ -350,9 +350,9 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
         h('div', h('span', '용사'), h('span', { style: { fontFamily: 'var(--serif)' } }, royal.name)),
         h('div', h('span', '도달'), h('span', `${run.act}막`)),
         h('div', h('span', '처치'), h('span', String(run.stats.kills))),
-        h('div', h('span', '유물 · 왕관 조각'), h('span', `${run.relics.length} · ${run.shards}/5`)),
+        h('div', h('span', '유물 · 무지개 조각'), h('span', `${run.relics.length} · ${run.shards}/5`)),
         h('div', h('span', '마스코트 친밀도'), h('span', `+${xp}`)),
-        h('div', h('span', '잿빛 조각'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),
+        h('div', h('span', '별가루'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),
       h('div.btns', h('button.btn.primary', { onclick: () => { audio.sfxPlay('click'); app.go('lobby'); } }, '로비로')));
     app.ui.appendChild(el);
   }

@@ -40,7 +40,7 @@ export const ELITE_ART = {
       '....oWWo.oWWo...',
       '....oooo.oooo...',
     ],
-    pal: { w: '#9aa0b4', l: '#e8ecf4', W: '#5d6378', r: '#e0463a', a: '#4a4f62', A: '#2e3242', g: '#c9a85c' },
+    pal: { w: '#b8c0d0', l: '#f4f6fa', W: '#7a8296', r: '#e0463a', a: '#6aa84a', A: '#4a8a32', g: '#ffd36b' },
   },
   priestess: {
     rows: [
@@ -61,7 +61,7 @@ export const ELITE_ART = {
       '..oAAAAAAAAAAo..',
       '...oooooooooo...',
     ],
-    pal: { w: '#e8e0d0', s: '#e8c0a0', e: '#5a2a4a', b: '#f08a8a', a: '#5a8a7a', A: '#3a5a50', g: '#9be08a', y: '#9be08a' },
+    pal: { w: '#f4ecff', s: '#f0c8a8', e: '#5a2a4a', b: '#f08a8a', a: '#8a5ac8', A: '#6a3aa0', g: '#9be08a', y: '#9be08a' },
   },
   necro: {
     rows: [
@@ -82,7 +82,7 @@ export const ELITE_ART = {
       '..oAAAAAAAAAAo..',
       '...oooooooooo...',
     ],
-    pal: { a: '#3a2a4a', A: '#22182e', K: '#141018', g: '#9be08a', p: '#c99bff', x: '#5a4a3a' },
+    pal: { a: '#7ac05a', A: '#4f8a3a', K: '#2a4a1a', g: '#ffd36b', p: '#ff9ac2', x: '#8a6a3a' },
   },
   wolf: {
     rows: [
@@ -103,7 +103,7 @@ export const ELITE_ART = {
       '....oaao.oaao...',
       '....oooo.oooo...',
     ],
-    pal: { a: '#6a6470', A: '#46404e', e: '#ffe36b', w: '#f0f0f0' },
+    pal: { a: '#a89a8a', A: '#7a6e62', e: '#ffe36b', w: '#ffffff' },
   },
 };
 
@@ -223,7 +223,7 @@ export const BOSS_ART = {
       '........................',
       '........................',
     ],
-    pal: { r: '#7a2a2a', R: '#4a1818', k: '#1a1018', K: '#2a2028', f: '#ff8a3a', y: '#ffe36b', x: '#9a9490' },
+    pal: { r: '#7a52c0', R: '#55369a', k: '#2a1a3a', K: '#3a2a50', f: '#ffd36b', y: '#ffffff', x: '#c8c0d8' },
   },
   shadow: {
     rows: [

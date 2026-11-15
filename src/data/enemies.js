@@ -1,22 +1,22 @@
 // 적 · 정예 · 보스 정의와 웨이브 생성
 
 export const ENEMIES = {
-  rat: { name: '잿빛 쥐떼', hp: 0.55, spd: 62, armor: 0, mres: 0 },
-  skel: { name: '해골 병사', hp: 1, spd: 40, armor: 0.1, mres: 0 },
-  corpse: { name: '갑주 시체', hp: 1.35, spd: 33, armor: 0.45, mres: 0 },
-  ember: { name: '불씨 정령', hp: 1, spd: 46, armor: 0, mres: 0.45 },
-  bat: { name: '박쥐 무리', hp: 0.42, spd: 56, armor: 0, mres: 0, group: 3 },
-  toad: { name: '거대 두꺼비', hp: 3.4, spd: 24, armor: 0.15, mres: 0.15 },
-  wraith: { name: '흐릿한 망령', hp: 0.95, spd: 44, armor: 0, mres: 0.2, phase: [5, 1.4] },
-  slime: { name: '분열 점액', hp: 1.1, spd: 35, armor: 0, mres: 0, split: 2 },
-  mini: { name: '작은 점액', hp: 0.35, spd: 48, armor: 0, mres: 0 },
-  cultist: { name: '재의 신도', hp: 1.2, spd: 42, armor: 0.1, mres: 0.3 },
+  rat: { name: '들쥐 졸개', hp: 0.55, spd: 62, armor: 0, mres: 0 },
+  skel: { name: '꼬마 고블린', hp: 1, spd: 40, armor: 0.1, mres: 0 },
+  corpse: { name: '갑옷 고블린', hp: 1.35, spd: 33, armor: 0.45, mres: 0 },
+  ember: { name: '심술 불꽃', hp: 1, spd: 46, armor: 0, mres: 0.45 },
+  bat: { name: '장난 박쥐 떼', hp: 0.42, spd: 56, armor: 0, mres: 0, group: 3 },
+  toad: { name: '뚱보 두꺼비', hp: 3.4, spd: 24, armor: 0.15, mres: 0.15 },
+  wraith: { name: '장난꾸러기 유령', hp: 0.95, spd: 44, armor: 0, mres: 0.2, phase: [5, 1.4] },
+  slime: { name: '분열 슬라임', hp: 1.1, spd: 35, armor: 0, mres: 0, split: 2 },
+  mini: { name: '아기 슬라임', hp: 0.35, spd: 48, armor: 0, mres: 0 },
+  cultist: { name: '마왕군 꼬마 마법사', hp: 1.2, spd: 42, armor: 0.1, mres: 0.3 },
 
   // ── 정예 ──
-  shieldlord: { name: '방패 기사단장', hp: 9, spd: 26, armor: 0.6, mres: 0.1, elite: true, size: 32 },
-  priestess: { name: '치유하는 무녀', hp: 6, spd: 32, armor: 0.1, mres: 0.4, elite: true, heal: [3, 0.06, 70], size: 32 },
-  necro: { name: '사령술사', hp: 6.5, spd: 30, armor: 0.1, mres: 0.35, elite: true, summon: [6, 'skel', 3], size: 32 },
-  wolf: { name: '질주하는 늑대인간', hp: 7, spd: 70, armor: 0.2, mres: 0.1, elite: true, enrage: 0.5, size: 32 },
+  shieldlord: { name: '고블린 방패대장', hp: 9, spd: 26, armor: 0.6, mres: 0.1, elite: true, size: 32 },
+  priestess: { name: '치유하는 마녀', hp: 6, spd: 32, armor: 0.1, mres: 0.4, elite: true, heal: [3, 0.06, 70], size: 32 },
+  necro: { name: '고블린 주술사', hp: 6.5, spd: 30, armor: 0.1, mres: 0.35, elite: true, summon: [6, 'skel', 3], size: 32 },
+  wolf: { name: '질주하는 늑대 기사', hp: 7, spd: 70, armor: 0.2, mres: 0.1, elite: true, enrage: 0.5, size: 32 },
 
   // ── 보스 (hp는 해당 지점 기본 체력의 배수) ──
   ogran: { name: '슬라임왕 퐁퐁', hp: 30, spd: 19, armor: 0.3, mres: 0.15, boss: true, gimmick: 'roar', title: '1막 보스 · 풀숲' },

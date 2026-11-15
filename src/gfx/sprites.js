@@ -105,31 +105,37 @@ const T = {
 
 // 유닛별 팔레트 (몸체 템플릿 위에 색을 덮어 개성을 준다)
 const UP = {
-  spear: { t: 'knight', a: '#8a8f99', A: '#5d6270', c: '#b04a3a', w: '#c9ced8', W: '#7d8494' },
-  hunter: { t: 'archer', a: '#6b7f4a', A: '#4a5a30', c: '#8a6a3a', h: '#6a4a2a' },
-  ember: { t: 'mage', a: '#a0503a', A: '#6e3226', h: '#4a2a1a', c: '#ff8a3a' },
-  nun: { t: 'priest', a: '#d8d4cc', A: '#a8a29a', h: '#6a4a2a' },
-  shield: { t: 'knight', a: '#4f7a4a', A: '#35552f', c: '#e8c25a', w: '#b8c4b0', W: '#6f8068' },
-  xbow: { t: 'archer', a: '#3f6a3a', A: '#2a4a26', c: '#9a7a4a', h: '#3a2a1a' },
-  frost: { t: 'mage', a: '#3f78b0', A: '#284f7a', h: '#d8e8ff', c: '#a8e4ff' },
-  pick: { t: 'rogue', a: '#5a4a3a', A: '#3a2e24', c: '#7a6a5a', h: '#8a5a2a' },
-  ashguard: { t: 'knight', a: '#4a5f8a', A: '#2e3d5e', c: '#9aa6c0', w: '#aab4c8', W: '#5d6782' },
-  twin: { t: 'archer', a: '#3a5f9a', A: '#263f6a', c: '#c0c8d8', h: '#e0c060' },
-  storm: { t: 'mage', a: '#3a4f9a', A: '#26346a', h: '#f0f0ff', c: '#ffe36b' },
-  shade: { t: 'rogue', a: '#2e3a5a', A: '#1e263e', c: '#4a5a8a', h: '#1a1a2a' },
-  paladin: { t: 'priest', a: '#e8e0f0', A: '#b0a0c8', h: '#e0c060', g: '#c99bff' },
-  wind: { t: 'archer', a: '#7a4bb0', A: '#523080', c: '#c0f0d0', h: '#c0c0d0' },
-  alch: { t: 'mage', a: '#6a3a8a', A: '#46265e', h: '#3a2a3a', c: '#9be08a' },
-  duel: { t: 'knight', a: '#b8bccc', A: '#7d8294', c: '#9b5fd6', w: '#f0f2f8', W: '#9aa0b4' },
-  phoenix: { t: 'knight', a: '#c0502a', A: '#86341a', c: '#ffcf4a', w: '#ffd890', W: '#d08a30' },
-  star: { t: 'mage', a: '#2a2f6a', A: '#1a1e46', h: '#f0f0ff', c: '#ffe36b', g: '#ffe36b' },
-  dusk: { t: 'archer', a: '#8a3a4a', A: '#5e2632', c: '#ffb070', h: '#2a1a1a' },
-  mask: { t: 'rogue', a: '#5a2a3a', A: '#3e1a26', c: '#e8c25a', h: '#1a1018' },
-  swordking: { t: 'knight', a: '#e0b23a', A: '#a07a1a', c: '#ffffff', w: '#fff4c0', W: '#c8a040', g: '#ffffff' },
-  witch: { t: 'mage', a: '#1e1a3a', A: '#120f26', h: '#c0b0ff', c: '#a8e4ff', g: '#c99bff' },
-  skybow: { t: 'archer', a: '#e8f0ff', A: '#a0b0d0', c: '#7ad0ff', h: '#ffe080' },
-  saint: { t: 'priest', a: '#fff8e8', A: '#e0c8a0', h: '#ffe9a0', g: '#ffb0d8' },
-  nameless: { t: 'rogue', a: '#1a1420', A: '#0e0a12', c: '#e8c25a', h: '#0a0a0a' },
+  // 견습: 마을 사람들
+  spear: { t: 'knight', a: '#6aa04a', A: '#4a7a32', c: '#e8b84a', w: '#ecd590', W: '#b89a5a' },
+  hunter: { t: 'archer', a: '#9a7040', A: '#6e4e2a', c: '#c89a5a', h: '#8a5a2a' },
+  ember: { t: 'mage', a: '#f4f0e6', A: '#c8bfae', h: '#a86a3a', c: '#ff8a3a' },
+  nun: { t: 'priest', a: '#f4f0ff', A: '#c8c0e0', h: '#e8b860' },
+  // 숙련
+  shield: { t: 'knight', a: '#5a8ad0', A: '#3a62a0', c: '#e8c25a', w: '#d2d6de', W: '#8a92a0' },
+  xbow: { t: 'archer', a: '#7ab05a', A: '#4f8a3a', c: '#b08a50', h: '#5a3a1a' },
+  frost: { t: 'mage', a: '#ff9ac2', A: '#d06a96', h: '#ffe8a0', c: '#a8e4ff' },
+  pick: { t: 'rogue', a: '#c8884a', A: '#9a6430', c: '#f0c060', h: '#5a3a1a' },
+  // 정예
+  ashguard: { t: 'knight', a: '#3a7ad0', A: '#2a5a9a', c: '#ffd36b', w: '#dfe6f0', W: '#9aa6bc' },
+  twin: { t: 'archer', a: '#4a9ac8', A: '#2f72a0', c: '#ffe08a', h: '#e0a040' },
+  storm: { t: 'mage', a: '#4a6ad8', A: '#2f4aa8', h: '#fff4c0', c: '#ffe36b' },
+  shade: { t: 'rogue', a: '#5a5a9a', A: '#3e3e72', c: '#8a8ad0', h: '#2a2a4a' },
+  // 영웅
+  paladin: { t: 'priest', a: '#f4f0ff', A: '#c0b0e0', h: '#ffd36b', g: '#c99bff' },
+  wind: { t: 'archer', a: '#5ac0a0', A: '#3a9078', c: '#e0fff0', h: '#e0e0f0' },
+  alch: { t: 'mage', a: '#9a6ad0', A: '#7046a8', h: '#f0c060', c: '#9be08a' },
+  duel: { t: 'knight', a: '#c8ccd8', A: '#8a90a4', c: '#9b5fd6', w: '#f4f6fa', W: '#a0a8bc' },
+  // 전설
+  phoenix: { t: 'knight', a: '#e0602a', A: '#a8401a', c: '#ffcf4a', w: '#ffe0a0', W: '#e09a40' },
+  star: { t: 'mage', a: '#3a4aa8', A: '#26307a', h: '#f0f0ff', c: '#ffe36b', g: '#ffe36b' },
+  dusk: { t: 'archer', a: '#e07050', A: '#b04a3a', c: '#ffd080', h: '#5a2a1a' },
+  mask: { t: 'rogue', a: '#c04a6a', A: '#8a2e4a', c: '#ffd36b', h: '#3a1a2a' },
+  // 천상: 전설 속 영웅들
+  swordking: { t: 'knight', a: '#f0c040', A: '#b88a1a', c: '#ffffff', w: '#fff6d0', W: '#d8b050', g: '#ffffff' },
+  witch: { t: 'mage', a: '#5a46a8', A: '#3a2c7a', h: '#d8ccff', c: '#a8e4ff', g: '#c99bff' },
+  skybow: { t: 'archer', a: '#eef6ff', A: '#a8bce0', c: '#7ad0ff', h: '#ffe890' },
+  saint: { t: 'priest', a: '#fffaf0', A: '#e8d0a8', h: '#ffeca8', g: '#ffb0d8' },
+  nameless: { t: 'rogue', a: '#46345e', A: '#2e2042', c: '#ffd36b', h: '#2a1a30' },
 };
 
 // ── 적 템플릿 (12×12, 오른쪽을 바라봄) ──
@@ -261,10 +267,13 @@ const E = {
     '....oooo....',
   ],
 };
+// 마왕군 졸개들 (밝은 동화풍 색)
 const EP = {
-  rat: { a: '#7a7380', A: '#5a5360' },
-  bat: { a: '#5a3a6a', A: '#3a2448' },
-  toad: { a: '#5a7a3a', A: '#3e5a26' },
+  rat: { a: '#a08870', A: '#7a6450' },
+  skel: { w: '#8fd06a', W: '#5fa040', e: '#c0392b' },
+  corpse: { w: '#8fd06a', W: '#9aa0b0', n: '#7ac05a', e: '#c0392b' },
+  bat: { a: '#8a5ab0', A: '#5e3a80' },
+  toad: { a: '#6ab04a', A: '#4a8a32', r: '#ff9ac2' },
 };
 
 // ── 보스 오그란 (24×24) ──
@@ -311,7 +320,7 @@ const PURU = [
   '..oyoooyo...',
   '..oo...oo...',
 ];
-const PURU_P = { a: '#b8b0a8', A: '#8a827a', g: '#e8c25a' };
+const PURU_P = { a: '#ffe48a', A: '#e8b84a', g: '#ff9a3a' };
 
 // ── 왕관 (왕족 초상 덮어쓰기용, 16 폭) ──
 const CROWN = [
