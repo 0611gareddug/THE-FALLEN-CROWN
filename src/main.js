@@ -12,6 +12,7 @@ import { mapScene } from './run/mapScene.js';
 import { eventScene } from './run/eventScene.js';
 import { shopScene, campScene, treasureScene, altarScene, rewardScene, actIntroScene, endingScene } from './run/nodeScenes.js';
 import { prologueScene } from './run/prologue.js';
+import { coopLobbyScene, coopSelectScene } from './net/coopUI.js';
 import { onAchievement, unlockAch } from './meta/achievements.js';
 import { achQueue } from './run/events.js';
 
@@ -38,6 +39,7 @@ const app = {
       lobby: lobbyScene, select: selectScene, battle: battleScene, map: mapScene, event: eventScene,
       shop: shopScene, camp: campScene, treasure: treasureScene, altar: altarScene, reward: rewardScene,
       actIntro: actIntroScene, ending: endingScene, prologue: prologueScene,
+      coopLobby: coopLobbyScene, coopSelect: coopSelectScene,
     }[name];
     app.scene = make(app, params || {});
     app.scene.enter();

@@ -24,6 +24,9 @@ const TYPE_COL = { battle: '#d9d4c7', elite: '#ff8a7a', event: '#9fc8ff', shop: 
 
 export function mapScene(app, { run }) {
   let el, info, sel = null;
+  const coop = run.coop && app.coop ? app.coop : null;
+  const voteKey = () => `map:${run.act}:${run.pos || 's'}:${run.stats.battles}:${run.stats.events}`;
+  const offs = [];
 
   function geom() {
     return app.land ? { x0: 290, x1: 670, y0: 488, y1: 64 } : { x0: 26, x1: 334, y0: 530, y1: 120 };
@@ -37,6 +40,23 @@ export function mapScene(app, { run }) {
     app.bg.setMode('lobby');
     audio.play('map');
     build();
+    if (coop) {
+      const key = voteKey();
+      coop.openVote(key, { options: available(run) });
+      offs.push(coop.onLocal('vote', (m) => { if (m.key === key) markVotes(); }));
+      offs.push(coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(el, key, (id) => nodeLabel(id)); }));
+      offs.push(coop.onLocal('run', (r) => { run = r; build(); markVotes(); }));
+      coop.whenDecided(key, (id) => { audio.sfxPlay('click'); if (coop.host) enterNode(app, run, id); });
+    }
+  }
+  const nodeLabel = (id) => { const nd = nodeOf(run, id); if (!nd) return '?'; const row = run.map.rows[nd.row]; return row.length > 1 ? `${NODE_TYPES[nd.type].name} (${['왼쪽', '가운데', '오른쪽', '맨 오른쪽'][Math.min(3, Math.round((nd.i / Math.max(1, row.length - 1)) * (row.length > 3 ? 3 : 2)))]})` : NODE_TYPES[nd.type].name; };
+  function markVotes() {
+    if (!coop || !el) return;
+    const v = coop.votes[voteKey()] || [];
+    el.querySelectorAll('.node').forEach((b) => {
+      b.classList.toggle('v-me', b.dataset.id === v[coop.me]);
+      b.classList.toggle('v-them', b.dataset.id === v[1 - coop.me]);
+    });
   }
 
   function build() {
@@ -72,6 +92,7 @@ export function mapScene(app, { run }) {
       const cur = nd.id === run.pos;
       const cls = ['node', nd.type, nd.done ? 'done' : '', isAvail ? 'avail' : '', cur ? 'cur' : '', nd.type === 'boss' || nd.type === 'dragon' ? 'big' : ''].filter(Boolean).join('.');
       const b = h('button.' + cls, {
+        'data-id': nd.id,
         style: { left: x + 'px', top: y + 'px' },
         'aria-label': NODE_TYPES[nd.type].name,
         onclick: () => choose(nd, isAvail),
@@ -102,7 +123,7 @@ export function mapScene(app, { run }) {
           h('i', { style: { width: Math.abs(v) * 5 + '%', left: v < 0 ? 50 - Math.abs(v) * 5 + '%' : '50%', background: v < 0 ? '#e0463a' : f.color } }));
       })),
       h('div.party',
-        h('img.me', { src: spriteURL(SPR.royals[run.royal], 2), alt: royal.name, title: royal.name }),
+        (run.players ? run.players.map((p) => p.royal) : [run.royal]).map((r) => h('img.me', { src: spriteURL(SPR.royals[r], 2), alt: '', title: ROYALS.find((x) => x.id === r).name })),
         run.party.map((id) => h('div.pm', { title: `${COMPANIONS[id].name} · 인연 ${run.bonds[id] || 0}` },
           h('img', { src: portraitURL(id), alt: '' }), h('b', '♥'.repeat(run.bonds[id] || 0) || '·')))),
     );
@@ -111,7 +132,9 @@ export function mapScene(app, { run }) {
       h('button.btn', { onclick: () => { audio.sfxPlay('click'); boardPanel(); } }, '보드 · 유물 ', h('small', `${run.relics.length}`)),
       h('button.btn', { onclick: () => { audio.sfxPlay('click'); menu(); } }, '메뉴'));
     el = h('div.screen.map', lineSvg, nodeEls, head, info, foot);
+    if (coop) el.appendChild(h('div.map-vote', coop.voteBar(voteKey(), nodeLabel)));
     app.ui.appendChild(el);
+    markVotes();
     if (!run.pos) showInfo(null, '길을 고르세요. 아래쪽 반짝이는 별에서 여정이 시작됩니다.');
     else showInfo(null, '다음으로 갈 별을 고르세요.');
   }
@@ -147,6 +170,7 @@ export function mapScene(app, { run }) {
 
   function go(nd) {
     audio.sfxPlay('click');
+    if (coop) { coop.vote(voteKey(), nd.id); showInfo(null, `${NODE_TYPES[nd.type].name}에 투표했습니다. ${coop.partnerAI ? '' : '동료의 선택을 기다리는 중…'}`); return; }
     enterNode(app, run, nd.id);
   }
 
@@ -164,6 +188,13 @@ export function mapScene(app, { run }) {
   }
 
   function menu() {
+    if (coop) {
+      const s2 = sheet(app.ui, h('h2', 'MENU'), h('div.sub', '협동 여정은 저장되지 않습니다.'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+          h('button.btn', { onclick: () => settingsPanel(app.ui, app) }, '설정'),
+          h('button.btn.danger', { onclick: () => { s2.close(); app.go('lobby'); } }, '협동 나가기')));
+      return;
+    }
     const s = sheet(app.ui,
       h('h2', 'MENU'),
       h('div.sub', '여정은 지도 화면에 올 때마다 자동 저장됩니다.'),
@@ -182,7 +213,7 @@ export function mapScene(app, { run }) {
         }, '여정 포기')));
   }
 
-  return { enter, exit: () => el && el.remove(), resize: () => { if (el) build(); } };
+  return { enter, exit: () => { offs.forEach((f) => f()); if (el) el.remove(); }, resize: () => { if (el) { build(); markVotes(); } } };
 }
 
 export function relicRow(id) {

@@ -25,6 +25,7 @@ npm run build     # 배포용 빌드 (압축 + 난독화) → dist/
 npm run balance   # 1단계 시험 전투 밸런스 점검
 node scripts/runbot.mjs 30          # 3막 여정 전체 자동 플레이 (막별 도달률)
 node scripts/validate-events.mjs    # 사건 데이터 검사 (화자·유물·플래그·결말 도달)
+# 협동 로컬 테스트: 로컬 중계 서버를 띄우고 http://localhost:5173/?peer=127.0.0.1:9000 로 두 창 접속
 ```
 
 ## 구조
@@ -34,4 +35,5 @@ node scripts/validate-events.mjs    # 사건 데이터 검사 (화자·유물·�
 - `src/data/` — 유닛 · 적 · 유물 · 사건 · 동료 · 결말 · 마스코트 데이터
 - `src/run/` — 여정(런) 상태, 지도 생성, 사건 엔진, 지도·사건·상점·야영·결말 화면
 - `src/meta/` — 업적 · 왕실 보물고
+- `src/net/` — 협동: P2P 연결(PeerJS), 세션·투표·운명의 주사위, 전투 동기화(거울 보드), 협동 화면
 - `src/ui/` — 로비, 왕족 선택, 패널, 스타일

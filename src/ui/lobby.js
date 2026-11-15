@@ -36,8 +36,7 @@ export function lobbyScene(app) {
         }
         startNew();
       }],
-      ['함께하기', () => notice(el, 'TOGETHER', '함께하기 · 2인 협동',
-        '방 코드로 친구와 함께하는 협동 모드는 <b>3단계</b>에서 열립니다.<br><br>그때까지 동료들과 왕국을 지켜주세요. 뿌루는 협동을 몹시 기대하고 있습니다. (병아리라서 잘 모름)')],
+      ['함께하기', () => app.go('coopLobby'), '2인 협동'],
       ['연대기', () => chroniclePanel(el)],
       ['왕실 보물고', () => treasuryPanel(el)],
       ['설정', () => settingsPanel(el, app)],
@@ -78,7 +77,7 @@ export function lobbyScene(app) {
             }, label, sub ? h('span.soon', sub) : null)))),
       ),
       h('div.sparkle.fade', { style: { animationDelay: `${delay + 1.6}s` } }, svg(ICON.star)),
-      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v0.2 · 2단계 · 로그라이크 여정'),
+      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v0.3 · 3단계 · 2인 협동'),
     );
     app.ui.appendChild(el);
     firstVisit = false;

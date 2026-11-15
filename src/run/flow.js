@@ -3,18 +3,22 @@ import { nodeOf, saveRun, clearRun, genMap, ACTS } from './run.js';
 import { pickEvent } from './events.js';
 import { store, save } from '../core/storage.js';
 
+const guest = (app) => app.coop && app.coop.role === 'guest';
+
 export function enterNode(app, run, id) {
+  if (guest(app)) return;
   const nd = nodeOf(run, id);
   run.pos = id;
   run.inNode = { id, type: nd.type };
   if (nd.type === 'event') {
     run.inNode.eventId = pickEvent(run);
   }
-  saveRun(run);
+  if (!run.coop) saveRun(run);
   resumeNode(app, run);
 }
 
 export function resumeNode(app, run) {
+  if (guest(app)) return;
   const n = run.inNode;
   if (!n) { app.go('map', { run }); return; }
   switch (n.type) {
@@ -35,6 +39,7 @@ export function resumeNode(app, run) {
 }
 
 export function finishNode(app, run) {
+  if (guest(app)) return;
   const n = run.inNode;
   if (n) {
     const nd = nodeOf(run, n.id);
@@ -42,13 +47,14 @@ export function finishNode(app, run) {
     run.inNode = null;
     if (nd && nd.type === 'boss') { nextAct(app, run); return; }
   }
-  saveRun(run);
+  if (!run.coop) saveRun(run);
   app.go('map', { run });
 }
 
 export function nextAct(app, run) {
+  if (guest(app)) return;
   if (run.act >= 3) {
-    saveRun(run);
+    if (!run.coop) saveRun(run);
     app.go('ending', { run });
     return;
   }
@@ -57,7 +63,7 @@ export function nextAct(app, run) {
   run.map = genMap(run.seed, run.act);
   // 막 사이 휴식: 성벽 30% 회복
   run.carry.wall = Math.min(run.carry.wallMax, run.carry.wall + Math.round(run.carry.wallMax * 0.3));
-  saveRun(run);
+  if (!run.coop) saveRun(run);
   app.go('actIntro', { run });
 }
 
@@ -70,7 +76,7 @@ export function finalBoss(run) {
 
 export function endRun(run, outcome) {
   const d = store();
-  clearRun();
+  if (!run.coop) clearRun();
   d.runs++;
   if (outcome !== 'defeat') d.wins++;
   d.endings = d.endings || [];
@@ -78,7 +84,8 @@ export function endRun(run, outcome) {
   // 마스코트 친밀도
   d.mascotXp = d.mascotXp || {};
   const xp = (run.act - 1) * 2 + (outcome !== 'defeat' ? 4 : 1);
-  d.mascotXp[run.mascot] = (d.mascotXp[run.mascot] || 0) + xp;
+  const my = run.players && run.me !== undefined ? run.players[run.me].mascot : run.mascot;
+  d.mascotXp[my] = (d.mascotXp[my] || 0) + xp;
   save();
   return xp;
 }

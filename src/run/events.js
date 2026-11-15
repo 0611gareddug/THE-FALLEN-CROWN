@@ -4,7 +4,7 @@ import { RNG } from '../core/rng.js';
 import { RELIC, RELICS } from '../data/relics.js';
 import { UNIT, BY_TIER, TIERS } from '../data/units.js';
 import { COMPANIONS, PARTY_MAX } from '../data/companions.js';
-import { runFx } from './run.js';
+import { runFx, hasRoyal } from './run.js';
 import { store, save } from '../core/storage.js';
 
 export const EVENTS = EVENT_DATA;
@@ -14,7 +14,7 @@ const FNAME = { church: '빛의 교회', cult: '재의 교단', tribe: '숲의 �
 
 export function condOk(run, c) {
   if (!c) return true;
-  if (c.royal && run.royal !== c.royal) return false;
+  if (c.royal && !hasRoyal(run, c.royal)) return false;
   if (c.flag && !run.flags[c.flag]) return false;
   if (c.noFlag && run.flags[c.noFlag]) return false;
   if (c.goldMin && run.carry.gold < c.goldMin) return false;
@@ -42,7 +42,7 @@ export function eligible(run, ev) {
   if (ev.special) return false;
   if (ev.act && !ev.act.includes(run.act)) return false;
   if (!ev.repeat && run.seen.includes(ev.id)) return false;
-  if (ev.royal && ev.royal !== run.royal) return false;
+  if (ev.royal && !hasRoyal(run, ev.royal)) return false;
   if (ev.comp) {
     if (ev.recruit) {
       if (run.party.includes(ev.comp) || run.flags['met_' + ev.comp]) return false;
@@ -75,7 +75,7 @@ export function rollChance(run, choice) {
   let p = choice.roll;
   const fx = runFx(run);
   p += fx.dice;
-  if (choice.royalBonus && choice.royalBonus[run.royal]) p += choice.royalBonus[run.royal];
+  if (choice.royalBonus) for (const [r, v] of Object.entries(choice.royalBonus)) if (hasRoyal(run, r)) { p += v; break; }
   if (run.flags.blessed3 > 0) p += 0.25;
   if (choice.bondAuto) for (const [k, v] of Object.entries(choice.bondAuto)) if ((run.bonds[k] || 0) >= v) p = 1;
   return Math.max(0.01, Math.min(p >= 1 ? 1 : 0.95, p));
@@ -182,6 +182,23 @@ export function applyFx(run, fx, meta) {
   if (fx.mascot) { meta && (meta.unlockMascot = fx.mascot); }
   if (fx.ach) { meta && (meta.ach = (meta.ach || []).concat(fx.ach)); }
   if (fx.skipBattle) meta && (meta.skipBattle = true);
+  return out;
+}
+
+// 협동: 금화·행운석·유닛은 두 사람 모두에게, 나머지(성벽·평판·유물·동료)는 한 번만
+const PERSONAL = ['gold', 'stones', 'unit', 'sellBest', 'loseUnit'];
+export function applyFxAll(run, fx, meta) {
+  if (!run.players || !fx) return applyFx(run, fx, meta);
+  const shared = {}, personal = {};
+  for (const [k, v] of Object.entries(fx)) (PERSONAL.includes(k) ? personal : shared)[k] = v;
+  run.carry = run.players[0].carry;
+  const out = applyFx(run, shared, meta);
+  if (Object.keys(personal).length) {
+    const per = run.players.map((p) => { run.carry = p.carry; return applyFx(run, personal, meta); });
+    run.carry = run.players[0].carry;
+    if (JSON.stringify(per[0]) === JSON.stringify(per[1])) out.push(...per[0].map((x) => `${x} (둘 다)`));
+    else per.forEach((list, i) => out.push(...list.map((x) => `${run.players[i].name}: ${x}`)));
+  }
   return out;
 }
 

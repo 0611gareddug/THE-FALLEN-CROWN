@@ -116,6 +116,33 @@ export function newRun({ royal, mascot, seed }) {
 
 export function nodeOf(run, id) { return run.map.nodes[id]; }
 
+// ── 협동 여정: 플레이어 2명이 각자 보드·금화·행운석·강화를 갖고, 성벽·유물·평판·동료는 함께 쓴다 ──
+export function newCoopRun(players, seed) {
+  const a = newRun({ royal: players[0].royal, mascot: players[0].mascot, seed });
+  const b = newRun({ royal: players[1].royal, mascot: players[1].mascot, seed: a.seed });
+  const wallMax = Math.round(Math.max(a.carry.wallMax, b.carry.wallMax) * 1.5);
+  a.carry.wallMax = a.carry.wall = wallMax;
+  a.coop = true;
+  a.players = [
+    { royal: players[0].royal, mascot: players[0].mascot, name: players[0].name || '방장', carry: a.carry },
+    { royal: players[1].royal, mascot: players[1].mascot, name: players[1].name || '동료', carry: b.carry },
+  ];
+  return a;
+}
+export function hasRoyal(run, r) {
+  return run.players ? run.players.some((p) => p.royal === r) : run.royal === r;
+}
+export function ownerOfRoyal(run, r) {
+  if (!run.players) return 0;
+  const i = run.players.findIndex((p) => p.royal === r);
+  return i < 0 ? 0 : i;
+}
+// 협동 런을 JSON으로 주고받은 뒤 참조 복원
+export function relinkRun(run) {
+  if (run.players) run.carry = run.players[0].carry;
+  return run;
+}
+
 export function available(run) {
   if (!run.pos) return run.map.rows[0];
   const cur = nodeOf(run, run.pos);

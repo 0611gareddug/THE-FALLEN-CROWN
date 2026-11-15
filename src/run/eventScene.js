@@ -2,9 +2,10 @@
 import { h } from '../ui/dom.js';
 import { audio } from '../core/audio.js';
 import { store, save } from '../core/storage.js';
-import { EVENTS, condOk, condText, rollChance, applyFx, achQueue } from './events.js';
+import { EVENTS, condOk, condText, rollChance, applyFx, applyFxAll, achQueue } from './events.js';
 import { finishNode, resumeNode } from './flow.js';
-import { saveRun, runFx, nodeOf } from './run.js';
+import { saveRun, runFx, nodeOf, ownerOfRoyal } from './run.js';
+import { RNG } from '../core/rng.js';
 import { place, portrait, CAST, PLACES } from '../gfx/art2.js';
 import { COMPANIONS } from '../data/companions.js';
 import { unlockAch } from '../meta/achievements.js';
@@ -18,6 +19,25 @@ function pickSpeaker(run, who) {
 export function eventScene(app, { run, eventId }) {
   const ev = EVENTS[eventId] || EVENTS.pebble;
   let el, bgCv, por, nameEl, textEl, choicesEl, typing = null, queue = [], onDone = null, meta = {}, changes = [];
+  const coop = run.coop && app.coop ? app.coop : null;
+  const base = `ev:${eventId}:${run.stats.events}:${run.stats.battles}`;
+  const offs = [];
+  let stage = 0;
+  // 협동: 방장이 결과(주사위 · 효과)를 정해 알린다
+  function hostOutcome(c) {
+    let r = null, win = null, o = { fx: c.fx, r: c.r };
+    if (c.roll) {
+      const p = rollChance(run, c);
+      r = 1 + new RNG(run.seed + run.stats.rolls * 131 + run.stats.events).int(100);
+      win = r <= Math.round(p * 100);
+      run.stats.rolls++;
+      if (run.flags.blessed3 > 0) run.flags.blessed3--;
+      o = win ? c.win : c.lose;
+    }
+    const m = {};
+    const ch = applyFxAll(run, o.fx, m);
+    return { r, win, changes: ch, needLeave: m.needLeave || null, unlockMascot: m.unlockMascot || null, ach: m.ach || null, skipBattle: !!m.skipBattle };
+  }
 
   function enter() {
     app.bg.setMode('game');
@@ -109,20 +129,103 @@ export function eventScene(app, { run, eventId }) {
   // ── 선택지 ──
   function showChoices() {
     const list = ev.choices.filter((c) => !(c.hide && !condOk(run, c.cond)));
+    if (coop) {
+      const key = `${base}:choose`;
+      const owner = ev.royal ? ownerOfRoyal(run, ev.royal) : null;
+      const allowed = ev.choices.map((c, i) => i).filter((i) => list.includes(ev.choices[i]) && condOk(run, ev.choices[i].cond));
+      coop.openVote(key, { options: allowed, owner, extra: (idx) => hostOutcome(ev.choices[idx]) });
+      offs.push(coop.onLocal('vote', (m) => { if (m.key === key) markVotes(key); }));
+      offs.push(coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(el, key, (i) => (ev.choices[i] ? ev.choices[i].t.slice(0, 14) : '?')); }));
+      coop.whenDecided(key, (idx, out) => { if (coop.host) coop.sendRun(); present(ev.choices[idx], out); });
+      if (owner !== null && owner !== coop.me) {
+        choicesEl.replaceChildren(h('div.note', `${run.players[owner].name}의 왕족 사건입니다. 선택을 기다리는 중…`), coop.voteBar(key, (i) => ev.choices[i].t));
+        return;
+      }
+    }
     choicesEl.replaceChildren(...list.map((c, i) => {
       const ok = condOk(run, c.cond);
       const p = c.roll ? rollChance(run, c) : null;
       return h('button.ev-choice' + (ok ? '' : '.locked'), {
         disabled: !ok,
         onmouseenter: () => ok && audio.sfxPlay('hover'),
+        'data-i': ev.choices.indexOf(c),
         onclick: () => { audio.sfxPlay('click'); choose(c); },
       },
       h('span.t', c.t, p !== null ? h('em.pct', ` (성공 ${Math.round(p * 100)}%)`) : null),
       c.sub || !ok ? h('small', ok ? c.sub.replace(/성공 \d+%(\s*\([^)]*\))?\s*·?\s*/g, '') : condText(c.cond)) : null);
     }));
+    if (coop) choicesEl.append(coop.voteBar(`${base}:choose`, (i) => (ev.choices[i] ? ev.choices[i].t : '?')));
+  }
+  function markVotes(key) {
+    const v = coop.votes[key] || [];
+    choicesEl.querySelectorAll('.ev-choice').forEach((b) => {
+      const i = +b.dataset.i;
+      b.classList.toggle('v-me', i === v[coop.me]);
+      b.classList.toggle('v-them', i === v[1 - coop.me]);
+    });
+  }
+  // 협동: 결정된 결과를 보여준다 (효과는 이미 방장이 적용)
+  function present(c, out) {
+    run = coop.run || run;
+    choicesEl.replaceChildren();
+    const show = () => {
+      changes = out.changes;
+      meta = { needLeave: out.needLeave, unlockMascot: out.unlockMascot, ach: out.ach, skipBattle: out.skipBattle };
+      const o = c.roll ? (out.win ? c.win : c.lose) : { r: c.r };
+      play(o.r || [], () => {
+        if (changes.length) choicesEl.append(h('div.ev-changes', changes.map((x) => h('span', x))));
+        if (meta.needLeave) { coopLeave(); return; }
+        coopContinue();
+      });
+    };
+    if (!c.roll) { show(); return; }
+    const ov = h('div.dice');
+    const num = h('div.dice-num', '??');
+    const lbl = h('div.dice-need', `${Math.round(rollChance(run, c) * 100)} 이하가 나오면 성공`);
+    ov.append(h('div.dice-card', h('div.eyebrow', 'ROLL OF FATE'), num, lbl));
+    el.appendChild(ov);
+    audio.sfxPlay('dice');
+    let k = 0;
+    const spin = setInterval(() => {
+      num.textContent = String(1 + Math.floor(Math.random() * 100)).padStart(2, '0');
+      if (++k > 16) {
+        clearInterval(spin);
+        num.textContent = String(out.r).padStart(2, '0');
+        num.classList.add(out.win ? 'win' : 'lose');
+        lbl.textContent = out.win ? '성공!' : '실패…';
+        audio.sfxPlay(out.win ? 'win' : 'fail');
+        if (out.win && c.roll <= 0.1) unlockAch('lowroll');
+        setTimeout(() => { ov.remove(); show(); }, 900);
+      }
+    }, 70);
+  }
+  function coopLeave() {
+    const key = `${base}:leave`;
+    const newbie = meta.needLeave;
+    const opts = run.party.concat(['none']);
+    coop.openVote(key, {
+      options: opts,
+      extra: (pick) => {
+        if (pick !== 'none') { run.party = run.party.filter((x) => x !== pick); run.party.push(newbie); }
+        return { pick };
+      },
+    });
+    choicesEl.append(h('div.note', { style: { margin: '6px 0' } }, `동료가 가득 찼습니다. ${COMPANIONS[newbie].name}을(를) 데려가려면 한 명과 헤어져야 합니다. (투표)`),
+      ...opts.map((id) => h('button.ev-choice', { 'data-i': id, onclick: () => { audio.sfxPlay('click'); coop.vote(key, id); } }, h('span.t', id === 'none' ? `${COMPANIONS[newbie].name}은(는) 데려가지 않는다` : `${COMPANIONS[id].name}와 헤어진다`))),
+      coop.voteBar(key, (id) => (id === 'none' ? '데려가지 않음' : COMPANIONS[id].name)));
+    offs.push(coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(el, key, (id) => (id === 'none' ? '데려가지 않음' : COMPANIONS[id].name)); }));
+    coop.whenDecided(key, () => { if (coop.host) coop.sendRun(); meta.needLeave = null; choicesEl.replaceChildren(); coopContinue(); });
+  }
+  function coopContinue() {
+    const key = `${base}:done`;
+    coop.openVote(key, { options: [true], timeout: 30 });
+    const btn = h('button.ev-choice.go', { onclick: () => { btn.disabled = true; audio.sfxPlay('click'); coop.vote(key, true); } }, h('span.t', '계속'));
+    choicesEl.append(btn, coop.voteBar(key, () => '계속'));
+    coop.whenDecided(key, () => done());
   }
 
   function choose(c) {
+    if (coop) { coop.vote(`${base}:choose`, ev.choices.indexOf(c)); markVotes(`${base}:choose`); return; }
     choicesEl.replaceChildren();
     run.log.push(`${ev.title}: ${c.t}`);
     if (c.roll) { dice(c); return; }
@@ -205,7 +308,19 @@ export function eventScene(app, { run, eventId }) {
 
   function done() {
     audio.sfxPlay('click');
+    if (coop && !coop.host) { recordMeta(); return; }
     if (!ev.special) { run.seen.push(ev.id); run.stats.events++; }
+    recordMeta();
+    if (ev.id === 'dragon_talk') {
+      run.inNode.talked = true;
+      if (meta.skipBattle) { finishNode(app, run); return; }
+      if (!run.coop) saveRun(run);
+      app.go('battle', { run, nodeId: run.inNode.id });
+      return;
+    }
+    finishNode(app, run);
+  }
+  function recordMeta() {
     const d = store();
     if (meta.unlockMascot) { d.mascots = d.mascots || ['puru']; if (!d.mascots.includes(meta.unlockMascot)) d.mascots.push(meta.unlockMascot); }
     if (meta.ach) meta.ach.forEach((a) => unlockAch(a));
@@ -216,17 +331,10 @@ export function eventScene(app, { run, eventId }) {
     d.eventsSeen = d.eventsSeen || [];
     if (!d.eventsSeen.includes(ev.id)) d.eventsSeen.push(ev.id);
     save();
-    if (ev.id === 'dragon_talk') {
-      run.inNode.talked = true;
-      if (meta.skipBattle) { finishNode(app, run); return; }
-      saveRun(run);
-      app.go('battle', { run, nodeId: run.inNode.id });
-      return;
-    }
-    finishNode(app, run);
   }
 
   function exit() {
+    offs.forEach((f) => f());
     if (typing) clearInterval(typing.timer);
     window.removeEventListener('keydown', onKey);
     if (el) el.remove();

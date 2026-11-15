@@ -568,3 +568,66 @@ button:disabled { cursor: default; }
 .map-foot .btn { white-space: nowrap; font-size: 12px; padding: 0 10px; }
 .land .node-panel.wide, .land .nodescr .node-panel { left: 150px; right: 150px; }
 .land .shop { grid-template-columns: repeat(4, 1fr); }
+
+/* ══════════════ 3단계: 협동 ══════════════ */
+.coop-lobby .coop-card { position: absolute; left: 22px; right: 22px; top: 110px; padding: 18px; border: 1px solid var(--line); background: rgba(12,14,20,.9); }
+.coop-body { display: flex; flex-direction: column; gap: 10px; }
+.btn.wide { width: 100%; height: 44px; font-size: 14px; }
+.or { text-align: center; font-size: 10px; color: var(--dim); letter-spacing: .3em; }
+.join-row { display: flex; gap: 8px; }
+.join-row .btn { flex: none; min-width: 80px; }
+.code-in {
+  flex: 1; height: 40px; background: #0b0c11; border: 1px solid var(--line2); color: #f3ead2; font-family: var(--pixel);
+  font-size: 18px; letter-spacing: .3em; text-align: center; text-transform: uppercase; outline: none; user-select: text; -webkit-user-select: text;
+}
+.code-in:focus { border-color: var(--gold); }
+.room-code { display: flex; gap: 6px; justify-content: center; margin: 6px 0; }
+.room-code span { width: 38px; height: 48px; display: grid; place-items: center; font-family: var(--pixel); font-size: 26px; color: var(--gold2); border: 1px solid var(--gold); background: rgba(201,168,92,.08); }
+.waiting { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; justify-content: center; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #5f5a50; }
+.dot.on { background: #7fe08a; box-shadow: 0 0 6px #7fe08a; }
+.dot.pulse { background: var(--gold2); animation: blink 1s steps(2) infinite; }
+.coop-err { font-size: 11px; color: #ff9a8a; border-left: 2px solid #e0463a; padding: 4px 8px; }
+.note.small { font-size: 9.5px; }
+.royal.taken { opacity: .45; }
+.royal .tag { display: inline-block; margin-top: 4px; font-size: 9.5px; padding: 1px 6px; border: 1px solid; }
+.royal .tag.me { color: var(--gold2); border-color: var(--gold); }
+.royal .tag.them { color: #9fc8ff; border-color: #6ba4ff; }
+.coop-select .select-go { flex-wrap: wrap; }
+
+.coop-chip { position: absolute; left: 50%; transform: translateX(-50%); bottom: 2px; z-index: 80; display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--dim); background: rgba(8,9,13,.8); padding: 2px 8px; border: 1px solid var(--line2); pointer-events: none; white-space: nowrap; }
+.coop-chip img { width: 12px; height: 15px; image-rendering: pixelated; }
+.coop-ov { position: absolute; inset: 0; z-index: 95; background: rgba(7,8,12,.85); display: grid; place-items: center; text-align: center; font-size: 13px; color: #f3ead2; padding: 30px; }
+.coop-toast { position: absolute; left: 20px; right: 20px; top: 40%; z-index: 90; text-align: center; padding: 10px; background: #14120c; border: 1px solid var(--gold2); color: #f3ead2; font-size: 12px; animation: toast 3.5s ease forwards; pointer-events: none; }
+
+.vote-bar { margin-top: 6px; font-size: 10.5px; color: #9fc8ff; display: flex; flex-direction: column; gap: 4px; }
+.vb-track { height: 3px; background: #24252e; position: relative; overflow: hidden; }
+.vb-track i { position: absolute; left: 0; top: 0; bottom: 0; background: #6ba4ff; transition: width .2s linear; }
+.map-vote { position: absolute; left: 14px; right: 14px; top: 538px; }
+.land .map-vote { left: 700px; right: 24px; top: 260px; }
+.node.v-me { box-shadow: 0 0 0 3px var(--gold2), 0 0 14px rgba(232,194,90,.6); }
+.node.v-them::after { content: ''; position: absolute; right: -5px; top: -5px; width: 9px; height: 9px; background: #6ba4ff; border: 1px solid #0b0d12; }
+.ev-choice.v-me { border-color: var(--gold2); background: rgba(201,168,92,.12); }
+.ev-choice.v-them::after { content: '동료'; position: absolute; right: 8px; top: 8px; font-size: 9px; padding: 0 4px; color: #9fc8ff; border: 1px solid #6ba4ff; }
+.ev-choice.v-me.v-them::after { content: '둘 다'; color: var(--gold2); border-color: var(--gold); }
+
+/* 협동 전투: 상대 보드 작은 창 */
+.partner-cv { position: absolute; left: 14px; top: 306px; width: 180px; height: 114px; image-rendering: pixelated; outline: 1px solid rgba(107,164,255,.45); z-index: 1; pointer-events: none; }
+.partner-lbl { position: absolute; left: 202px; top: 308px; right: 14px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 11px; pointer-events: none; }
+.partner-lbl img { width: 16px; height: 20px; image-rendering: pixelated; }
+.partner-lbl .pl-stat { width: 100%; font-family: var(--pixel); font-size: 10px; color: var(--dim); }
+.coopb .mid .syn, .coopb .mid .tip { visibility: hidden; }
+.coopb .card { z-index: 3; }
+.land.coopb #game { width: 522px; height: 331px; }
+.land .partner-cv { left: 16px; top: 376px; width: 223px; height: 141px; }
+.land .partner-lbl { left: 250px; top: 380px; right: auto; width: 390px; }
+.land.coopb .mid .syn { visibility: visible; }
+.land.coopb .mid .tip { visibility: visible; left: -414px; width: 390px; top: 300px; }
+.land.coopb .bossbar { left: 250px; width: 390px; top: 474px; }
+.land.coopb .toast { width: 522px; top: 250px; }
+.land.coopb .announce { width: 522px; }
+.coop-select .rlore { display: none; }
+.coop-select .royals { top: 86px; }
+.coop-select .royal { padding: 8px 12px; }
+.coop-select .mascot-row { top: 452px; }
+.land .coop-select .rlore { display: block; }

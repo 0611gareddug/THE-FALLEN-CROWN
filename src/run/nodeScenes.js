@@ -16,10 +16,11 @@ import { finishNode, endRun } from './flow.js';
 import { addRelic, addUnit, randomRelic } from './events.js';
 import { relicRow, portraitURL } from './mapScene.js';
 import { unlockAch } from '../meta/achievements.js';
+import { coopShopScene, coopCampScene, coopTreasureScene, coopAltarScene, coopRewardScene, coopActIntroScene, coopEndingScene } from '../net/coopNodes.js';
 
-const PRICE = { common: 60, rare: 110, legend: 190, set: 80, curse: 45 };
+export const PRICE = { common: 60, rare: 110, legend: 190, set: 80, curse: 45 };
 
-function frame(app, bg, eyebrow, title, ...body) {
+export function frame(app, bg, eyebrow, title, ...body) {
   const cv = h('canvas.ev-bg', { width: 240, height: 135 });
   cv.getContext('2d').drawImage(place(bg), 0, 0);
   const el = h('div.screen.nodescr',
@@ -30,14 +31,14 @@ function frame(app, bg, eyebrow, title, ...body) {
   return el;
 }
 
-function resBar(run) {
+export function resBar(run) {
   const c = run.carry;
   return h('div.node-res',
     h('span', h('i.ic.gold'), c.gold), h('span', h('i.ic.stone'), c.stones),
     h('span', '성벽 ', h('b', `${c.wall}/${c.wallMax}`)));
 }
 
-function relicCard(id, extra) {
+export function relicCard(id, extra) {
   const r = RELIC[id];
   return h('div.rcard', { style: { '--gc': GRADE[r.g].color } },
     h('div.rg', GRADE[r.g].name + (r.set ? ` · ${SETS[r.set].name}` : '')),
@@ -45,8 +46,7 @@ function relicCard(id, extra) {
 }
 
 // ───────── 상인 ─────────
-export function shopScene(app, { run }) {
-  let el;
+export function makeShopStock(run) {
   const rng = new RNG(run.seed * 3 + run.act * 101 + (run.pos ? run.pos.length * 7 + [...run.pos].reduce((a, c) => a + c.charCodeAt(0), 0) : 0));
   const fx = runFx(run);
   let mult = 1 - fx.shopDisc;
@@ -70,6 +70,13 @@ export function shopScene(app, { run }) {
   stock.push({ kind: 'unit', id: t1.id, cost: price(45) }, { kind: 'unit', id: t2.id, cost: price(100) });
   stock.push({ kind: 'stone', cost: price(50) }, { kind: 'heal', cost: price(40) });
   if (fx.shopPlus) stock.push({ kind: 'stone', cost: price(50) });
+  return stock;
+}
+
+export function shopScene(app, { run }) {
+  if (run.coop && app.coop) return coopShopScene(app, { run });
+  let el;
+  const stock = makeShopStock(run);
 
   function render() {
     if (el) el.remove();
@@ -114,6 +121,7 @@ export function shopScene(app, { run }) {
 
 // ───────── 야영 ─────────
 export function campScene(app, { run }) {
+  if (run.coop && app.coop) return coopCampScene(app, arguments[1]);
   let el;
   const fx = runFx(run);
   const heal = Math.round(run.carry.wallMax * 0.3 * fx.campHeal);
@@ -151,6 +159,7 @@ export function campScene(app, { run }) {
 
 // ───────── 보물 ─────────
 export function treasureScene(app, { run }) {
+  if (run.coop && app.coop) return coopTreasureScene(app, arguments[1]);
   let el;
   const id = randomRelic(run, null);
   function render(msg) {
@@ -168,6 +177,7 @@ export function treasureScene(app, { run }) {
 
 // ───────── 운명의 제단 ─────────
 export function altarScene(app, { run }) {
+  if (run.coop && app.coop) return coopAltarScene(app, arguments[1]);
   let el;
   const TABLE = ['⚀ 행운석을 잃는다', '⚁ 행운석을 잃는다', '⚂ 건 만큼 돌려받고 +1', '⚃ 건 만큼 돌려받고 +1', '⚄ 유물 1개', '⚅ 영웅 유닛 + 건 행운석 반환'];
   function render(msg) {
@@ -198,6 +208,7 @@ export function altarScene(app, { run }) {
 
 // ───────── 전투 보상 ─────────
 export function rewardScene(app, { run, kind, gold, escaped }) {
+  if (run.coop && app.coop) return coopRewardScene(app, arguments[1]);
   let el;
   const rng = new RNG(run.seed + run.stats.battles * 17);
   const picks = [];
@@ -237,6 +248,7 @@ export function rewardScene(app, { run, kind, gold, escaped }) {
 
 // ───────── 막 전환 ─────────
 export function actIntroScene(app, { run }) {
+  if (run.coop && app.coop) return coopActIntroScene(app, arguments[1]);
   let el;
   return {
     enter() {
@@ -256,7 +268,8 @@ export function actIntroScene(app, { run }) {
 }
 
 // ───────── 결말 ─────────
-export function endingScene(app, { run, defeat }) {
+export function endingScene(app, { run, defeat, forced, noCoop }) {
+  if (run.coop && app.coop && !noCoop) return coopEndingScene(app, arguments[1]);
   let el;
   function options() {
     const r = run.rep;
@@ -335,7 +348,7 @@ export function endingScene(app, { run, defeat }) {
     enter() {
       app.bg.setMode('lobby');
       audio.play('lobby');
-      if (defeat) { audio.sfxPlay('defeat'); play('defeat'); } else { audio.sfxPlay('victory'); choose(); }
+      if (defeat) { audio.sfxPlay('defeat'); play('defeat'); } else if (forced) { audio.sfxPlay('victory'); play(forced); } else { audio.sfxPlay('victory'); choose(); }
     },
     exit: () => { app.ui.querySelectorAll('.result').forEach((x) => x.remove()); if (el) el.remove(); },
   };
