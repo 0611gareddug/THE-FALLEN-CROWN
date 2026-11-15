@@ -65,7 +65,7 @@ export function lobbyScene(app) {
         }, svg(ICON.full)),
       ),
       h('div.lobby-block',
-        h('div.eyebrow.rise', { style: { animationDelay: `${delay}s` } }, 'FROM THE MEADOW TO THE DEMON CASTLE'),
+        h('div.eyebrow.rise', { style: { animationDelay: `${delay}s` } }, 'TO THE DEMON CASTLE'),
         h('h1.title.rise', { style: { animationDelay: `${delay + 0.15}s` } }, 'LUCKY HEROES'),
         h('div.subtitle.rise', { style: { animationDelay: `${delay + 0.35}s` } }, '행운의 용사단'),
         h('div.rule.rise', { style: { animationDelay: `${delay + 0.6}s` } }),
