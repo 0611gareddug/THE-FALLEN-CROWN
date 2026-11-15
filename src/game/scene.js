@@ -437,8 +437,9 @@ export function battleScene(app, params) {
       case 'wallHit': {
         audio.sfxPlay('wall');
         const bn = battle.boss ? battle.boss.def.name.split(' ').pop() : '';
-        if (ev.why === 'bossLap') toast(`${bn}이(가) 성벽을 들이받았다! 성벽 -15`);
-        if (ev.why === 'timeout') toast(`${bn}이(가) 분노했다! 성벽 -25`);
+        if (ev.why === 'bossLap') toast(`${bn}이(가) 성벽을 들이받았다! 성벽 -${Math.round(ev.v)}`);
+        if (ev.why === 'timeout') toast(`${bn}이(가) 분노했다! 성벽 -${Math.round(ev.v)}`);
+        if (ev.why === 'eliteLap') toast(`정예가 성벽을 들이받았다! 성벽 -${Math.round(ev.v)}`);
         if (ev.why === 'escape') toast(`도망친 적들이 성벽을 할퀴었다! 성벽 -${Math.round(ev.v)}`);
         if (ev.why === 'curse') toast('짝퉁 마왕 왕관이 성벽을 갉아먹는다… 성벽 -1');
         break;

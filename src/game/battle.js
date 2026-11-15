@@ -17,8 +17,11 @@ const GAMBLE = [
 export const PITY_MAX = 10;
 // 협동 보정: 적 수 · 보스/정예 체력
 export const COOP_COUNT = 2;
-export const COOP_BOSS = 3.5;
-export const COOP_HP = 2;
+export const COOP_BOSS = 4;
+export const COOP_HP = 2.4;
+// 난이도: 일반 판 적 체력 배수 · 막이 깊어질수록 방어/저항 강화
+export const DIFF_HP = 1.15;
+const DEF_UP = (L) => Math.max(0, Math.min(0.18, (L - 1.5) * 0.011));
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
 export const OWN = ['gold', 'stones', 'badLuck', 'upg', 'summons', 'celestial', 'maxCelestial', 'skillT', 'skillCd', 'cheerT', 'buff', 'buffT',
   'mascot', 'mdef', 'mlv', 'mboost', 'freeSummon', 'syn', 'mods', 'royal', 'deliver', 'eggKills', 'goldFrac', 'stoneWave', 'stats', 'metT'];
@@ -558,6 +561,7 @@ export class Battle {
     let hp;
     if (def.boss) hp = (this.node.trial ? BOSS_HP : hpAt(L) * def.hp) * (1 + (this.R.bossHp || 0)) * (type === 'morven' ? 1 - (this.R.morvenWeak || 0) : 1);
     else hp = hpAt(L) * def.hp * (1 + (this.R.enemyHp || 0));
+    if (!this.node.trial) hp *= DIFF_HP;
     if (this.coop) hp *= def.boss || def.elite ? COOP_BOSS : COOP_HP;
     e.uid = this.uid++;
     e.type = type; e.def = def; e.boss = !!def.boss;
@@ -565,6 +569,11 @@ export class Battle {
     e.s = sOff; e.dist = 0; e.lap = 0;
     e.spd = def.spd * (0.94 + this.rng.next() * 0.12);
     e.armor = def.armor; e.mres = def.mres;
+    if (!this.node.trial) {
+      // 원래 강한 쪽을 더 강하게: 한 계열만으로는 막히도록
+      const up = DEF_UP(L) * (def.boss || def.elite ? 1.3 : 1);
+      if (def.armor >= def.mres) e.armor = Math.min(0.8, e.armor + up); else e.mres = Math.min(0.8, e.mres + up);
+    }
     e.slowT = 0; e.slowAmt = 0; e.stunT = 0;
     e.burnT = 0; e.burnDps = 0; e.burnSrc = null; e.boomR = 0; e.boomDmg = 0;
     e.phaseT = def.phase ? this.rng.next() * def.phase[0] : 0; e.invis = false;
@@ -614,7 +623,7 @@ export class Battle {
       if (!this.enemies.some((e) => e.alive)) this.victory(0);
       else if (this.leftT <= 0) {
         const n = this.enemies.filter((e) => e.alive).length;
-        this.hurtWall(Math.min(15, Math.ceil(n * 0.5)), 'escape');
+        this.hurtWall(Math.min(20, Math.ceil(n * 0.6)), 'escape');
         if (this.wall > 0) this.victory(n);
       }
     }
@@ -645,7 +654,7 @@ export class Battle {
       this.bossT -= dt;
       if (this.bossT <= 0) {
         this.bossT = BOSS_TIME;
-        this.hurtWall(25, 'timeout');
+        this.hurtWall(30, 'timeout');
       }
       this.bossGimmick(dt);
     }
@@ -672,7 +681,7 @@ export class Battle {
     for (const P of this.P) if (n > P.stats.maxField) P.stats.maxField = n;
     const FL = this.L.fieldLimit;
     this.overflow = n > FL;
-    if (this.overflow) this.hurtWall((n - FL) * 0.08 * dt, null);
+    if (this.overflow) this.hurtWall((n - FL) * 0.11 * dt, null);
 
     // 정리
     const arr = this.enemies;
@@ -778,7 +787,8 @@ export class Battle {
       e.s += v; e.dist += v; e.walk += v * 0.08;
       if (e.s >= this.L.PERIM) {
         e.s -= this.L.PERIM;
-        if (e.boss) this.hurtWall(15, 'bossLap');
+        if (e.boss) this.hurtWall(20, 'bossLap');
+        else if (e.elite && !e.clone) this.hurtWall(5, 'eliteLap');
       }
       this.L.path(e.s, TMP);
       e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
