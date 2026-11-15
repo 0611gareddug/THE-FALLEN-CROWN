@@ -29,7 +29,15 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
   };
   host.append(...btns, coop.voteBar(key, label));
   const offs = [coop.onLocal('vote', (m) => { if (m.key === key) mark(); })];
-  coop.whenDecided(key, (v, extra) => { offs.forEach((f) => f()); if (coop.host) coop.sendRun(); opts.done && opts.done(v, extra); });
+  // 결정은 한 번만 처리한다 (화면을 다시 그리면 같은 결정이 또 들어올 수 있다: 상점 무한 반복 방지)
+  coop.whenDecided(key, (v, extra) => {
+    coop.handled = coop.handled || new Set();
+    if (coop.handled.has(key)) return;
+    coop.handled.add(key);
+    offs.forEach((f) => f());
+    if (coop.host) coop.sendRun();
+    opts.done && opts.done(v, extra);
+  });
   mark();
 }
 

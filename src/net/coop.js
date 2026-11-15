@@ -198,7 +198,7 @@ export class Coop {
       const pName = this.partnerAI ? 'AI 동료' : this.partnerName;
       let t;
       if (this.decided[key] !== undefined) t = '결정!';
-      else if (o && o.options && o.options.length === 1 && !o.afterFirst) t = mine === undefined ? `${pName}: ${other === undefined ? '아직' : '준비 완료!'} · 둘 다 누르면 넘어갑니다` : other === undefined ? `${pName}을(를) 기다리는 중… (10초 뒤 자동)` : '둘 다 준비 완료!';
+      else if (o && o.options && o.options.length === 1 && o.options[0] === true && !o.afterFirst) t = mine === undefined ? `${pName}: ${other === undefined ? '아직' : '준비 완료!'} · 둘 다 누르면 넘어갑니다` : other === undefined ? `${pName}을(를) 기다리는 중… (10초 뒤 자동)` : '둘 다 준비 완료!';
       else if (mine === undefined) t = `${pName}: ${other === undefined ? '고르는 중…' : label(other)}`;
       else if (other === undefined) t = o && o.afterFirst ? `${pName}을(를) 잠깐 기다리는 중… (곧 출발)` : `${pName}의 선택을 기다리는 중… (갈리면 무작위)`;
       else t = `${pName}: ${label(other)}`;
