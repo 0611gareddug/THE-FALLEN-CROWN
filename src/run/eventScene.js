@@ -256,7 +256,7 @@ export function eventScene(app, { run, eventId }) {
   }
   function coopContinue() {
     const key = `${base}:done`;
-    coop.openVote(key, { options: [true], timeout: 60, first: true });
+    coop.openVote(key, { options: [true], timeout: 10 });
     const btn = h('button.ev-choice.go', { onclick: () => { btn.disabled = true; audio.sfxPlay('click'); coop.vote(key, true); } }, h('span.t', '계속'));
     choicesEl.append(btn, coop.voteBar(key, () => '계속'));
     coop.whenDecided(key, () => done());

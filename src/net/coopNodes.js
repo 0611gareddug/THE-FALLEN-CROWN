@@ -15,10 +15,10 @@ import { royalEnding } from '../data/fate.js';
 
 const keyOf = (run, tag) => `${tag}:${run.act}:${run.pos || 's'}:${run.stats.battles}:${run.stats.events}`;
 
-// 선택 블록: 버튼들 + 상대 선택 표시. 기본은 먼저 누른 사람이 정하고, vote면 10초 투표(갈리면 무작위).
+// 선택 블록: 버튼들 + 상대 선택 표시. 모두 10초 투표 (갈리면 무작위, 한 명만 골랐으면 그 선택).
 function voteBlock(coop, root, host, key, items, opts = {}) {
   const label = (v) => { const it = items.find((x) => x.v === v); return it ? it.t : '?'; };
-  coop.openVote(key, { options: items.filter((x) => !x.disabled).map((x) => x.v), extra: opts.extra, timeout: opts.timeout || (opts.vote ? 10 : 60), first: opts.vote || opts.afterFirst ? false : true, afterFirst: opts.afterFirst });
+  coop.openVote(key, { options: items.filter((x) => !x.disabled).map((x) => x.v), extra: opts.extra, timeout: opts.timeout || 10, afterFirst: opts.afterFirst });
   const btns = items.map((it) => h('button.ev-choice', {
     'data-v': String(it.v), disabled: !!it.disabled,
     onclick: () => { audio.sfxPlay('click'); coop.vote(key, it.v); mark(); },
@@ -33,10 +33,10 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
   mark();
 }
 
-// 계속: 먼저 누른 사람이 넘긴다. 상점은 둘 다 누르거나 한 명이 누르고 5초 뒤.
+// 계속: 둘 다 누르면 넘어간다 (10초가 지나면 자동). 상점은 둘 다 누르거나 한 명이 누르고 5초 뒤.
 function continueBlock(coop, root, host, run, tag, after) {
   const shop = tag === 'shop';
-  voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: shop ? '상점 떠나기' : '계속' }], shop ? { timeout: 90, afterFirst: 5, done: after } : { timeout: 60, first: true, done: after });
+  voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: shop ? '상점 떠나기' : '계속' }], shop ? { timeout: 90, afterFirst: 5, done: after } : { timeout: 10, done: after });
 }
 
 // ───────── 상점: 공용 진열대, 각자 자기 금화로 ─────────

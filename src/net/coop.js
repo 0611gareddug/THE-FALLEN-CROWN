@@ -91,7 +91,6 @@ export class Coop {
 
   // ── 투표 ──
   // 기본: 두 사람 모두 고르면 결정, 갈리면 즉시 무작위. 10초가 지나면 고른 쪽(없으면 무작위)으로.
-  // first: 먼저 누른 사람이 정한다 (계속 · 보상 등)
   // afterFirst: 둘 다 누르거나, 한 명이 누른 뒤 N초가 지나면 결정 (상점 떠나기)
   openVote(key, opt = {}) {
     if (this.open[key]) return;
@@ -125,7 +124,6 @@ export class Coop {
     const a = v[0], b = v[1];
     const any = a !== undefined ? a : b;
     if (o.owner !== undefined && o.owner !== null) { if (v[o.owner] !== undefined) this.finish(key, v[o.owner]); else if (alone && a !== undefined) this.finish(key, a); return; }
-    if (o.first) { if (any !== undefined) this.finish(key, any); return; }
     if (a !== undefined && (b !== undefined || alone)) {
       if (alone || b === undefined || JSON.stringify(a) === JSON.stringify(b)) this.finish(key, a);
       else this.finish(key, this.rng.next() < 0.5 ? a : b, { a, b });
@@ -200,7 +198,7 @@ export class Coop {
       const pName = this.partnerAI ? 'AI 동료' : this.partnerName;
       let t;
       if (this.decided[key] !== undefined) t = '결정!';
-      else if (o && o.first) t = '먼저 누른 사람이 정합니다';
+      else if (o && o.options && o.options.length === 1 && !o.afterFirst) t = mine === undefined ? `${pName}: ${other === undefined ? '아직' : '준비 완료!'} · 둘 다 누르면 넘어갑니다` : other === undefined ? `${pName}을(를) 기다리는 중… (10초 뒤 자동)` : '둘 다 준비 완료!';
       else if (mine === undefined) t = `${pName}: ${other === undefined ? '고르는 중…' : label(other)}`;
       else if (other === undefined) t = o && o.afterFirst ? `${pName}을(를) 잠깐 기다리는 중… (곧 출발)` : `${pName}의 선택을 기다리는 중… (갈리면 무작위)`;
       else t = `${pName}: ${label(other)}`;
