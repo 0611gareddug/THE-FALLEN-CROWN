@@ -264,7 +264,7 @@ export function coopActIntroScene(app, { run }) {
       const a = ACTS[run.act - 1];
       const box = h('div.ev-choices', { style: { width: '100%', maxWidth: '420px' } });
       el = h('div.screen.act-intro',
-        h('div.eyebrow.rise', `ACT ${['I', 'II', 'III'][run.act - 1]}`),
+        h('div.eyebrow.rise', `ACT ${['I', 'II', 'III', 'IV'][run.act - 1]}`),
         h('h1.rise', { style: { animationDelay: '.2s' } }, a.name),
         h('div.sub.rise', { style: { animationDelay: '.5s' } }, a.sub),
         h('div.note.rise', { style: { animationDelay: '.8s' } }, `막 사이 휴식: 공용 성벽 30% 회복 (${run.carry.wall}/${run.carry.wallMax})`), box);

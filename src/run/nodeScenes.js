@@ -257,7 +257,7 @@ export function actIntroScene(app, { run }) {
       audio.play('lobby');
       const a = ACTS[run.act - 1];
       el = h('div.screen.act-intro',
-        h('div.eyebrow.rise', `ACT ${['I', 'II', 'III'][run.act - 1]}`),
+        h('div.eyebrow.rise', `ACT ${['I', 'II', 'III', 'IV'][run.act - 1]}`),
         h('h1.rise', { style: { animationDelay: '.2s' } }, a.name),
         h('div.sub.rise', { style: { animationDelay: '.5s' } }, a.sub),
         h('div.note.rise', { style: { animationDelay: '.8s' } }, `막 사이 휴식: 성벽 30% 회복 (${run.carry.wall}/${run.carry.wallMax})`),
@@ -347,7 +347,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       h('h1', id === 'defeat' ? 'DEFEAT' : 'THE END'),
       h('div.line', played.map((x) => `결말 ${ENDINGS[x].no} · ${ENDINGS[x].title}`).join('  ·  ')),
       h('div.stats',
-        h('div', h('span', '왕족'), h('span', { style: { fontFamily: 'var(--serif)' } }, royal.name)),
+        h('div', h('span', '용사'), h('span', { style: { fontFamily: 'var(--serif)' } }, royal.name)),
         h('div', h('span', '도달'), h('span', `${run.act}막`)),
         h('div', h('span', '처치'), h('span', String(run.stats.kills))),
         h('div', h('span', '유물 · 왕관 조각'), h('span', `${run.relics.length} · ${run.shards}/5`)),

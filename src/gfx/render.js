@@ -41,6 +41,19 @@ const PCOL = {
 };
 const BOOM_COL = { fire: ['#ff8a3a', '#ffe36b'], flask: ['#9be08a', '#e0ffd0'], meteor: ['#ff7a2a', '#ffe36b'], star: ['#ffe36b', '#ffffff'], mini: ['#ff9a4a', '#ffd08a'], melee: ['#ffffff', '#c9a85c'], shadow: ['#8a5ad0', '#1a1020'] };
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
+// 위쪽 하늘 띠 (HUD 뒤) + 아래 풀밭 꽃
+function skyBand(g, h, rnd) {
+  const grd = g.createLinearGradient(0, 0, 0, h);
+  grd.addColorStop(0, '#8fd4fb'); grd.addColorStop(0.75, '#cdeeff'); grd.addColorStop(1, '#eaf7ff');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 180, h);
+  g.fillStyle = '#ffffff';
+  for (const [x, y, w] of [[18, 10, 22], [110, 18, 28], [150, 6, 16]]) { if (y + 4 < h) { g.fillRect(x, y, w, 3); g.fillRect(x + 4, y - 2, w - 8, 2); } }
+  g.fillStyle = '#6fb84e';
+  g.fillRect(0, h, 180, 1);
+  const fl = ['#ff9ac2', '#fff1a8', '#ffffff', '#ffb36b'];
+  for (let i = 0; i < 90; i++) { g.fillStyle = fl[i % 4]; g.fillRect((rnd() * 180) | 0, h + 2 + ((rnd() * (320 - h - 2)) | 0), 1, 1); }
+}
 const SOLO_TORCH = [[8, 92], [346, 92], [8, 294], [346, 294]];
 const COOP_TORCH = [[8, 56], [346, 56], [8, 230], [346, 230], [8, 430], [346, 430]];
 
@@ -83,24 +96,25 @@ export class Renderer {
     const g = c.getContext('2d');
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    g.fillStyle = '#0d0f15';
+    g.fillStyle = '#86c862';
     g.fillRect(0, 0, c.width, c.height);
+    skyBand(g, 46, rnd);
     // 필드 바닥
     const fx0 = 4, fy0 = 48, fx1 = 176, fy1 = 148;
-    g.fillStyle = '#171920';
+    g.fillStyle = '#9bd677';
     g.fillRect(fx0, fy0, fx1 - fx0, fy1 - fy0);
     for (let i = 0; i < 700; i++) {
       const x = fx0 + ((rnd() * (fx1 - fx0)) | 0), y = fy0 + ((rnd() * (fy1 - fy0)) | 0);
-      g.fillStyle = rnd() < 0.5 ? '#1c1e26' : '#13151b';
+      g.fillStyle = rnd() < 0.5 ? '#a8de86' : '#8cc96a';
       g.fillRect(x, y, 1, 1);
     }
     // 길 (중심선 기준 폭 14 아트 px)
     const lane = (x, y, w, h) => {
-      g.fillStyle = '#2b2830';
+      g.fillStyle = '#e6c98e';
       g.fillRect(x, y, w, h);
       for (let yy = y; yy < y + h; yy += 3)
         for (let xx = x + ((yy / 3) % 2 ? 2 : 0); xx < x + w; xx += 4) {
-          g.fillStyle = rnd() < 0.5 ? '#36323c' : '#312d37';
+          g.fillStyle = rnd() < 0.5 ? '#efd7a4' : '#d8b77c';
           g.fillRect(xx, yy, 3, 2);
         }
     };
@@ -110,33 +124,33 @@ export class Renderer {
     lane(l, t, 14, b - t + 14);
     lane(r, t, 14, b - t + 14);
     // 길 가장자리
-    g.fillStyle = '#0b0c10';
+    g.fillStyle = '#b8915a';
     g.fillRect(l, t, r - l + 14, 1); g.fillRect(l, b + 13, r - l + 14, 1);
     g.fillRect(l, t, 1, b - t + 14); g.fillRect(r + 13, t, 1, b - t + 14);
-    g.fillStyle = '#4a4552';
+    g.fillStyle = '#cfae74';
     g.fillRect(l + 14, t + 14, r - l - 14, 1); g.fillRect(l + 14, b - 1, r - l - 14, 1);
     g.fillRect(l + 14, t + 14, 1, b - t - 14); g.fillRect(r - 1, t + 14, 1, b - t - 14);
     // 보드 칸
     for (let i = 0; i < COLS * ROWS; i++) {
       const x = (BX + (i % COLS) * CELL) / 2, y = (BY + ((i / COLS) | 0) * CELL) / 2;
-      g.fillStyle = '#101118';
+      g.fillStyle = '#5c8f3e';
       g.fillRect(x + 1, y + 1, 22, 22);
-      g.fillStyle = '#1d1f29';
+      g.fillStyle = '#b6e28f';
       g.fillRect(x + 2, y + 2, 20, 20);
-      g.fillStyle = '#252836';
+      g.fillStyle = '#d2f0b0';
       g.fillRect(x + 2, y + 2, 20, 1); g.fillRect(x + 2, y + 2, 1, 20);
-      g.fillStyle = '#14151c';
+      g.fillStyle = '#8ec46c';
       g.fillRect(x + 2, y + 21, 20, 1); g.fillRect(x + 21, y + 2, 1, 20);
       // 바닥 문양
-      g.fillStyle = '#20232e';
+      g.fillStyle = '#a5d77f';
       g.fillRect(x + 11, y + 10, 2, 4); g.fillRect(x + 10, y + 11, 4, 2);
     }
     // 시작 지점 (무너진 문)
-    g.fillStyle = '#0a0a0e';
+    g.fillStyle = '#5a3a1e';
     g.fillRect(l - 1, t - 4, 16, 18);
-    g.fillStyle = '#3a3542';
+    g.fillStyle = '#b0763c';
     g.fillRect(l - 3, t - 6, 3, 20); g.fillRect(l + 14, t - 6, 3, 20); g.fillRect(l - 3, t - 7, 20, 3);
-    g.fillStyle = '#5a2a22';
+    g.fillStyle = '#e0463a';
     g.fillRect(l + 2, t - 2, 10, 2);
     this.bg = c;
   }
@@ -149,14 +163,15 @@ export class Renderer {
     const g = c.getContext('2d');
     let seed = 11;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    g.fillStyle = '#0d0f15';
+    g.fillStyle = '#86c862';
     g.fillRect(0, 0, c.width, c.height);
+    skyBand(g, (L.view.y >> 1) - 1, rnd);
     const fy0 = (L.view.y >> 1) + 2, fy1 = ((L.view.y + L.view.h) >> 1) - 2;
-    g.fillStyle = '#171920';
+    g.fillStyle = '#9bd677';
     g.fillRect(4, fy0, 172, fy1 - fy0);
     for (let i = 0; i < 1300; i++) {
       const x = 4 + ((rnd() * 172) | 0), y = fy0 + ((rnd() * (fy1 - fy0)) | 0);
-      g.fillStyle = rnd() < 0.5 ? '#1c1e26' : '#13151b';
+      g.fillStyle = rnd() < 0.5 ? '#a8de86' : '#8cc96a';
       g.fillRect(x, y, 1, 1);
     }
     // 길 사각형 목록 (아트 좌표)
@@ -164,19 +179,19 @@ export class Renderer {
       const x1 = sg.x1 / 2, y1 = sg.y1 / 2, x2 = (sg.x1 + sg.dx * sg.len) / 2, y2 = (sg.y1 + sg.dy * sg.len) / 2;
       return [Math.min(x1, x2) - 7, Math.min(y1, y2) - 7, Math.abs(x2 - x1) + 14, Math.abs(y2 - y1) + 14];
     });
-    g.fillStyle = '#0b0c10';
+    g.fillStyle = '#b8915a';
     for (const [x, y, w, h] of rects) g.fillRect(x - 1, y - 1, w + 2, h + 2);
-    g.fillStyle = '#2b2830';
+    g.fillStyle = '#e6c98e';
     for (const [x, y, w, h] of rects) g.fillRect(x, y, w, h);
     const inLane = (px, py) => rects.some(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h);
     for (let yy = 0; yy < c.height; yy += 3)
       for (let xx = (yy / 3) % 2 ? 2 : 0; xx < c.width; xx += 4) {
         if (!inLane(xx, yy) || !inLane(xx + 2, yy + 1)) continue;
-        g.fillStyle = rnd() < 0.5 ? '#36323c' : '#312d37';
+        g.fillStyle = rnd() < 0.5 ? '#efd7a4' : '#d8b77c';
         g.fillRect(xx, yy, 3, 2);
       }
     // 안쪽 가장자리 하이라이트 (각 고리 안쪽)
-    g.fillStyle = '#4a4552';
+    g.fillStyle = '#cfae74';
     const PLx = L.pts[0][0] / 2, PRx = L.pts[1][0] / 2;
     const ys = [...new Set(L.pts.map((p) => p[1] / 2))].sort((a, b) => a - b);
     for (let k = 0; k < ys.length - 1; k++) {
@@ -186,37 +201,37 @@ export class Renderer {
     }
     // 가운데 교차로 문양
     const my = ys[1];
-    g.fillStyle = '#3e2a2a';
+    g.fillStyle = '#c9a46a';
     for (let x = PLx + 16; x < PRx - 12; x += 12) g.fillRect(x, my - 1, 4, 2);
     // 보드 칸: 아래(나) 금빛, 위(동료) 푸른빛
     for (let i = 0; i < L.nCells; i++) {
       const mine = L.ownerOf(i) === 0;
       const x = (L.CX[i] - CELL / 2) / 2, y = (L.CY[i] - CELL / 2) / 2;
-      g.fillStyle = '#101118';
+      g.fillStyle = '#5c8f3e';
       g.fillRect(x + 1, y + 1, 22, 22);
-      g.fillStyle = mine ? '#1f1f28' : '#1b1f2b';
+      g.fillStyle = mine ? '#c4e594' : '#b3dfd0';
       g.fillRect(x + 2, y + 2, 20, 20);
-      g.fillStyle = mine ? '#2b2a33' : '#242b3a';
+      g.fillStyle = mine ? '#e2f3bf' : '#d4f1e6';
       g.fillRect(x + 2, y + 2, 20, 1); g.fillRect(x + 2, y + 2, 1, 20);
-      g.fillStyle = '#14151c';
+      g.fillStyle = '#8ec46c';
       g.fillRect(x + 2, y + 21, 20, 1); g.fillRect(x + 21, y + 2, 1, 20);
-      g.fillStyle = mine ? '#2a2620' : '#1f2634';
+      g.fillStyle = mine ? '#b0d47e' : '#9fd0bf';
       g.fillRect(x + 11, y + 10, 2, 4); g.fillRect(x + 10, y + 11, 4, 2);
     }
     // 보드 테두리 띠 (주인 색)
     for (let o = 0; o < 2; o++) {
       const x = (L.CX[o * 18] - CELL / 2) / 2, y = (L.CY[o * 18] - CELL / 2) / 2;
-      g.fillStyle = o === 0 ? '#5a4626' : '#2a3a5a';
+      g.fillStyle = o === 0 ? '#e09a2a' : '#4a8ac8';
       g.fillRect(x, y - 1, 144, 1); g.fillRect(x, y + 72, 144, 1);
     }
     // 시작 지점 (무너진 문): 길의 첫 점
     const [gx, gy] = this.mirror ? [L.pts[0][0], L.mirrorY - L.pts[0][1]] : L.pts[0];
     const l = gx / 2 - 7, t = gy / 2 - 7;
-    g.fillStyle = '#0a0a0e';
+    g.fillStyle = '#5a3a1e';
     g.fillRect(l - 1, t - 4, 16, 18);
-    g.fillStyle = '#3a3542';
+    g.fillStyle = '#b0763c';
     g.fillRect(l - 3, t - 6, 3, 20); g.fillRect(l + 14, t - 6, 3, 20); g.fillRect(l - 3, t - 7, 20, 3);
-    g.fillStyle = '#5a2a22';
+    g.fillStyle = '#e0463a';
     g.fillRect(l + 2, t - 2, 10, 2);
     this.bg = c;
   }
@@ -350,7 +365,20 @@ export class Renderer {
       }
       case 'corrupt': this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 16, ['#c99bff', '#5a2a6a'], 70, 0.6); break;
       case 'cleanse': if (ev.done) this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 18, ['#ffffff', '#fff2a8'], 90, 0.6, 2, -40); break;
-      case 'freeze': this.flash = { col: '#a8e4ff', t: 0, d: 0.5, a: 0.25 }; this.doShake(4); break;
+      case 'freeze':
+        if (ev.kind === 'thunder') {
+          this.flash = { col: '#fff27a', t: 0, d: 0.45, a: 0.45 };
+          this.doShake(7);
+          for (let k = 0; k < 6; k++) this.addFx({ k: 'beam', x: 40 + k * 56, y: 0, x2: 30 + k * 56 + Math.random() * 20, y2: 300, t: -k * 0.04, d: 0.3, col: '#ffe36b', w: 4 });
+        } else { this.flash = { col: '#a8e4ff', t: 0, d: 0.5, a: 0.25 }; this.doShake(4); }
+        break;
+      case 'transform':
+        this.flash = { col: '#9b5fd6', t: 0, d: 1.2, a: 0.6 };
+        this.doShake(14);
+        this.addFx({ k: 'pillar', x: ev.x, y: ev.y, col: '#9b5fd6', t: 0, d: 1.4, w: 40 });
+        for (let k = 0; k < 3; k++) this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 300 - k * 70, t: -k * 0.15, d: 0.9, col: k === 1 ? '#ff6b6b' : '#c99bff' });
+        this.burst(ev.x, ev.y, 70, ['#9b5fd6', '#c99bff', '#ff6b6b', '#2e1a44'], 200, 1.3, 3, -20);
+        break;
       case 'icebreak': if (ev.done) this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 14, ['#a8e4ff', '#ffffff'], 90, 0.5, 2, 60); break;
       case 'steal': this.burst(ev.x, ev.y - 10, 18, ['#e8c25a', '#a87a2a'], 80, 0.7, 2, 40); break;
       case 'ashrain': this.flash = { col: '#6a6470', t: 0, d: 0.6, a: 0.3 }; break;
@@ -432,7 +460,7 @@ export class Renderer {
     const pts = this.L.kind === 'solo' ? SOLO_TORCH : COOP_TORCH;
     for (let i = 0; i < pts.length; i++) {
       const [x, y] = pts[i];
-      ctx.fillStyle = '#3a3542';
+      ctx.fillStyle = '#8a5a2e';
       ctx.fillRect(x, y, 6, 10);
       const f = ((this.t * 9 + i * 3) | 0) % 3;
       ctx.fillStyle = '#ff8a3a';
@@ -621,7 +649,6 @@ export class Renderer {
       let spr, size;
       spr = SPR.enemies[e.type] || SPR.boss;
       size = e.def.boss ? 48 : e.def.size || 24;
-      if (e.type === 'ogran') spr = SPR.boss;
       if (e.clone) size = 32;
       const bob = (e.walk | 0) % 2 ? -2 : 0;
       const x = Math.round(e.x - size / 2), y = Math.round(e.y - size + 8 + bob);

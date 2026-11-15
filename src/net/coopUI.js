@@ -29,13 +29,14 @@ export function coopLobbyScene(app) {
     codeIn = h('input.code-in', { maxlength: 6, placeholder: '방 코드 6자리', autocomplete: 'off', spellcheck: 'false', inputmode: 'latin' });
     codeIn.addEventListener('input', () => { codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
     codeIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
-    body.replaceChildren(
-      h('div.note', '친구와 각자의 보드를 지키며 성벽을 함께 씁니다. 지도와 사건은 투표로, 의견이 갈리면 운명의 주사위로 정합니다.'),
+    body.replaceChildren(...[
+      h('div.note', '친구와 한 필드에서 함께 마왕성까지! 금화는 각자, 성벽은 함께 씁니다. 지도 · 사건 · 결말은 투표로 정하고, 의견이 갈리면 무작위로 정합니다.'),
       err ? h('div.coop-err', err) : null,
       h('button.btn.primary.wide', { onclick: create }, '방 만들기'),
       h('div.or', '또는'),
       h('div.join-row', codeIn, h('button.btn', { onclick: join }, '참가')),
-      h('div.note.small', '일부 학교·회사 네트워크에서는 P2P 연결이 막힐 수 있습니다.'));
+      h('div.note.small', '일부 학교·회사 네트워크에서는 P2P 연결이 막힐 수 있습니다.'),
+    ].filter(Boolean));
   }
 
   async function create() {
@@ -120,7 +121,7 @@ export function coopSelectScene(app) {
     });
     const both = me.ready && them.ready && me.royal !== them.royal;
     el.replaceChildren(
-      h('div.select-head', h('div.eyebrow', 'CHOOSE YOUR HEIRS'), h('h2', '함께할 왕족')),
+      h('div.select-head', h('div.eyebrow', 'CHOOSE YOUR HEROES'), h('h2', '함께 떠날 용사')),
       h('div.royals', cards),
       h('div.mascot-row',
         h('div.lbl', `내 마스코트 · ${coop.partnerName}: ${them.mascot ? MASCOT_DEFS[them.mascot].name : '고르는 중'}`),

@@ -11,7 +11,7 @@ import { ENEMIES, BOSS_GIMMICK_TEXT, makeBattle } from '../data/enemies.js';
 import { MASCOT_DEFS } from '../data/mascots.js';
 import { COMPANIONS } from '../data/companions.js';
 import { RNG } from '../core/rng.js';
-import { nodeOf, buildMods, runFx, mascotLevel, saveRun, ACTS } from '../run/run.js';
+import { nodeOf, buildMods, runFx, mascotLevel, saveRun, ACTS, LAST_ACT } from '../run/run.js';
 import { finalBoss } from '../run/flow.js';
 import { tickMods } from '../run/events.js';
 import { unlockAch } from '../meta/achievements.js';
@@ -444,12 +444,13 @@ export function battleScene(app, params) {
         break;
       }
       case 'guarded': toast('브란: "이 늙은 몸이 막겠습니다!" 피해 절반', 'good'); break;
-      case 'corrupt': audio.sfxPlay('fail'); toast(`모르벤이 ${battle.units[ev.cell] ? battle.units[ev.cell].def.name : '유닛'}을(를) 타락시켰다! 여러 번 눌러 정화하자!`); break;
+      case 'corrupt': audio.sfxPlay('fail'); toast(`먹물수염이 ${battle.units[ev.cell] ? battle.units[ev.cell].def.name : '유닛'}에게 먹물을 뿌렸다! 여러 번 눌러 닦아 주자!`); break;
       case 'cleanse': audio.sfxPlay(ev.done ? 'win' : 'hover'); break;
-      case 'freeze': audio.sfxPlay('timestop'); toast('실바나의 숨결! 한 줄이 얼어붙었다. 눌러서 얼음을 깨자!'); break;
+      case 'freeze': audio.sfxPlay(ev.kind === 'thunder' ? 'boom' : 'timestop'); toast(ev.kind === 'thunder' ? '천둥 그리핀의 번개! 한 줄이 마비됐다. 눌러서 깨워 주자!' : '실바나의 숨결! 한 줄이 얼어붙었다. 눌러서 얼음을 깨자!'); break;
+      case 'transform': audio.sfxPlay('boss'); audio.play('boss'); slowmo = 1.2; announce('TRUE FORM', ENEMIES[ev.id].name, 'boss'); setTimeout(() => toast(BOSS_GIMMICK_TEXT[ENEMIES[ev.id].gimmick] || ''), 1800); break;
       case 'icebreak': audio.sfxPlay(ev.done ? 'win' : 'hit'); break;
-      case 'steal': audio.sfxPlay('coin'); toast(`왕관이 금화 ${ev.v}을(를) 훔쳐 갔다!`); break;
-      case 'ashrain': audio.sfxPlay('wall'); toast('재의 비가 내린다! 공격 속도 -35% (5초)'); break;
+      case 'steal': audio.sfxPlay('coin'); toast(`마왕이 금화 ${ev.v}을(를) 빼앗아 갔다!`); break;
+      case 'ashrain': audio.sfxPlay('wall'); toast('어둠의 비가 내린다! 공격 속도 -35% (5초)'); break;
       case 'split': audio.sfxPlay('boss'); toast('그림자가 분열했다! 분신을 먼저 쓰러뜨려야 본체에 피해가 들어간다.'); break;
       case 'heal': audio.sfxPlay('upgrade'); break;
       case 'raise': audio.sfxPlay('boss'); break;
@@ -707,7 +708,7 @@ export function battleScene(app, params) {
     if (b.freeSummon === 0) run.firstFree = 0;
     const kind = node.type;
     tickMods(run, kind === 'boss' || kind === 'dragon');
-    if (kind === 'boss' && run.act < 3) { run.shards = Math.min(5, run.shards + 1); unlockAch(run.act === 1 ? 'act1' : 'act2'); }
+    if (kind === 'boss' && run.act < LAST_ACT) { if (run.act <= 2) { run.shards = Math.min(5, run.shards + 1); unlockAch(run.act === 1 ? 'act1' : 'act2'); } }
     if (kind === 'dragon') { run.shards = Math.min(5, run.shards + 1); unlockAch('dragonKill'); }
     if (b.wall <= 5) unlockAch('wall1');
     if (b.stats.maxField >= (coop ? 170 : 120)) unlockAch('overflow');
@@ -718,7 +719,7 @@ export function battleScene(app, params) {
     if (run.relics.length >= 10) unlockAch('relic10');
     if (!coop) saveRun(run);
     audio.stop();
-    if (kind === 'boss' && run.act === 3) { app.go('ending', { run }); return; }
+    if (kind === 'boss' && run.act === LAST_ACT) { app.go('ending', { run }); return; }
     app.go('reward', { run, kind, escaped: lastEscaped });
   }
 
@@ -769,7 +770,7 @@ export function battleScene(app, params) {
       const rng = new RNG(run.seed * 13 + [...node.id].reduce((a, c) => a * 7 + c.charCodeAt(0), 1) % 100000);
       let kind = node.type === 'dragon' ? 'boss' : node.type;
       let bossId = null;
-      if (node.type === 'boss') bossId = run.act < 3 ? ACTS[run.act - 1].boss : (run.finalBoss = finalBoss(run));
+      if (node.type === 'boss') bossId = run.act < LAST_ACT ? ACTS[run.act - 1].boss : (run.finalBoss = finalBoss(run));
       if (node.type === 'dragon') bossId = 'silvana';
       const cfg = makeBattle(rng, run.act, node.row, kind, bossId);
       const mods = buildMods(run);
@@ -816,7 +817,7 @@ export function battleScene(app, params) {
     app.gameCv.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey);
     const royal = run ? (run.players ? run.players[me].royal : run.royal) : params.royal || 'edric';
-    toast(royal === 'kyle' ? '카일: "일단 금고부터 확인하자."' : royal === 'seren' ? '세렌: "금서 3권 챙겼어. 아니, 행운석 3개."' : '에드릭: "정의는 승리한다. 아마도."');
+    toast(royal === 'kyle' ? '피크: "싸우기 전에 간식부터 확인하자."' : royal === 'seren' ? '미나: "주문서 챙겼어! 아, 이건 요리책이다."' : '레오: "바, 방패 준비 완료! 아마도!"');
   }
   function exit() {
     app.gameCv.removeEventListener('pointerdown', onDown);

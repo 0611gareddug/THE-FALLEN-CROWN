@@ -1,4 +1,4 @@
-// 로비 (레퍼런스: 별 하늘 · 대각선 빛줄기 · 왼쪽 정렬 세리프 제목 · ◇ 메뉴)
+// 로비: 아침 들판 · 뭉게구름 · 멀리 마왕성 · 나무 표지판 메뉴
 import { h, svg, ICON } from './dom.js';
 import { audio } from '../core/audio.js';
 import { store, save } from '../core/storage.js';
@@ -38,7 +38,7 @@ export function lobbyScene(app) {
       }],
       ['함께하기', () => app.go('coopLobby'), '2인 협동'],
       ['연대기', () => chroniclePanel(el)],
-      ['왕실 보물고', () => treasuryPanel(el)],
+      ['용사단 보물창고', () => treasuryPanel(el)],
       ['설정', () => settingsPanel(el, app)],
     ].filter(Boolean);
     const startNew = () => { if (!store().prologue) app.go('prologue'); else app.go('select'); };
@@ -65,9 +65,9 @@ export function lobbyScene(app) {
         }, svg(ICON.full)),
       ),
       h('div.lobby-block',
-        h('div.eyebrow.rise', { style: { animationDelay: `${delay}s` } }, 'BEYOND THE ASHES'),
-        h('h1.title.rise', { style: { animationDelay: `${delay + 0.15}s` } }, 'THE FALLEN CROWN'),
-        h('div.subtitle.rise', { style: { animationDelay: `${delay + 0.35}s` } }, '무너진 왕관'),
+        h('div.eyebrow.rise', { style: { animationDelay: `${delay}s` } }, 'FROM THE MEADOW TO THE DEMON CASTLE'),
+        h('h1.title.rise', { style: { animationDelay: `${delay + 0.15}s` } }, 'LUCKY HEROES'),
+        h('div.subtitle.rise', { style: { animationDelay: `${delay + 0.35}s` } }, '행운의 용사단'),
         h('div.rule.rise', { style: { animationDelay: `${delay + 0.6}s` } }),
         h('ul.menu', items.map(([label, fn, sub], i) =>
           h('li.rise', { style: step(i) },
@@ -77,7 +77,7 @@ export function lobbyScene(app) {
             }, label, sub ? h('span.soon', sub) : null)))),
       ),
       h('div.sparkle.fade', { style: { animationDelay: `${delay + 1.6}s` } }, svg(ICON.star)),
-      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v0.6 · 전설·천상 상향'),
+      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v0.7 · 행운의 용사단'),
     );
     app.ui.appendChild(el);
     firstVisit = false;

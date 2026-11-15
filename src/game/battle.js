@@ -733,13 +733,13 @@ export class Battle {
         u.corrupt = 9;
         this.emit('corrupt', { cell: u.cell });
       }
-    } else if (g === 'freeze') {
-      this.gimT = 14;
+    } else if (g === 'freeze' || g === 'thunder') {
+      this.gimT = g === 'thunder' ? 12 : 14;
       const row = this.rng.int(3);
       this.freezeRow = row;
       this.freezeT = 7;
       for (let o = 0; o < this.nP; o++) for (let c = 0; c < COLS; c++) { const u = this.units[o * 18 + row * COLS + c]; if (u) u.ice = 7; }
-      this.emit('freeze', { row });
+      this.emit('freeze', { row, kind: g });
     } else if (g === 'steal') {
       this.gimT = 10;
       let took = 0;
@@ -1085,6 +1085,21 @@ export class Battle {
     this.stats.kills++;
     this.eggKills++;
     const def = u ? u.def : null;
+    // 2단계 보스: 쓰러지는 대신 진정한 모습으로 변신
+    if (e.boss && e.def.phase2 && !e.transformed) {
+      const nd = ENEMIES[e.def.phase2];
+      e.alive = true;
+      e.transformed = true;
+      e.type = e.def.phase2; e.def = nd;
+      e.maxHp = e.maxHp * (nd.hp / ENEMIES.crown.hp);
+      e.hp = e.maxHp;
+      e.spd = nd.spd; e.armor = nd.armor; e.mres = nd.mres;
+      e.stunT = 1.6; e.burnT = 0; e.slowT = 0; e.slowAmt = 0;
+      this.gimT = 3;
+      this.bossT = BOSS_TIME;
+      this.emit('transform', { x: e.x, y: e.y, id: e.type });
+      return;
+    }
     if (e.boss) {
       this.emit('kill', { x: e.x, y: e.y, type: e.type, boss: true });
       for (const P of this.P) P.stones += 3;

@@ -4,6 +4,7 @@ import { UNIT } from '../src/data/units.js';
 import { botTick } from '../src/game/bot.js';
 import { makeBattle } from '../src/data/enemies.js';
 import { COOP } from '../src/game/layout.js';
+import { LAST_ACT } from '../src/run/run.js';
 import { newRun, newCoopRun, available, nodeOf, buildMods, runFx, genMap, ACTS } from '../src/run/run.js';
 import { finalBoss } from '../src/run/flow.js';
 import { EVENTS, pickEvent, condOk, applyFx, rollChance, tickMods, addRelic, randomRelic, addUnit } from '../src/run/events.js';
@@ -15,7 +16,7 @@ const IS_COOP = process.argv[3] === 'coop';
 function fight(run, nd, rng) {
   let kind = nd.type === 'dragon' ? 'boss' : nd.type;
   let boss = null;
-  if (nd.type === 'boss') boss = run.act < 3 ? ACTS[run.act - 1].boss : (run.finalBoss = finalBoss(run));
+  if (nd.type === 'boss') boss = run.act < LAST_ACT ? ACTS[run.act - 1].boss : (run.finalBoss = finalBoss(run));
   if (nd.type === 'dragon') boss = 'silvana';
   const cfg = makeBattle(rng, run.act, nd.row, kind, boss);
   const mods = buildMods(run); mods.morvenWeak = runFx(run).morvenWeak;
@@ -33,7 +34,7 @@ function fight(run, nd, rng) {
   else run.carry = b.exportCarry();
   run.stats.kills += b.totalStat('kills');
   tickMods(run, kind === 'boss');
-  if ((nd.type === 'boss' && run.act < 3) || nd.type === 'dragon') run.shards++;
+  if ((nd.type === 'boss' && run.act <= 2) || nd.type === 'dragon') run.shards++;
   if (nd.type === 'elite' || nd.type === 'boss' || nd.type === 'dragon') addRelic(run, randomRelic(run, null), []);
   else if (run.coop) for (const p of run.players) p.carry.gold += 20 + run.act * 15;
   else run.carry.gold += 20 + run.act * 15;
@@ -52,12 +53,12 @@ function event(run, rng) {
   run.seen.push(ev.id); run.stats.events++;
 }
 
-const reach = [0, 0, 0, 0];
+const reach = [0, 0, 0, 0, 0];
 const fateSides = { light: 0, dark: 0 };
 const fateDone = [];
 const deaths = {};
 let wins = 0;
-const wallAtBoss = [[], [], []];
+const wallAtBoss = [[], [], [], []];
 const t0 = Date.now();
 for (let r = 0; r < RUNS; r++) {
   const royal = ['edric', 'seren', 'kyle'][r % 3];
@@ -86,7 +87,7 @@ for (let r = 0; r < RUNS; r++) {
     if (!alive) break;
     if (nd.type === 'boss') {
       reach[run.act]++;
-      if (run.act === 3) { wins++; fateDone.push((run.fate[run.royal] || []).length); break; }
+      if (run.act === LAST_ACT) { wins++; fateDone.push((run.fate[run.royal] || []).length); break; }
       run.act++; run.pos = null; run.map = genMap(run.seed, run.act);
       run.carry.wall = Math.min(run.carry.wallMax, run.carry.wall + Math.round(run.carry.wallMax * 0.3));
     }
@@ -97,7 +98,7 @@ for (let r = 0; r < RUNS; r++) {
   }
 }
 const avg = (a) => (a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(0) : '-');
-console.log(`\n${RUNS}판: 1막 클리어 ${reach[1]} · 2막 클리어 ${reach[2]} · 최종 클리어 ${wins} (${((wins / RUNS) * 100).toFixed(0)}%)`);
+console.log(`\n${RUNS}판: 1막 ${reach[1]} · 2막 ${reach[2]} · 3막 ${reach[3]} · 최종 클리어 ${wins} (${((wins / RUNS) * 100).toFixed(0)}%)`);
 console.log('패배 지점:', deaths);
 console.log('운명의 장 선택:', fateSides, '· 클리어 시 본 장 수:', fateDone.join(','));
-console.log(`보스 직전 평균 성벽: 1막 ${avg(wallAtBoss[0])} · 2막 ${avg(wallAtBoss[1])} · 3막 ${avg(wallAtBoss[2])}  (${((Date.now() - t0) / 1000).toFixed(0)}초)`);
+console.log(`보스 직전 평균 성벽: 1막 ${avg(wallAtBoss[0])} · 2막 ${avg(wallAtBoss[1])} · 3막 ${avg(wallAtBoss[2])} · 4막 ${avg(wallAtBoss[3])}  (${((Date.now() - t0) / 1000).toFixed(0)}초)`);

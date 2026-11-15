@@ -121,7 +121,7 @@ export function chroniclePanel(root) {
     const row = (r) => (got.has(r.id)
       ? h('div.relic-row', { style: { '--gc': GRADE[r.g].color } }, h('b', r.name), h('span.gr', GRADE[r.g].name + (r.set ? ` · ${SETS[r.set].name}` : '')), h('div', r.desc), h('div.fl', `“${r.flavor}”`))
       : h('div.relic-row.unk', h('b', '???'), h('span.gr', GRADE[r.g].name)));
-    const ROY = { edric: '에드릭', seren: '세렌', kyle: '카일' };
+    const ROY = { edric: '레오', seren: '미나', kyle: '피크' };
     return h('div', h('div.note', `만난 유물 ${RELICS.filter((r) => got.has(r.id)).length}/${RELICS.length}`),
       ...RELICS.map(row),
       ...Object.entries(ROY).map(([k, nm]) => {

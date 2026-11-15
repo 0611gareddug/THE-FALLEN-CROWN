@@ -376,6 +376,105 @@ export const MASCOT_ART = {
   ], pal: { a: '#c8a060', b: '#9a7840', e: '#2a1d2e', g: '#7fbf6a' } },
 };
 
+// ───────── 동화풍 보스 (24×24, 코드로 그린다) ─────────
+function bossCanvas(draw) {
+  const c = cv(24, 24), g = c.getContext('2d');
+  const px = (x, y, col, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  // 타원 채우기 (외곽선 포함)
+  const ell = (cx, cy, rx, ry, col, out = O, y0 = -99, y1 = 99) => {
+    for (let pass = 0; pass < 2; pass++) {
+      const ox = pass ? 0 : 1;
+      for (let y = Math.floor(cy - ry - ox); y <= Math.ceil(cy + ry + ox); y++) {
+        if (y < y0 || y > y1) continue;
+        const t = (y - cy) / (ry + ox);
+        if (Math.abs(t) > 1) continue;
+        const hw = (rx + ox) * Math.sqrt(1 - t * t);
+        px(Math.round(cx - hw), y, pass ? col : out, Math.round(hw * 2) || 1, 1);
+      }
+    }
+  };
+  draw(px, ell);
+  return c;
+}
+const FAIRY_BOSS = {
+  // 슬라임왕 퐁퐁: 왕관 쓴 커다란 초록 슬라임
+  ogran: () => bossCanvas((px, ell) => {
+    ell(12, 16, 11, 8, '#6fd36a', O, 7, 23);
+    px(1, 22, O, 22, 1); px(2, 21, '#4aa84a', 20, 1);
+    ell(12, 18, 9, 4, '#5cc25a', '#5cc25a', 16, 21);
+    px(5, 10, '#c8f5b0', 3, 2); px(4, 12, '#c8f5b0', 2, 2); px(9, 9, '#e8ffd8', 2, 1);
+    px(7, 13, O, 3, 4); px(14, 13, O, 3, 4); px(8, 13, '#ffffff', 1, 2); px(15, 13, '#ffffff', 1, 2);
+    px(9, 18, O, 6, 1); px(10, 19, '#2a6a2a', 4, 1);
+    px(5, 17, '#ff9ac2', 2, 1); px(17, 17, '#ff9ac2', 2, 1);
+    // 왕관
+    px(7, 3, O, 10, 5); px(8, 4, '#ffd36b', 8, 3); px(7, 1, O, 2, 3); px(11, 0, O, 2, 4); px(15, 1, O, 2, 3);
+    px(8, 2, '#ffd36b', 1, 2); px(12, 1, '#ffd36b', 1, 3); px(15, 2, '#ffd36b', 1, 2); px(11, 5, '#e0463a', 2, 1);
+    // 흘러내림
+    px(3, 22, '#6fd36a', 2, 1); px(19, 22, '#6fd36a', 2, 1);
+  }),
+  // 문어 해적선장 먹물수염: 삼각모 · 안대 · 다리 여섯
+  morven: () => bossCanvas((px, ell) => {
+    for (let k = 0; k < 6; k++) {
+      const x = 3 + k * 3.4 | 0, sway = k % 2 ? 1 : -1;
+      px(x, 15, O, 4, 8); px(x + 1, 15, '#ff7a8a', 2, 7);
+      px(x + sway, 21, O, 4, 3); px(x + 1 + sway, 21, '#ff7a8a', 2, 2);
+      px(x + 1, 18, '#ffd0d6', 1, 1);
+    }
+    ell(12, 10, 8, 7, '#ff8a98', O, 2, 17);
+    px(6, 7, '#ffc0c8', 3, 2);
+    // 먹물 수염
+    px(7, 14, '#4a2a5a', 10, 2); px(8, 16, '#4a2a5a', 8, 1); px(10, 17, '#4a2a5a', 4, 1);
+    // 안대 + 눈
+    px(7, 10, O, 4, 3); px(4, 9, O, 16, 1);
+    px(14, 9, O, 4, 4); px(15, 10, '#ffffff', 2, 2); px(16, 11, O, 1, 1);
+    // 삼각모
+    px(3, 3, O, 18, 3); px(4, 4, '#3a2a4a', 16, 1); px(6, 0, O, 12, 4); px(7, 1, '#3a2a4a', 10, 2);
+    px(7, 4, '#ffd36b', 10, 1); px(11, 1, '#ffffff', 2, 2);
+  }),
+  // 천둥 그리핀: 흰 독수리 머리 · 펼친 날개 · 번개
+  griffin: () => bossCanvas((px, ell) => {
+    // 날개
+    for (let k = 0; k < 7; k++) {
+      px(1 + k, 6 + k, O, 6, 3); px(2 + k, 7 + k, '#9fc8e8', 5, 1);
+      px(17 - k, 6 + k, O, 6, 3); px(17 - k, 7 + k, '#9fc8e8', 5, 1);
+    }
+    px(2, 7, '#ffe36b', 1, 2); px(21, 7, '#ffe36b', 1, 2);
+    ell(12, 15, 6, 5, '#e8c27a', O, 9, 21);
+    px(8, 18, '#c89a50', 8, 2);
+    px(8, 20, O, 3, 3); px(13, 20, O, 3, 3); px(9, 20, '#c89a50', 1, 2); px(14, 20, '#c89a50', 1, 2);
+    ell(12, 7, 4, 4, '#ffffff', O, 2, 12);
+    px(10, 6, O, 2, 2); px(14, 6, O, 2, 2); px(10, 6, '#ffe36b', 1, 1); px(14, 6, '#ffe36b', 1, 1);
+    px(11, 8, O, 3, 3); px(12, 9, '#ffb030', 1, 2); px(11, 8, '#ffb030', 3, 1);
+    // 번개 볏
+    px(11, 0, O, 3, 3); px(12, 0, '#ffe36b', 1, 2); px(13, 2, '#ffe36b', 1, 1);
+    // 꼬리
+    px(18, 17, O, 4, 2); px(19, 17, '#e8c27a', 2, 1); px(21, 15, '#ffe36b', 1, 2);
+  }),
+  // 마왕 녹스: 보랏빛 망토 · 뿔 · 뾰족 왕관
+  crown: () => bossCanvas((px, ell) => {
+    px(3, 11, O, 18, 13); px(4, 12, '#4a2a6a', 16, 11); px(5, 13, '#c0392b', 3, 9); px(16, 13, '#c0392b', 3, 9);
+    px(8, 13, '#2e1a44', 8, 10); px(11, 15, '#ffd36b', 2, 2);
+    ell(12, 8, 5, 5, '#b9a3e3', O, 2, 14);
+    px(3, 2, O, 3, 6); px(4, 3, '#f0e6d0', 1, 4); px(18, 2, O, 3, 6); px(19, 3, '#f0e6d0', 1, 4);
+    px(5, 5, O, 2, 2); px(17, 5, O, 2, 2);
+    px(8, 1, O, 8, 3); px(9, 2, '#ffd36b', 6, 1); px(9, 0, '#ffd36b', 1, 1); px(12, 0, '#ffd36b', 1, 1); px(14, 0, '#ffd36b', 1, 1);
+    px(9, 7, '#ffe36b', 2, 2); px(13, 7, '#ffe36b', 2, 2);
+    px(9, 11, O, 6, 1); px(10, 11, '#ffffff', 1, 1); px(13, 11, '#ffffff', 1, 1);
+  }),
+  // 진정한 마왕 녹스 (2단계): 커진 뿔 · 붉은 눈 · 보랏빛 불꽃
+  crown2: () => bossCanvas((px, ell) => {
+    for (let k = 0; k < 6; k++) { px(2 + k * 4, 14 - (k % 2) * 3, '#9b5fd6', 2, 10); px(3 + k * 4, 12 - (k % 2) * 3, '#c99bff', 1, 3); }
+    px(3, 11, O, 18, 13); px(4, 12, '#2e1a44', 16, 11); px(5, 13, '#e0463a', 3, 9); px(16, 13, '#e0463a', 3, 9);
+    px(8, 13, '#1a0e2a', 8, 10); px(11, 15, '#ff6b6b', 2, 2);
+    ell(12, 8, 5, 5, '#8a6ad0', O, 2, 14);
+    px(1, 0, O, 4, 8); px(2, 1, '#f0e6d0', 2, 6); px(19, 0, O, 4, 8); px(20, 1, '#f0e6d0', 2, 6);
+    px(4, 6, O, 3, 2); px(17, 6, O, 3, 2);
+    px(8, 1, O, 8, 3); px(9, 2, '#ffd36b', 6, 1);
+    px(9, 7, '#ff3a3a', 2, 2); px(13, 7, '#ff3a3a', 2, 2);
+    px(9, 11, O, 6, 2); px(10, 11, '#ffffff', 1, 2); px(13, 11, '#ffffff', 1, 2);
+  }),
+};
+
 export function buildArt2(target, flipFn, silFn) {
   for (const [id, a] of Object.entries(ELITE_ART)) {
     const r = paintRows(a.rows.map((x) => x.replace(/ /g, '.')), a.pal, 16, 16);
@@ -384,6 +483,11 @@ export function buildArt2(target, flipFn, silFn) {
   }
   for (const [id, a] of Object.entries(BOSS_ART)) {
     const r = paintRows(a.rows, a.pal, 24, 24);
+    const l = flipFn(r);
+    target.enemies[id] = { r, l, fr: silFn(r, '#ffffff', 0), fl: silFn(l, '#ffffff', 0) };
+  }
+  for (const [id, fn] of Object.entries(FAIRY_BOSS)) {
+    const r = fn();
     const l = flipFn(r);
     target.enemies[id] = { r, l, fr: silFn(r, '#ffffff', 0), fl: silFn(l, '#ffffff', 0) };
   }
@@ -401,9 +505,9 @@ export function buildArt2(target, flipFn, silFn) {
 // 머리 모양 · 색 · 장신구를 조합해 그린다.
 export const CAST = {
   narr: null,
-  edric: { name: '에드릭', skin: '#f1c9a5', hair: '#e8c25a', style: 'short', cloth: '#c9a85c', cloth2: '#3a5fb0', crown: true, voice: [520, 'square'] },
-  seren: { name: '세렌', skin: '#f6d6c0', hair: '#c9a8f0', style: 'long', cloth: '#6a4ab0', cloth2: '#c99bff', tiara: true, voice: [760, 'triangle'] },
-  kyle: { name: '카일', skin: '#e0b08a', hair: '#8a4a1a', style: 'messy', cloth: '#3a5a3a', cloth2: '#5a7a5a', crown: 'tilt', bandana: '#3a5a3a', voice: [440, 'square'] },
+  edric: { name: '레오', skin: '#f6d2b0', hair: '#8a5a2a', style: 'short', cloth: '#4a8ae0', cloth2: '#f0d27a', armor: true, hat: 'helmet', voice: [520, 'square'] },
+  seren: { name: '미나', skin: '#f8dccb', hair: '#ffb3cf', style: 'long', cloth: '#4a7fd0', cloth2: '#ffd36b', hat: 'witch', glasses: true, voice: [760, 'triangle'] },
+  kyle: { name: '피크', skin: '#e8b890', hair: '#5a3a1e', style: 'messy', cloth: '#5aa04a', cloth2: '#a8703e', hat: 'feather', voice: [440, 'square'] },
   bran: { name: '브란', skin: '#e0b090', hair: '#c8c8d0', style: 'bald', beard: '#d8d8e0', cloth: '#8a8f99', cloth2: '#5d6270', scar: true, armor: true, voice: [220, 'square'] },
   linette: { name: '리네트', skin: '#f6d0b0', hair: '#d0463b', style: 'long', hat: 'feather', cloth: '#4f9a4a', cloth2: '#e8c25a', voice: [880, 'triangle'] },
   bork: { name: '보르크', skin: '#a8704a', hair: '#1a1018', style: 'short', goggles: true, cloth: '#7a4b2a', cloth2: '#4e2f1a', voice: [300, 'sawtooth'] },
@@ -489,6 +593,15 @@ function drawPortrait(c, face) {
   } else if (st === 'tophat') {
     px(8, 9, hair, 16, 2); px(10, 0, O, 12, 9); px(11, 1, '#1a1018', 10, 8); px(11, 6, c.cloth2, 10, 1); px(7, 8, O, 18, 2); px(8, 8, '#1a1018', 16, 1);
   }
+  if (c.hat === 'helmet') {
+    px(8, 3, O, 16, 8); px(9, 4, '#c9ced8', 14, 6); px(9, 4, '#eef2f8', 14, 1); px(9, 9, '#9aa6bc', 14, 1);
+    px(15, 0, O, 3, 5); px(16, 0, '#e0463a', 1, 4); px(15, 4, '#f0d27a', 3, 1);
+  }
+  if (c.hat === 'witch') {
+    px(4, 8, O, 24, 3); px(5, 9, '#2e5aa8', 22, 1);
+    px(10, 4, O, 12, 5); px(11, 5, '#4a7fd0', 10, 4); px(12, 1, O, 8, 4); px(13, 2, '#4a7fd0', 6, 3); px(18, 0, O, 4, 2); px(19, 0, '#4a7fd0', 2, 1);
+    px(11, 7, '#ffd36b', 10, 1); px(15, 3, '#ffd36b', 1, 1);
+  }
   if (c.hat === 'feather') { px(6, 3, O, 20, 5); px(7, 4, '#4f9a4a', 18, 3); px(22, 0, '#e8c25a', 2, 4); px(24, 1, '#e8c25a', 1, 3); }
   if (c.bandana) { px(8, 9, c.bandana, 16, 2); }
   if (c.goggles) { px(8, 8, O, 16, 3); px(10, 8, '#e8c25a', 4, 2); px(18, 8, '#e8c25a', 4, 2); px(11, 8, '#a8e4ff', 2, 1); px(19, 8, '#a8e4ff', 2, 1); }
@@ -507,6 +620,10 @@ function drawPortrait(c, face) {
       default: px(x, ey, O, 3, 3); px(x + 1, ey, '#ffffff', 1, 1);
     }
   };
+  if (c.glasses) {
+    for (const x of [lx, rx]) { px(x - 1, ey - 1, O, 5, 1); px(x - 1, ey + 3, O, 5, 1); px(x - 1, ey - 1, O, 1, 5); px(x + 3, ey - 1, O, 1, 5); }
+    px(lx + 3, ey + 1, O, rx - lx - 4, 1);
+  }
   if (c.cold && face === 'neutral') { px(lx, ey + 1, O, 3, 2); px(rx, ey + 1, O, 3, 2); }
   else { eye(lx); eye(rx); }
   // 눈썹

@@ -57,8 +57,8 @@ export function selectScene(app) {
     showInfo();
     el = h('div.screen',
       h('div.select-head.rise',
-        h('div.eyebrow', 'CHOOSE YOUR HEIR'),
-        h('h2', '왕족을 선택하라')),
+        h('div.eyebrow', 'CHOOSE YOUR HERO'),
+        h('h2', '용사를 선택하라')),
       h('div.royals', cards),
       h('div.mascot-row.rise', { style: { animationDelay: '.5s' } },
         h('div.lbl', '반려 마스코트'),

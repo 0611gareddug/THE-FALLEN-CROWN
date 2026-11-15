@@ -19,20 +19,24 @@ export const ENEMIES = {
   wolf: { name: '질주하는 늑대인간', hp: 7, spd: 70, armor: 0.2, mres: 0.1, elite: true, enrage: 0.5, size: 32 },
 
   // ── 보스 (hp는 해당 지점 기본 체력의 배수) ──
-  ogran: { name: '잿불 거인 오그란', hp: 30, spd: 19, armor: 0.3, mres: 0.15, boss: true, gimmick: 'roar', title: '1막 보스' },
-  morven: { name: '배신의 재상 모르벤', hp: 26, spd: 22, armor: 0.15, mres: 0.45, boss: true, gimmick: 'corrupt', title: '2막 보스' },
-  silvana: { name: '얼어붙은 용 실바나', hp: 22, spd: 17, armor: 0.35, mres: 0.35, boss: true, gimmick: 'freeze', title: '용의 둥지' },
-  crown: { name: '무너진 왕관 그 자체', hp: 24, spd: 20, armor: 0.3, mres: 0.3, boss: true, gimmick: 'steal', title: '최종 보스' },
-  aspel: { name: '재의 교주 아스펠', hp: 23, spd: 21, armor: 0.2, mres: 0.5, boss: true, gimmick: 'ashrain', title: '최종 보스' },
-  shadow: { name: '형제의 그림자', hp: 21, spd: 24, armor: 0.25, mres: 0.25, boss: true, gimmick: 'split', title: '최종 보스' },
+  ogran: { name: '슬라임왕 퐁퐁', hp: 30, spd: 19, armor: 0.3, mres: 0.15, boss: true, gimmick: 'roar', title: '1막 보스 · 풀숲' },
+  morven: { name: '문어 해적선장 먹물수염', hp: 26, spd: 22, armor: 0.15, mres: 0.45, boss: true, gimmick: 'corrupt', title: '2막 보스 · 해변 마을' },
+  griffin: { name: '천둥 그리핀', hp: 24, spd: 24, armor: 0.25, mres: 0.3, boss: true, gimmick: 'thunder', title: '3막 보스 · 구름 산' },
+  silvana: { name: '얼어붙은 용 실바나', hp: 22, spd: 17, armor: 0.35, mres: 0.35, boss: true, gimmick: 'freeze', title: '마왕성 · 용의 둥지' },
+  // 최종 보스: 마왕 녹스. 체력이 다하면 진정한 모습으로 변신한다 (2단계)
+  crown: { name: '마왕 녹스', hp: 14, spd: 20, armor: 0.3, mres: 0.3, boss: true, gimmick: 'steal', title: '최종 보스 · 마왕성', phase2: 'crown2' },
+  crown2: { name: '진정한 마왕 녹스', hp: 15, spd: 24, armor: 0.35, mres: 0.35, boss: true, gimmick: 'ashrain', title: '최종 보스 · 2단계' },
+  aspel: { name: '어둠에 물든 마왕 녹스', hp: 14, spd: 21, armor: 0.2, mres: 0.5, boss: true, gimmick: 'ashrain', title: '최종 보스 · 마왕성', phase2: 'crown2' },
+  shadow: { name: '마왕의 그림자', hp: 21, spd: 24, armor: 0.25, mres: 0.25, boss: true, gimmick: 'split', title: '최종 보스 · 마왕성' },
 };
 
 export const BOSS_GIMMICK_TEXT = {
-  roar: '포효할 때마다 쥐떼를 부른다.',
-  corrupt: '유닛을 타락시켜 공격을 멈추게 한다. 타락한 유닛을 여러 번 눌러 정화하자!',
+  roar: '출렁일 때마다 졸개들을 우르르 부른다.',
+  corrupt: '먹물을 뿌려 유닛을 멈추게 한다. 먹물 묻은 유닛을 여러 번 눌러 닦아 주자!',
+  thunder: '번개로 보드 한 줄을 마비시킨다. 마비된 유닛을 눌러 깨워 주자!',
   freeze: '보드 한 줄을 얼린다. 얼어붙은 유닛을 눌러 얼음을 깨자!',
-  steal: '주기적으로 금화를 훔쳐 간다. 금화는 빨리 쓰는 게 이득!',
-  ashrain: '재의 비로 아군 공격 속도를 떨어뜨리고 신도를 부른다.',
+  steal: '주기적으로 금화를 빼앗아 간다. 금화는 빨리 쓰는 게 이득! 쓰러뜨리면 진정한 모습을 드러낸다.',
+  ashrain: '어둠의 비로 아군 공격 속도를 떨어뜨리고 졸개를 부른다.',
   split: '체력이 줄면 그림자로 분열한다. 분신이 살아 있는 동안 본체는 무적.',
 };
 
@@ -67,6 +71,7 @@ export const BOSS_WAVE = 10;
 
 const POOL = [
   ['skel', 'rat', 'bat', 'slime', 'corpse'],
+  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'toad'],
   ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'wraith', 'toad'],
   ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'wraith', 'toad', 'cultist'],
 ];
@@ -74,7 +79,7 @@ const ELITES = ['shieldlord', 'priestess', 'necro', 'wolf'];
 
 // 지도 칸 하나의 전투 구성
 export function makeBattle(rng, act, row, kind, boss) {
-  const L0 = [1.5, 7, 17][act - 1] + row * 0.55;
+  const L0 = [1.5, 6.5, 12, 18.2][act - 1] + row * 0.55;
   const pool = POOL[act - 1];
   const nWaves = kind === 'boss' ? 3 : kind === 'elite' ? 5 : row < 3 && act === 1 ? 3 : 4;
   const waves = [];

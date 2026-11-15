@@ -1,5 +1,5 @@
 // 런 진행 흐름: 칸 들어가기 · 끝내기 · 막 전환 · 결말
-import { nodeOf, saveRun, clearRun, genMap, ACTS } from './run.js';
+import { nodeOf, saveRun, clearRun, genMap, ACTS, LAST_ACT } from './run.js';
 import { pickEvent } from './events.js';
 import { fateId } from '../data/fate.js';
 import { store, save } from '../core/storage.js';
@@ -60,7 +60,7 @@ export function finishNode(app, run) {
 
 export function nextAct(app, run) {
   if (guest(app)) return;
-  if (run.act >= 3) {
+  if (run.act >= LAST_ACT) {
     if (!run.coop) saveRun(run);
     app.go('ending', { run });
     return;

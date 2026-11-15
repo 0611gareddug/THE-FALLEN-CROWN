@@ -171,7 +171,7 @@ export function eventScene(app, { run, eventId }) {
         // 선택은 그 왕족 플레이어가 한다. 나는 의견만 보낼 수 있다.
         const who = royalInfo ? royalInfo.name : run.players[owner].name;
         choicesEl.replaceChildren(
-          h('div.note.opinion', `${who}의 ${fate ? '운명의 장' : '왕족 사건'}입니다. 선택은 ${who}이(가) 합니다 — 눌러서 의견을 보내세요.`),
+          h('div.note.opinion', `${who}의 ${fate ? '운명의 장' : '용사 사건'}입니다. 선택은 ${who}이(가) 합니다 — 눌러서 의견을 보내세요.`),
           ...list.filter((c) => condOk(run, c.cond)).map((c) => h('button.ev-choice.opine' + (c.side ? '.side-' + c.side : ''), {
             'data-i': ev.choices.indexOf(c),
             onclick: () => { audio.sfxPlay('click'); coop.vote(key, ev.choices.indexOf(c)); markVotes(key); },

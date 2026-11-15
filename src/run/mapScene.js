@@ -1,7 +1,7 @@
 // 지도 화면: 밤하늘에 금색 선으로 그린 별자리 지도
 import { h, svg, ICON } from '../ui/dom.js';
 import { audio } from '../core/audio.js';
-import { ACTS, NODE_TYPES, ROWS, available, nodeOf, runFx, saveRun, clearRun } from './run.js';
+import { ACTS, LAST_ACT, NODE_TYPES, ROWS, available, nodeOf, runFx, saveRun, clearRun } from './run.js';
 import { enterNode, endRun } from './flow.js';
 import { iconURL } from '../gfx/icons.js';
 import { portrait } from '../gfx/art2.js';
@@ -12,16 +12,17 @@ import { UNIT, TIERS, UPG_NAMES } from '../data/units.js';
 import { sheet, settingsPanel } from '../ui/panels.js';
 import { pickEvent, EVENTS } from './events.js';
 import { ROYALS } from '../data/text.js';
+import { ENEMIES } from '../data/enemies.js';
 import { FATE, FATE_TITLES, fateId, fateTally } from '../data/fate.js';
 
-const ROMAN = ['I', 'II', 'III'];
+const ROMAN = ['I', 'II', 'III', 'IV'];
 export const FACTIONS = {
   church: { name: '빛의 교회', color: '#f1e3a6' },
   cult: { name: '재의 교단', color: '#e0663a' },
   tribe: { name: '숲의 부족', color: '#7fbf6a' },
   guild: { name: '떠돌이 길드', color: '#e8c25a' },
 };
-const TYPE_COL = { battle: '#d9d4c7', elite: '#ff8a7a', event: '#9fc8ff', shop: '#e8c25a', camp: '#ff9a5a', treasure: '#ffe36b', altar: '#c99bff', boss: '#ff6b6b', dragon: '#a8e4ff', fate: '#ffd98a' };
+const TYPE_COL = { battle: '#6e4a2a', elite: '#c0392b', event: '#2f6fb8', shop: '#b07818', camp: '#d0601e', treasure: '#c89a10', altar: '#7a4bc0', boss: '#c0392b', dragon: '#2a8ab8', fate: '#c27510' };
 
 export function mapScene(app, { run }) {
   let el, info, sel = null;
@@ -74,8 +75,8 @@ export function mapScene(app, { run }) {
         const [x2, y2] = pos(t);
         const walked = nd.done && t.done;
         const open = nd.id === run.pos && avail.has(nid);
-        const col = walked ? '#c9a85c' : open ? '#e8c25a' : 'rgba(170,163,149,0.22)';
-        lines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${walked ? 1.6 : 1}" ${open ? 'stroke-dasharray="3 4" class="march"' : ''}/>`;
+        const col = walked ? '#b0742a' : open ? '#e08a1e' : 'rgba(120,82,44,0.32)';
+        lines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${walked ? 2.4 : 1.6}" ${open ? 'stroke-dasharray="3 4" class="march"' : ''}/>`;
       }
     }
     if (!run.pos) for (const id of run.map.rows[0]) {
@@ -97,7 +98,7 @@ export function mapScene(app, { run }) {
         'aria-label': NODE_TYPES[nd.type].name,
         onclick: () => choose(nd, isAvail),
         onmouseenter: () => { if (isAvail) audio.sfxPlay('hover'); },
-      }, h('img', { src: iconURL(nd.type, nd.done ? '#7a6a40' : isAvail || cur ? TYPE_COL[nd.type] : '#5a5650', 2), alt: '' }));
+      }, h('img', { src: iconURL(nd.type, nd.done ? '#a08058' : isAvail || cur ? TYPE_COL[nd.type] : '#bba98c', 2), alt: '' }));
       if (fx.preview && nd.type === 'event' && isAvail) {
         if (!nd.eventId) nd.eventId = pickEvent(run, nd.id);
         const ev = EVENTS[nd.eventId];
@@ -162,8 +163,8 @@ export function mapScene(app, { run }) {
     const t = NODE_TYPES[nd.type];
     let title = t.name, desc = t.desc;
     if (nd.type === 'boss') {
-      const bossId = run.act < 3 ? ACTS[run.act - 1].boss : null;
-      title = bossId === 'ogran' ? '보스 · 잿불 거인 오그란' : bossId === 'morven' ? '보스 · 배신의 재상 모르벤' : '최종 보스 · ???';
+      const bossId = run.act < LAST_ACT ? ACTS[run.act - 1].boss : null;
+      title = bossId ? `보스 · ${ENEMIES[bossId].name}` : '최종 보스 · 마왕 녹스';
     }
     if (nd.type === 'fate') {
       const royals = run.players ? run.players.map((p) => p.royal) : [run.royal];

@@ -6,13 +6,15 @@ import { MASCOT_DEFS } from '../data/mascots.js';
 import { store } from '../core/storage.js';
 
 export const ACTS = [
-  { name: '잿더미의 길', sub: '무너진 성을 빠져나와 잿빛 평원을 건넌다', boss: 'ogran' },
-  { name: '배신의 수도', sub: '재상 모르벤이 지배하는 옛 수도로', boss: 'morven' },
-  { name: '왕관의 심장', sub: '얼어붙은 산을 넘어 왕관이 잠든 곳으로', boss: null },
+  { name: '풀숲', sub: '햇살 가득한 들판과 숲을 지나 첫 모험을 시작한다', boss: 'ogran' },
+  { name: '해변 마을', sub: '등대가 있는 항구 마을. 문어 해적단이 바다를 막고 있다', boss: 'morven' },
+  { name: '구름 산', sub: '구름 위 오솔길을 올라 마왕성으로 가는 하늘 다리를 찾는다', boss: 'griffin' },
+  { name: '마왕성', sub: '보랏빛 밤의 성. 마왕 녹스가 기다린다', boss: null },
 ];
+export const LAST_ACT = ACTS.length;
 export const ROWS = 12;
 // 운명의 장: 막마다 모든 길이 모이는 두 줄
-export const FATE_ROWS = [[3, 7], [3, 7], [3, 8]];
+export const FATE_ROWS = [[3, 7], [3, 7], [3, 8], []];
 
 export const NODE_TYPES = {
   battle: { name: '전투', desc: '3~4웨이브 전투' },
@@ -24,7 +26,7 @@ export const NODE_TYPES = {
   altar: { name: '운명의 제단', desc: '행운석을 걸고 주사위를 굴린다' },
   boss: { name: '보스', desc: '막 보스' },
   dragon: { name: '용의 둥지', desc: '얼어붙은 용 실바나' },
-  fate: { name: '운명의 장', desc: '왕족의 이야기 · 모든 길이 이곳을 지난다' },
+  fate: { name: '운명의 장', desc: '용사의 이야기 · 모든 길이 이곳을 지난다' },
 };
 
 const W_TYPES = [['battle', 38], ['event', 32], ['elite', 10], ['shop', 7], ['camp', 5], ['treasure', 4], ['altar', 4]];
@@ -43,7 +45,7 @@ export function genMap(seed, act) {
   for (let r = 0; r < ROWS; r++) {
     let n;
     if (r === ROWS - 1) n = 1;
-    else if (act === 3 && r === 6) n = 1;
+    else if (act === LAST_ACT && r === 6) n = 1;
     else if (FATE_ROWS[act - 1].includes(r)) n = 1;
     else if (r === 0) n = 2 + rng.int(2);
     else if (r === ROWS - 2) n = 2;
@@ -78,7 +80,7 @@ export function genMap(seed, act) {
       if (r === 0) nd.type = 'battle';
       else if (r === ROWS - 1) nd.type = 'boss';
       else if (r === ROWS - 2) nd.type = 'camp';
-      else if (act === 3 && r === 6) nd.type = 'dragon';
+      else if (act === LAST_ACT && r === 6) nd.type = 'dragon';
       else if (FATE_ROWS[act - 1].includes(r)) { nd.type = 'fate'; nd.fateN = (act - 1) * 2 + FATE_ROWS[act - 1].indexOf(r) + 1; }
       else nd.type = weighted(rng, W_TYPES, (t) => (t !== 'elite' || r >= 4) && (t !== 'shop' || r >= 3) && (t !== 'camp' || (r >= 5 && r <= 8)) && (t !== 'altar' || r >= 2));
     }
@@ -102,7 +104,7 @@ export function newRun({ royal, mascot, seed }) {
   seed = seed ?? ((Math.random() * 2 ** 31) | 0);
   const wallMax = 100 + (royal === 'edric' ? 20 : 0) + (perks.wall || 0) * 5 + (mascot === 'potato' ? 10 : 0);
   const run = {
-    v: 1, seed, royal, mascot, act: 1, pos: null, time: 0,
+    v: 2, seed, royal, mascot, act: 1, pos: null, time: 0,
     map: genMap(seed, 1),
     carry: {
       units: new Array(18).fill(null),
@@ -198,7 +200,8 @@ export function mascotLevel(id) {
 // ── 저장 ──
 const KEY = 'tfc_run_v1';
 export function saveRun(run) { try { localStorage.setItem(KEY, JSON.stringify(run)); } catch (e) { /* 무시 */ } }
-export function loadRun() { try { const r = JSON.parse(localStorage.getItem(KEY)); return r && r.v === 1 ? r : null; } catch (e) { return null; } }
+// v2: 4막 구조 — 이전 버전의 진행 중 여정은 버리고 새로 시작한다
+export function loadRun() { try { const r = JSON.parse(localStorage.getItem(KEY)); return r && r.v === 2 ? r : null; } catch (e) { return null; } }
 export function clearRun() { try { localStorage.removeItem(KEY); } catch (e) { /* 무시 */ } }
 
 export function mascotName(id) { return (MASCOT_DEFS[id] || MASCOT_DEFS.puru).name; }

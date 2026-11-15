@@ -321,11 +321,19 @@ const CROWN = [
   '....ooooooo.....',
 ];
 
+// 행운의 용사단 3인 (내부 id는 그대로): 레오 · 미나 · 피크. 머리 위에 행운의 네잎클로버
 const ROYAL_P = {
-  edric: { t: 'knight', a: '#c9a85c', A: '#8a7030', c: '#3a5fb0', w: '#e8ecf4', W: '#9aa2b4', crown: 0 },
-  seren: { t: 'mage', a: '#6a4ab0', A: '#46307a', h: '#f0d0ff', c: '#c99bff', crown: 2 },
-  kyle: { t: 'rogue', a: '#3a5a3a', A: '#263e26', c: '#5a7a5a', h: '#b06a2a', crown: 0 },
+  edric: { t: 'knight', a: '#4a8ae0', A: '#2f5fa8', c: '#f0d27a', w: '#eef2f8', W: '#9aa6bc', crown: 0 },
+  seren: { t: 'mage', a: '#4a7fd0', A: '#2e5aa8', h: '#ffb3cf', c: '#ffd36b', y: '#ffd36b', crown: 0 },
+  kyle: { t: 'archer', a: '#5aa04a', A: '#3a7a30', c: '#a8703e', h: '#5a3a1e', crown: 1 },
 };
+const CLOVER = [
+  '.......o.o......',
+  '......ogogo.....',
+  '.......ogo......',
+  '........s.......',
+];
+const CLOVER_P = { g: '#5fd068', s: '#2f7a2f' };
 
 function makeCanvas(w, h) {
   const c = typeof OffscreenCanvas !== 'undefined' && !globalThis.document ? new OffscreenCanvas(w, h) : document.createElement('canvas');
@@ -409,7 +417,7 @@ export function buildSprites(tierGlows) {
     const c = makeCanvas(16, 20);
     const g = c.getContext('2d');
     paint(T[p.t], { ...p, h: p.h || '#6a4a2a' }, 16, 16, 0, 4, g);
-    paint(CROWN, {}, 16, 4, 0, p.crown, g);
+    paint(CLOVER, CLOVER_P, 16, 4, 0, p.crown, g);
     SPR.royals[id] = c;
   }
   buildArt2(SPR, flip, silhouette);
