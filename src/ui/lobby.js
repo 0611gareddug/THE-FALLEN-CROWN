@@ -77,7 +77,7 @@ export function lobbyScene(app) {
             }, label, sub ? h('span.soon', sub) : null)))),
       ),
       h('div.sparkle.fade', { style: { animationDelay: `${delay + 1.6}s` } }, svg(ICON.star)),
-      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v1.4 · 행운의 용사단'),
+      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v1.4.1 · 행운의 용사단'),
     );
     app.ui.appendChild(el);
     firstVisit = false;

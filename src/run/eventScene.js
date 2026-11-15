@@ -148,13 +148,15 @@ export function eventScene(app, { run, eventId }) {
   // ── 선택지 ──
   function showChoices() {
     const list = ev.choices.filter((c) => !(c.hide && !condOk(run, c.cond)));
+    let hook = null;
     if (coop) {
       const key = `${base}:choose`;
       const owner = ev.royal ? ownerOfRoyal(run, ev.royal) : null;
       const allowed = ev.choices.map((c, i) => i).filter((i) => list.includes(ev.choices[i]) && condOk(run, ev.choices[i].cond));
       coop.openVote(key, { options: allowed, owner, extra: (idx) => hostOutcome(ev.choices[idx]) });
       offs.push(coop.onLocal('vote', (m) => { if (m.key === key) markVotes(key); }));
-      coop.whenDecided(key, (idx, out) => { if (coop.host) coop.sendRun(); present(ev.choices[idx], out); });
+      // 결정이 이미 와 있으면 바로 결과로 넘어가므로, 버튼을 다 그린 뒤에 연결한다
+      hook = () => coop.whenDecided(key, (idx, out) => { if (coop.host) coop.sendRun(); present(ev.choices[idx], out); });
       if (owner !== null && owner !== coop.me) {
         // 선택은 그 왕족 플레이어가 한다. 나는 의견만 보낼 수 있다.
         const who = coop.nameOf(owner);
@@ -165,6 +167,7 @@ export function eventScene(app, { run, eventId }) {
             onclick: () => { audio.sfxPlay('click'); coop.vote(key, ev.choices.indexOf(c)); markVotes(key); },
           }, c.side ? h('i.side-tag', c.side === 'light' ? '빛' : '어둠') : null, h('span.t', c.t))),
           coop.voteBar(key, (i) => ev.choices[i].t));
+        hook();
         return;
       }
     }
@@ -181,7 +184,7 @@ export function eventScene(app, { run, eventId }) {
       h('span.t', c.t, p !== null ? h('em.pct', ` (성공 ${Math.round(p * 100)}%)`) : null),
       c.sub || !ok ? h('small', ok ? c.sub.replace(/성공 \d+%(\s*\([^)]*\))?\s*·?\s*/g, '') : condText(c.cond)) : null);
     }));
-    if (coop) choicesEl.append(coop.voteBar(`${base}:choose`, (i) => (ev.choices[i] ? ev.choices[i].t : '?')));
+    if (coop) { choicesEl.append(coop.voteBar(`${base}:choose`, (i) => (ev.choices[i] ? ev.choices[i].t : '?'))); hook(); }
   }
   function markVotes(key) {
     const v = coop.votes[key] || [];

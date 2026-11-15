@@ -13,7 +13,9 @@ export const PROTO = 2;
 export const VOTE_SEC = 20; // 협동 투표 제한 시간(초)
 const SYNC_SCENES = new Set(['map', 'event', 'shop', 'camp', 'treasure', 'altar', 'minigame', 'reward', 'actIntro', 'ending', 'battle', 'coopSelect']);
 // 참가자가 보낸 메시지 중 다른 참가자도 봐야 하는 것 (방장이 대신 전달)
-const RELAY = new Set(['vote', 'pick', 'sig', 'mgs', 'gsend']);
+const RELAY = new Set(['vote', 'vopen', 'pick', 'sig', 'mgs', 'gsend']);
+// 모두 선택지에 도착하지 않아도 이 시간이 지나면 투표 시간을 시작한다 (멈춤 방지)
+const ARRIVE_MAX = 60;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export class Coop {
@@ -26,7 +28,10 @@ export class Coop {
     this.votes = {};
     this.open = {};
     this.decided = {};
+    this.decidedX = {}; // 결정과 함께 온 결과 정보 (늦게 도착한 사람도 같은 정보를 받는다)
     this.waiters = {};
+    this.seen = {}; // 투표 키 → 선택지에 도착한 자리들
+    this.preTime = {}; // 투표를 열기 전에 받은 시간 시작 신호
     this.ai = new Set(); // AI가 맡은 자리
     this.lastGo = null;
     this.handlers = [];
@@ -41,6 +46,8 @@ export class Coop {
     this.hook('vote', (m) => this.onVote(m));
     this.hook('decided', (m) => this.onDecided(m));
     this.hook('vtime', (m) => this.onVTime(m));
+    this.hook('vopen', (m) => this.onVOpen(m));
+    this.hook('resync', (m) => this.onResync(m));
     this.hook('pick', (m) => { if (m.p && m.p.nick) m.p.nick = cleanNick(m.p.nick); this.picks[m.who !== undefined ? m.who : m.from] = m.p; this.emitLocal('picks'); });
     this.hook('seats', (m) => { if (!this.host) { this.seats = m.seats; this.picks = m.picks || this.picks; this.emitLocal('picks'); } });
     this.hook('_status', (m) => this.onStatus(m));
@@ -53,6 +60,15 @@ export class Coop {
     this.chipTimer = setInterval(() => this.updateChip(), 1000);
     this.updateChip();
     this.chat = new Chat(this);
+    // 협동 중에는 휴대폰 화면이 저절로 꺼지지 않게 한다 (꺼지면 연결이 멈춘다)
+    this.wake = null;
+    this.keepAwake = () => {
+      if (document.visibilityState !== 'visible' || this.wake || !navigator.wakeLock) return;
+      navigator.wakeLock.request('screen').then((w) => { this.wake = w; w.addEventListener('release', () => { if (this.wake === w) this.wake = null; }); }).catch(() => {});
+    };
+    this.onVisWake = () => this.keepAwake();
+    document.addEventListener('visibilitychange', this.onVisWake);
+    this.keepAwake();
   }
 
   hook(t, fn) { this.handlers.push(this.net.on(t, fn)); }
@@ -111,7 +127,7 @@ export class Coop {
     this.allowLocalGo = true;
     const params = { ...m.p };
     if (this.run) params.run = this.run;
-    this.origGo(m.name, params);
+    try { this.origGo(m.name, params); } catch (e) { console.error(e); this.allowLocalGo = false; this.requestResync(); return; }
     this.allowLocalGo = false;
     this.chat.place(m.name);
   }
@@ -136,18 +152,55 @@ export class Coop {
   // 기본: 지금 사람이 있는 자리가 모두 고르면 다수결로 결정 (동점이면 무작위). 시간이 다 되면 고른 표만으로.
   // afterFirst: 모두 누르거나, 누군가 누른 뒤 N초가 지나면 결정 (상점 떠나기 · 놀이 천막)
   // owner: 그 자리의 플레이어만 결정 (나머지는 의견)
+  // 시간은 모두가 선택지에 도착한 뒤부터 잰다 (대사를 늦게 읽는 사람도 고를 수 있게).
   openVote(key, opt = {}) {
     if (this.open[key]) return;
-    this.open[key] = { ...opt, start: performance.now(), timeout: (opt.timeout || VOTE_SEC) * 1000 };
+    const o = this.open[key] = { ...opt, start: performance.now(), timeout: (opt.timeout || VOTE_SEC) * 1000, waiting: !opt.afterFirst };
     this.votes[key] = this.votes[key] || [];
+    this.markSeen(key, this.me);
+    this.net.send({ t: 'vopen', key, who: this.me });
+    if (this.preTime[key] !== undefined) { o.start = performance.now(); o.timeout = this.preTime[key]; o.waiting = false; delete this.preTime[key]; }
     if (this.host) {
-      clearTimeout(this.open[key].timer);
-      this.open[key].timer = setTimeout(() => this.resolve(key), this.open[key].timeout);
+      if (o.waiting) o.arriveT = setTimeout(() => this.startClock(key), ARRIVE_MAX * 1000);
+      else o.timer = setTimeout(() => this.resolve(key), o.timeout);
+      this.checkArrive(key);
       this.tryResolve(key);
     }
   }
+  markSeen(key, who) { (this.seen[key] = this.seen[key] || new Set()).add(who); }
+  onVOpen(m) {
+    const who = this.host ? m.from : m.who;
+    if (this.decided[m.key] !== undefined) {
+      // 늦게 도착한 사람에게 결정을 다시 보낸다 (중간에 놓쳤을 때 대비)
+      if (this.host) this.net.sendTo(who, { t: 'decided', key: m.key, result: this.decided[m.key], rand: null, extra: this.decidedX[m.key] });
+      return;
+    }
+    this.markSeen(m.key, who);
+    this.emitLocal('vote', { key: m.key });
+    if (this.host) this.checkArrive(m.key);
+  }
+  // 방장: 사람이 있는 자리가 모두 도착했으면 시간을 시작한다
+  checkArrive(key) {
+    const o = this.open[key];
+    if (!this.host || !o || !o.waiting || this.decided[key] !== undefined) return;
+    const s = this.seen[key] || new Set();
+    const v = this.votes[key] || [];
+    if (this.activeVoters().every((i) => s.has(i) || v[i] !== undefined)) this.startClock(key);
+  }
+  startClock(key) {
+    const o = this.open[key];
+    if (!o || !o.waiting || this.decided[key] !== undefined) return;
+    o.waiting = false;
+    clearTimeout(o.arriveT);
+    o.start = performance.now();
+    clearTimeout(o.timer);
+    o.timer = setTimeout(() => this.resolve(key), o.timeout);
+    this.net.send({ t: 'vtime', key, ms: o.timeout });
+    this.emitLocal('vote', { key });
+  }
   vote(key, pick) {
     this.votes[key] = this.votes[key] || [];
+    this.markSeen(key, this.me);
     if (this.decided[key] !== undefined) return;
     this.votes[key][this.me] = pick;
     this.net.send({ t: 'vote', key, who: this.me, pick });
@@ -158,8 +211,9 @@ export class Coop {
     const who = this.host ? m.from : m.who;
     this.votes[m.key] = this.votes[m.key] || [];
     this.votes[m.key][who] = m.pick;
+    this.markSeen(m.key, who);
     this.emitLocal('vote', { key: m.key });
-    if (this.host) this.tryResolve(m.key);
+    if (this.host) { this.checkArrive(m.key); this.tryResolve(m.key); }
   }
   // 다수결: 가장 많은 표, 동점이면 무작위
   tally(v) {
@@ -207,7 +261,7 @@ export class Coop {
   finish(key, result, rand) {
     if (this.decided[key] !== undefined) return;
     const o = this.open[key];
-    if (o) { clearTimeout(o.timer); clearTimeout(o.afT); }
+    if (o) { clearTimeout(o.timer); clearTimeout(o.afT); clearTimeout(o.arriveT); }
     const extra = o && o.extra ? o.extra(result) : null;
     // 바뀐 여정 상태를 먼저 보내고 결정을 알린다
     if (this.run) this.net.send({ t: 'run', run: JSON.stringify(this.run) });
@@ -218,8 +272,9 @@ export class Coop {
   onDecided(m) {
     if (this.decided[m.key] !== undefined) return;
     this.decided[m.key] = m.result;
+    this.decidedX[m.key] = m.extra;
     const o = this.open[m.key];
-    if (o) { clearTimeout(o.timer); clearTimeout(o.afT); }
+    if (o) { clearTimeout(o.timer); clearTimeout(o.afT); clearTimeout(o.arriveT); }
     if (m.rand && (m.rand.tie || m.rand.timeout)) {
       const label = this.labels[m.key] || ((x) => String(x));
       audio.sfxPlay('dice');
@@ -227,14 +282,33 @@ export class Coop {
     }
     const w = this.waiters[m.key];
     delete this.waiters[m.key];
-    if (w) w(m.result, m.extra);
+    if (w) this.safe(() => w(m.result, m.extra));
   }
-  onVTime(m) { const o = this.open[m.key]; if (o) { o.start = performance.now(); o.timeout = m.ms; } }
+  onVTime(m) {
+    const o = this.open[m.key];
+    if (o) { o.start = performance.now(); o.timeout = m.ms; o.waiting = false; this.emitLocal('vote', { key: m.key }); } else this.preTime[m.key] = m.ms;
+  }
   whenDecided(key, cb) {
-    if (this.decided[key] !== undefined) { cb(this.decided[key]); return; }
+    if (this.decided[key] !== undefined) { const r = this.decided[key], x = this.decidedX[key]; this.safe(() => cb(r, x)); return; }
     this.waiters[key] = cb;
   }
-  clearVote(key) { delete this.votes[key]; delete this.open[key]; delete this.decided[key]; delete this.waiters[key]; }
+  clearVote(key) { delete this.votes[key]; delete this.open[key]; delete this.decided[key]; delete this.decidedX[key]; delete this.waiters[key]; delete this.seen[key]; }
+  // 결정 처리 중 오류가 나도 멈추지 않게: 참가자는 방장에게 지금 화면을 다시 받는다
+  safe(fn) {
+    try { fn(); } catch (e) { console.error(e); this.requestResync(); }
+  }
+  requestResync() {
+    if (this.host) return;
+    const now = performance.now();
+    if (this.lastResync && now - this.lastResync < 3000) return;
+    this.lastResync = now;
+    this.net.send({ t: 'resync' });
+  }
+  onResync(m) {
+    if (!this.host || m.from === undefined) return;
+    if (this.run) this.net.sendTo(m.from, { t: 'run', run: JSON.stringify(this.run) });
+    if (this.lastGo) this.net.sendTo(m.from, { t: 'go', name: this.lastGo.name, p: this.lastGo.p });
+  }
   // 다른 사람들이 고른 값 (버튼 표시용)
   othersPicked(key, value) { return this.othersCount(key, value) > 0; }
   othersCount(key, value) {
@@ -265,12 +339,16 @@ export class Coop {
       const o = this.open[key];
       const v = this.votes[key] || [];
       const mine = v[this.me];
-      if (o) fill.style.width = Math.max(0, 100 - ((performance.now() - o.start) / o.timeout) * 100) + '%';
+      if (o) fill.style.width = o.waiting ? '100%' : Math.max(0, 100 - ((performance.now() - o.start) / o.timeout) * 100) + '%';
+      bar.classList.toggle('wait', !!(o && o.waiting));
       const others = this.others;
       const done = others.filter((i) => v[i] !== undefined);
       const nm = (i) => (this.ai.has(i) ? `${this.nameOf(i)}(AI)` : this.nameOf(i));
       let t;
+      const sn = this.seen[key] || new Set();
+      const reading = others.filter((i) => !this.ai.has(i) && !sn.has(i) && v[i] === undefined);
       if (this.decided[key] !== undefined) t = '결정!';
+      else if (o && o.waiting && reading.length) t = `${reading.map(nm).join(' · ')} 이야기 읽는 중… 모두 도착하면 ${Math.round(o.timeout / 1000)}초가 시작됩니다`;
       else if (o && o.options && o.options.length === 1 && o.options[0] === true) {
         const ready = done.length + (mine !== undefined ? 1 : 0);
         t = o.afterFirst
@@ -341,7 +419,7 @@ export class Coop {
     this.chat.sys(clean ? `${this.nameOf(slot)}이(가) 떠났습니다. AI가 대신 맡습니다.` : `${this.nameOf(slot)}와(과) 연결이 끊겼습니다. AI가 대신 맡습니다.`);
     this.toastAll(clean ? `${this.nameOf(slot)}이(가) 떠났습니다. AI가 보드를 맡습니다.` : `${this.nameOf(slot)}와(과) 연결이 끊겼습니다. 돌아올 때까지 AI가 대신합니다.`);
     // 기다리던 투표는 남은 사람 기준으로
-    for (const key of Object.keys(this.open)) this.tryResolve(key);
+    for (const key of Object.keys(this.open)) { this.checkArrive(key); this.tryResolve(key); }
     this.emitLocal('seats');
     this.updateChip();
   }
@@ -390,6 +468,8 @@ export class Coop {
     this.handlers.forEach((off) => off());
     this.chip.remove();
     this.chat.destroy();
+    document.removeEventListener('visibilitychange', this.onVisWake);
+    if (this.wake) { const w = this.wake; this.wake = null; w.release().catch(() => {}); }
     this.hideOverlay();
     this.app.go = this.origGo;
     this.app.coop = null;

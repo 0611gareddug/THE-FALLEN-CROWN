@@ -1106,3 +1106,7 @@ body:not(.land) .room-mini { top: 2px; right: 8px; }
 .cpor .cinfo { min-width: 0; }
 .cpor .cinfo b { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nick-warn { margin-top: 6px; font-size: 12px; color: #ff9a8a; min-height: 0; }
+
+/* 투표: 동료가 아직 이야기를 읽는 동안 (시간 멈춤) */
+.vote-bar.wait .vb-track i { background: #8f96a8; animation: vbwait 1.6s ease-in-out infinite; }
+@keyframes vbwait { 50% { opacity: .45; } }

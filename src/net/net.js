@@ -14,6 +14,8 @@ function errText(e) {
 }
 
 export const MAX_PLAYERS = 4;
+// 이 시간 동안 아무것도 받지 못하면 끊긴 것으로 본다 (휴대폰이 잠깐 느려져도 버티도록 넉넉히)
+const SILENT_MS = 12000;
 
 // 방장: 참가자 최대 3명과 각각 연결 (별 모양). 참가자: 방장 하나와 연결.
 // 참가자가 보낸 메시지는 방장이 받으면서 m.from(자리 번호)을 붙인다.
@@ -34,6 +36,9 @@ export class Net {
     this.timer = null;
     this.locked = false; // 게임이 시작되면 새 참가자를 받지 않는다 (재접속은 허용)
     this.peerSlot = new Map(); // 참가자 peer id → 자리 번호 (재접속 시 같은 자리)
+    this.stale = new Set(); // 방장: 응답이 없어 끊긴 것으로 처리한 자리 (연결은 살아 있을 수 있다)
+    this.onVis = () => { if (document.visibilityState === 'visible') this.pingNow(); };
+    document.addEventListener('visibilitychange', this.onVis);
   }
 
   options() {
@@ -91,6 +96,7 @@ export class Net {
     if (old && old !== c) { try { old.close(); } catch (e) { /* 무시 */ } }
     this.conns.set(slot, c);
     c.on('open', () => {
+      this.stale.delete(slot);
       this.lastRecvs.set(slot, performance.now());
       c.send({ t: 'welcome', slot });
       this.status = 'connected';
@@ -148,9 +154,9 @@ export class Net {
     if (this.role === 'guest') this.retry();
   }
 
-  // 참가자: 30초 동안 3초마다 다시 접속 시도
+  // 참가자: 60초 동안 3초마다 다시 접속 시도
   retry() {
-    const until = performance.now() + 30000;
+    const until = performance.now() + 60000;
     const tryOnce = () => {
       if (this.status === 'connected' || this.status === 'idle') return;
       if (performance.now() > until) { this.setStatus('gone'); return; }
@@ -172,14 +178,21 @@ export class Net {
         for (const [slot, c] of this.conns) {
           if (!c.open) continue;
           try { c.send({ t: 'ping', k: now }); } catch (e) { /* 무시 */ }
-          if (now - (this.lastRecvs.get(slot) || now) > 7000) { this.lastRecvs.set(slot, now + 1e9); this.lostSlot(slot); }
+          if (!this.stale.has(slot) && now - (this.lastRecvs.get(slot) || now) > SILENT_MS) { this.stale.add(slot); this.lostSlot(slot); }
         }
         return;
       }
       if (!this.conn || !this.conn.open) return;
       this.send({ t: 'ping', k: now });
-      if (this.status === 'connected' && now - this.lastRecv > 7000) this.lost();
+      if (this.status === 'connected' && now - this.lastRecv > SILENT_MS) this.lost();
     }, 2000);
+  }
+
+  // 화면이 다시 보이면 바로 확인 신호를 보낸다 (휴대폰이 잠깐 멈췄다 돌아온 경우)
+  pingNow() {
+    const now = performance.now();
+    if (this.role === 'host') { for (const c of this.conns.values()) if (c.open) { try { c.send({ t: 'ping', k: now }); } catch (e) { /* 무시 */ } } }
+    else if (this.conn && this.conn.open) { try { this.conn.send({ t: 'ping', k: now }); } catch (e) { /* 무시 */ } }
   }
 
   // 방장: 모두에게(except 제외) · 참가자: 방장에게
@@ -210,7 +223,14 @@ export class Net {
 
   recv(m, slot) {
     const now = performance.now();
-    if (this.role === 'host') this.lastRecvs.set(slot, now); else this.lastRecv = now;
+    if (this.role === 'host') {
+      this.lastRecvs.set(slot, now);
+      // 응답이 없어 끊긴 것으로 처리했던 자리가 같은 연결로 다시 말을 걸면 돌아온 것으로 본다
+      if (this.stale.has(slot) && this.isOpen(slot)) { this.stale.delete(slot); this.emit({ t: '_status', s: 'connected', msg: 'reconnected', slot }); }
+    } else {
+      this.lastRecv = now;
+      if (this.status === 'lost' && this.conn && this.conn.open) this.setStatus('connected', 'reconnected');
+    }
     if (!m || typeof m !== 'object') return;
     if (m.t === 'ping') { if (this.role === 'host') this.sendTo(slot, { t: 'pong', k: m.k }); else this.send({ t: 'pong', k: m.k }); return; }
     if (m.t === 'pong') { const r = now - m.k; if (this.role === 'host') this.rtts.set(slot, r); else this.rtt = r; return; }
@@ -227,7 +247,7 @@ export class Net {
     for (const [id, old] of this.peerSlot) { const k = seats.indexOf(old); if (k > 0) ps.set(id, k); }
     // 연결 이벤트 핸들러는 예전 자리 번호를 기억하므로, 데이터에 새 번호를 붙이도록 다시 연결
     for (const [k, c] of conns) { c.removeAllListeners('data'); c.removeAllListeners('close'); c.removeAllListeners('error'); c.on('data', (d) => this.recv(d, k)); const gone = () => { if (this.conns.get(k) === c) this.lostSlot(k); }; c.on('close', gone); c.on('error', gone); }
-    this.conns = conns; this.peerSlot = ps; this.lastRecvs = lr;
+    this.conns = conns; this.peerSlot = ps; this.lastRecvs = lr; this.stale = new Set();
   }
   isOpen(slot) { const c = this.conns.get(slot); return !!(c && c.open); }
 
@@ -237,7 +257,7 @@ export class Net {
     for (const c of this.conns.values()) { try { c.close(); } catch (e) { /* 무시 */ } }
     try { if (this.peer) this.peer.destroy(); } catch (e) { /* 무시 */ }
     this.conn = null; this.peer = null; this.everConnected = false;
-    this.conns = new Map(); this.peerSlot = new Map(); this.lastRecvs = new Map(); this.rtts = new Map();
+    this.conns = new Map(); this.peerSlot = new Map(); this.lastRecvs = new Map(); this.rtts = new Map(); this.stale = new Set();
     this.locked = false; this.slot = undefined;
     this.status = 'idle';
   }
