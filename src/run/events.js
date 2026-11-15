@@ -182,16 +182,10 @@ export function applyFx(run, fx, meta) {
   if (fx.mascot) { meta && (meta.unlockMascot = fx.mascot); }
   if (fx.ach) { meta && (meta.ach = (meta.ach || []).concat(fx.ach)); }
   if (fx.skipBattle) meta && (meta.skipBattle = true);
-  if (fx.fate) {
-    const [royal, side] = fx.fate.split(':');
-    run.fate = run.fate || {};
-    (run.fate[royal] = run.fate[royal] || []).push(side);
-    out.push(`운명의 저울: ${side === 'light' ? '빛' : '어둠'} 쪽으로 기울었다`);
-  }
   return out;
 }
 
-// 협동: 금화·행운석·유닛은 두 사람 모두에게, 나머지(성벽·평판·유물·동료)는 한 번만
+// 협동: 금화·행운석·유닛은 모두에게, 나머지(성벽·평판·유물·동료)는 한 번만
 const PERSONAL = ['gold', 'stones', 'unit', 'sellBest', 'loseUnit'];
 export function applyFxAll(run, fx, meta) {
   if (!run.players || !fx) return applyFx(run, fx, meta);
@@ -202,7 +196,7 @@ export function applyFxAll(run, fx, meta) {
   if (Object.keys(personal).length) {
     const per = run.players.map((p) => { run.carry = p.carry; return applyFx(run, personal, meta); });
     run.carry = run.players[0].carry;
-    if (JSON.stringify(per[0]) === JSON.stringify(per[1])) out.push(...per[0].map((x) => `${x} (둘 다)`));
+    if (per.every((x) => JSON.stringify(x) === JSON.stringify(per[0]))) out.push(...per[0].map((x) => `${x} (모두)`));
     else per.forEach((list, i) => out.push(...list.map((x) => `${run.players[i].name}: ${x}`)));
   }
   return out;

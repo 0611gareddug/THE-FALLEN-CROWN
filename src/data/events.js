@@ -1,4 +1,3 @@
-import { FATE } from './fate.js';
 // 사건 약 80개 + 특수 사건 — 행운의 용사단: 풀숲에서 마왕성까지
 // 대사: [누가, 표정, 문장]  누가: narr(해설) · CAST id · '@q'(동료 중 한 명이 있으면 그 동료가 말함)
 // 선택지: t(문구) · sub(설명) · cond(조건) · hide(조건 불충족 시 숨김) · fx(효과) · r(결과 대사)
@@ -297,13 +296,12 @@ ev('whisper', {
 
 ev('mirror', {
   title: '보랏빛 거울', act: [3, 4], bg: 'crypt', kind: 'common',
-  cond: { flag: 'siblingSeen' },
   intro: [
-    ['narr', '', '깨진 거울 속에 익숙한 얼굴이 보인다. 1년 전 마왕에게 끌려간 소꿉친구 노아다. 눈이 보랏빛이다.'],
-    ['narr', '', '거울 속 그림자가 손짓한다. 마왕성 꼭대기로 오라고.'],
+    ['narr', '', '깨진 거울 속에서 마왕의 그림자가 몸을 떼어 내고 있다. 마왕이 힘을 둘로 나누려는 모양이다.'],
+    ['narr', '', '그림자가 거울 밖으로 미끄러져 마왕성 꼭대기로 향한다.'],
   ],
   choices: [
-    { t: '그림자를 쫓는다', sub: '최종 보스가 바뀐다', fx: { flag: 'brotherRoute' }, r: [['narr', '', '거울이 산산이 부서졌다. 그림자는 마왕성 꼭대기로 사라졌다.'], ['@q', 'sad', '…같이 가요. 노아를 데리고 돌아와요.']] },
+    { t: '그림자를 쫓는다', sub: '최종 보스가 바뀐다 (더 어려움)', fx: { flag: 'shadowRoute' }, r: [['narr', '', '거울이 산산이 부서졌다. 그림자는 마왕성 꼭대기로 사라졌다.'], ['@q', 'neutral', '…본체보다 그림자가 더 귀찮을 것 같은데요.']] },
     { t: '거울을 덮는다', sub: '구름 수도원 +1', fx: { rep: { church: 1 } }, r: [['narr', '', '천을 덮자 속삭임이 멎었다. 아직은.']] },
   ],
 });
@@ -994,54 +992,52 @@ ev('momo2', {
 ev('royal_edric', {
   title: '할아버지의 방패', act: [1, 2], bg: 'office', kind: 'royal', royal: 'edric',
   intro: [
-    ['edric', 'neutral', '마을 회관 벽에 그림 하나가 걸려 있다. 어릴 적 우리 넷이 그려진 그림이다.'],
-    ['edric', 'sad', '나, 미나, 피크… 그리고 노아. 1년 전 마왕에게 끌려간 노아.'],
+    ['edric', 'neutral', '마을 회관 벽에 낡은 방패가 걸려 있다. 40년 전 용사단이 쓰던 거라고 한다.'],
+    ['edric', 'shock', '…무겁겠지? 아니 근데 좀 멋있다. 아니 근데 무겁겠지?'],
   ],
   choices: [
-    { t: '그림 앞에서 다짐한다', sub: '기사 피해 +10% (영구) · 친구의 흔적', fx: { mod: { fx: { cls: { knight: 0.1 } }, battles: 99, name: '레오의 다짐' }, flag: 'siblingSeen' }, r: [['edric', 'neutral', '이번엔 내가 지킬게. 방패부터 들고. 칼은… 그다음에.'], ['narr', '', '그림 속 노아의 눈이 잠시 보랏빛으로 빛난 것 같았다.']] },
-    { t: '그림을 떼어 챙긴다', sub: '구름 수도원 +2 · 친구의 흔적', fx: { rep: { church: 2 }, flag: 'siblingSeen', flag2: 'brotherBond' }, r: [['edric', 'happy', '다시 만나면 같이 그리자. 이번엔 다섯이서. 뿌루도.']] },
+    { t: '방패 앞에서 다짐한다', sub: '기사 피해 +10% (영구)', fx: { mod: { fx: { cls: { knight: 0.1 } }, battles: 99, name: '레오의 다짐' } }, r: [['edric', 'neutral', '이번엔 내가 지킬게. 방패부터 들고. 칼은… 그다음에.']] },
+    { t: '방패를 빌려 간다', sub: '구름 수도원 +2 · 성벽 최대 +10', fx: { rep: { church: 2 }, wallMax: 10 }, r: [['edric', 'happy', '꼭 돌려드릴게요! 덜 찌그러뜨려서요. 아마도.']] },
   ],
 });
 ev('royal_seren', {
   title: '마왕성 견학 안내서', act: [1, 2], bg: 'library', kind: 'royal', royal: 'seren',
   intro: [
     ['seren', 'smug', '도서관에서 찾았어. 『마왕성 견학 안내서』. 대출 기록이… 역시 내가 연체 중이네.'],
-    ['seren', 'shock', '잠깐, 여기 마왕성 포로 명단이 끼워져 있어. 노아… 노아 이름이 있어!'],
+    ['seren', 'shock', '잠깐, 맨 뒤에 마왕성 비밀 통로 지도가 그려져 있어!'],
   ],
   choices: [
-    { t: '끝까지 해독한다', sub: '성공 60% · 마도 피해 +15% (영구) · 친구의 흔적', roll: 0.6,
-      win: { fx: { mod: { fx: { cls: { mage: 0.15 } }, battles: 99, name: '안내서 해독' }, flag: 'siblingSeen', flag2: 'brotherBond' }, r: [['seren', 'neutral', '…마왕은 가장 용감한 아이 하나를 그림자로 만든대. 그게 노아라면…'], ['seren', 'sad', '찾아야 해. 무조건.']] },
-      lose: { fx: { wall: -10, flag: 'siblingSeen' }, r: [['seren', 'shock', '책에 불이 붙었어! 아니 내 앞머리에 붙었어!']] } },
+    { t: '끝까지 해독한다', sub: '성공 60% · 마도 피해 +15% (영구)', roll: 0.6,
+      win: { fx: { mod: { fx: { cls: { mage: 0.15 } }, battles: 99, name: '안내서 해독' } }, r: [['seren', 'neutral', '…마왕은 간식 시간에 보호막이 약해진대. 이거 237쪽에 진짜로 쓰여 있어.']] },
+      lose: { fx: { wall: -10 }, r: [['seren', 'shock', '책에 불이 붙었어! 아니 내 앞머리에 붙었어!']] } },
     { t: '책을 덮고 반납한다', sub: '구름 수도원 +2 · 행운석 +2', fx: { rep: { church: 2 }, stones: 2 }, r: [['narr', '', '4년 만의 반납이었다. 사서 할머니가 눈물을 흘렸다.']] },
   ],
 });
 ev('royal_kyle', {
-  title: '장터의 수상한 팔찌', act: [1, 2], bg: 'market', kind: 'royal', royal: 'kyle',
+  title: '장터의 수상한 상인', act: [1, 2], bg: 'market', kind: 'royal', royal: 'kyle',
   intro: [
     ['kyle', 'smug', '맛집 찾아 떠돈 경력 10년의 감이 말한다. 저 상인, 뭔가 숨기고 있어.'],
-    ['guild', 'neutral', '…들꽃으로 엮은 팔찌가 하나 들어왔소. 주인이 그림자처럼 사라졌다더군.'],
+    ['guild', 'neutral', '…마왕성 근처 전설의 빵집 지도가 하나 들어왔소. 비싸오.'],
   ],
   choices: [
-    { t: '팔찌를 산다', sub: '금화 -60 · 친구의 흔적 · 행운석 +2', cond: { goldMin: 60 }, fx: { gold: -60, stones: 2, flag: 'siblingSeen', flag2: 'brotherBond' }, r: [['kyle', 'sad', '…노아 거잖아. 우리 넷이 똑같이 엮었던 팔찌.']] },
-    { t: '정보만 산다', sub: '항구 상인회 +2 · 친구의 흔적', fx: { rep: { guild: 2 }, flag: 'siblingSeen' }, r: [['kyle', 'neutral', '그림자라… 노아는 늘 숨바꼭질 1등이었지.']] },
+    { t: '지도를 산다', sub: '금화 -60 · 행운석 +2 · 처치 금화 +5% (영구)', cond: { goldMin: 60 }, fx: { gold: -60, stones: 2, mod: { fx: { goldMul: 0.05 }, battles: 99, name: '빵집 지도' } }, r: [['kyle', 'happy', '이거야. 마왕 잡고 빵 먹으러 간다.']] },
+    { t: '정보만 산다', sub: '항구 상인회 +2', fx: { rep: { guild: 2 } }, r: [['kyle', 'neutral', '빵집이 마왕성 바로 옆이라고? …마왕도 빵 좋아하나.']] },
     { t: '상인의 간식 창고를 턴다', sub: '성공 70% · 금화 +150', roll: 0.7,
       win: { fx: { gold: 150, rep: { guild: -2 } }, r: [['kyle', 'smug', '떠돌이의 특기지. 간식 창고 털기. 금화는 덤.']] },
       lose: { fx: { wall: -10, rep: { guild: -3 } }, r: [['guild', 'angry', '경비!!']] } },
   ],
 });
-
 ev('royal_nix', {
   title: '마왕군 짐수레 털이', act: [1, 2], bg: 'road', kind: 'royal', royal: 'nix',
   intro: [
     ['nix', 'smug', '저기 마왕군 보급 수레요. 경비가 졸고 있어요. 제 전문 분야죠. …아, 반성 중이긴 한데요. 마왕군 건 괜찮잖아요?'],
-    ['nix', 'shock', '잠깐. 수레에 실린 거, 다 마을에서 빼앗은 거예요. 이 들꽃 팔찌는… 노아 형 거랑 똑같은데?'],
+    ['nix', 'shock', '잠깐. 수레에 실린 거, 다 마을에서 빼앗은 거예요.'],
   ],
   choices: [
-    { t: '몽땅 털어 마을에 돌려준다', sub: '성공 70% · 구름 수도원 +2 · 행운석 +2 · 친구의 흔적', roll: 0.7,
-      win: { fx: { rep: { church: 2 }, stones: 2, flag: 'siblingSeen', flag2: 'brotherBond' }, r: [['nix', 'happy', '배달 왔어요! 도둑맞은 물건 반품 서비스! 수수료는 안 받아요. …사과 하나만.'], ['narr', '', '팔찌는 닉스가 챙겼다. 언젠가 주인을 만나면 돌려주려고.']] },
-      lose: { fx: { wall: -10, flag: 'siblingSeen' }, r: [['nix', 'shock', '경비가 깼어요! 튀어요!'], ['narr', '', '수레 바퀴 하나만 겨우 훔쳐 왔다. 쓸모는 없었다.']] } },
+    { t: '몽땅 털어 마을에 돌려준다', sub: '성공 70% · 구름 수도원 +2 · 행운석 +2', roll: 0.7,
+      win: { fx: { rep: { church: 2 }, stones: 2 }, r: [['nix', 'happy', '배달 왔어요! 도둑맞은 물건 반품 서비스! 수수료는 안 받아요. …사과 하나만.']] },
+      lose: { fx: { wall: -10 }, r: [['nix', 'shock', '경비가 깼어요! 튀어요!'], ['narr', '', '수레 바퀴 하나만 겨우 훔쳐 왔다. 쓸모는 없었다.']] } },
     { t: '금화만 슬쩍한다', sub: '금화 +120 · 도적 피해 +10% (영구)', fx: { gold: 120, mod: { fx: { cls: { rogue: 0.1 } }, battles: 99, name: '닉스의 손놀림' } }, r: [['nix', 'smug', '마왕군 금화는 훔쳐도 반성 안 해도 돼요. 제가 정했어요.']] },
-    { t: '팔찌 하나만 챙긴다', sub: '친구의 흔적 · 항구 상인회 +1', fx: { flag: 'siblingSeen', rep: { guild: 1 } }, r: [['nix', 'neutral', '…이건 훔치는 거 아니에요. 맡아 두는 거예요.']] },
   ],
 });
 
@@ -1061,7 +1057,5 @@ ev('dragon_talk', {
   ],
 });
 
-// 용사 메인 스토리(운명의 장)도 같은 사건 엔진으로 재생한다
-Object.assign(E, FATE);
 
 export const EVENT_DATA = E;

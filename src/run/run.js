@@ -13,8 +13,6 @@ export const ACTS = [
 ];
 export const LAST_ACT = ACTS.length;
 export const ROWS = 12;
-// 운명의 장: 막마다 모든 길이 모이는 두 줄
-export const FATE_ROWS = [[3, 7], [3, 7], [3, 8], [3, 8]];
 
 export const NODE_TYPES = {
   battle: { name: '전투', desc: '3~4웨이브 전투' },
@@ -27,7 +25,6 @@ export const NODE_TYPES = {
   minigame: { name: '놀이 천막', desc: '룰렛 · 카드 짝 맞추기 · 주사위 하이로우 중 하나' },
   boss: { name: '보스', desc: '막 보스' },
   dragon: { name: '용의 둥지', desc: '얼어붙은 용 실바나' },
-  fate: { name: '운명의 장', desc: '용사의 이야기 · 모든 길이 이곳을 지난다' },
 };
 
 const W_TYPES = [['battle', 38], ['event', 32], ['elite', 10], ['shop', 7], ['camp', 5], ['treasure', 4], ['altar', 4], ['minigame', 3]];
@@ -47,7 +44,6 @@ export function genMap(seed, act) {
     let n;
     if (r === ROWS - 1) n = 1;
     else if (act === LAST_ACT && r === 6) n = 1;
-    else if (FATE_ROWS[act - 1].includes(r)) n = 1;
     else if (r === 0) n = 2 + rng.int(2);
     else if (r === ROWS - 2) n = 2;
     else n = 2 + rng.int(3);
@@ -82,7 +78,6 @@ export function genMap(seed, act) {
       else if (r === ROWS - 1) nd.type = 'boss';
       else if (r === ROWS - 2) nd.type = 'camp';
       else if (act === LAST_ACT && r === 6) nd.type = 'dragon';
-      else if (FATE_ROWS[act - 1].includes(r)) { nd.type = 'fate'; nd.fateN = (act - 1) * 2 + FATE_ROWS[act - 1].indexOf(r) + 1; }
       else nd.type = weighted(rng, W_TYPES, (t) => (t !== 'elite' || r >= 4) && (t !== 'shop' || r >= 3) && (t !== 'camp' || (r >= 5 && r <= 8)) && (t !== 'altar' || r >= 2) && (t !== 'minigame' || r >= 2));
     }
   }
@@ -106,7 +101,7 @@ export function newRun({ royal, mascot, seed }) {
   seed = seed ?? ((Math.random() * 2 ** 31) | 0);
   const wallMax = 100 + (royal === 'edric' ? 20 : 0) + (perks.wall || 0) * 5 + (mascot === 'potato' ? 10 : 0);
   const run = {
-    v: 2, seed, royal, mascot, act: 1, pos: null, time: 0,
+    v: 3, seed, royal, mascot, act: 1, pos: null, time: 0,
     map: genMap(seed, 1),
     carry: {
       units: new Array(18).fill(null),
@@ -115,7 +110,7 @@ export function newRun({ royal, mascot, seed }) {
       wall: wallMax, wallMax, upg: [0, 0, 0], summons: 0, celestial: 0,
     },
     relics: [], rep: { church: 0, cult: 0, tribe: 0, guild: 0 }, bonds: {}, party: [],
-    flags: {}, fate: {}, shards: 0, seen: [], log: [], mods: [], autoDiceUsed: 0, eggKills: 0,
+    flags: {}, shards: 0, seen: [], log: [], mods: [], autoDiceUsed: 0, eggKills: 0,
     stats: { battles: 0, kills: 0, merges: 0, celestials: 0, fails: 0, gambles: 0, events: 0, rolls: 0, rollWins: 0, lowRollWins: 0 },
     firstFree: perks.free ? 1 : 0,
   };
@@ -125,17 +120,16 @@ export function newRun({ royal, mascot, seed }) {
 
 export function nodeOf(run, id) { return run.map.nodes[id]; }
 
-// ── 협동 여정: 플레이어 2명이 각자 보드·금화·행운석·강화를 갖고, 성벽·유물·평판·동료는 함께 쓴다 ──
+// ── 협동 여정: 플레이어 2~4명이 각자 보드·금화·행운석·강화를 갖고, 성벽·유물·평판·동료는 함께 쓴다 ──
 export function newCoopRun(players, seed) {
-  const a = newRun({ royal: players[0].royal, mascot: players[0].mascot, seed });
-  const b = newRun({ royal: players[1].royal, mascot: players[1].mascot, seed: a.seed });
-  const wallMax = Math.round(Math.max(a.carry.wallMax, b.carry.wallMax) * 1.25);
+  const runs = [];
+  for (const p of players) runs.push(newRun({ royal: p.royal, mascot: p.mascot, seed: runs.length ? runs[0].seed : seed }));
+  const a = runs[0];
+  const n = players.length;
+  const wallMax = Math.round(Math.max(...runs.map((r) => r.carry.wallMax)) * (1 + 0.25 * (n - 1)));
   a.carry.wallMax = a.carry.wall = wallMax;
   a.coop = true;
-  a.players = [
-    { royal: players[0].royal, mascot: players[0].mascot, name: players[0].name || '방장', carry: a.carry },
-    { royal: players[1].royal, mascot: players[1].mascot, name: players[1].name || '동료', carry: b.carry },
-  ];
+  a.players = players.map((p, i) => ({ royal: p.royal, mascot: p.mascot, name: p.name || (i ? `동료 ${i}` : '방장'), carry: runs[i].carry }));
   return a;
 }
 export function hasRoyal(run, r) {
@@ -203,7 +197,7 @@ export function mascotLevel(id) {
 const KEY = 'tfc_run_v1';
 export function saveRun(run) { try { localStorage.setItem(KEY, JSON.stringify(run)); } catch (e) { /* 무시 */ } }
 // v2: 4막 구조 — 이전 버전의 진행 중 여정은 버리고 새로 시작한다
-export function loadRun() { try { const r = JSON.parse(localStorage.getItem(KEY)); return r && r.v === 2 ? r : null; } catch (e) { return null; } }
+export function loadRun() { try { const r = JSON.parse(localStorage.getItem(KEY)); return r && r.v === 3 ? r : null; } catch (e) { return null; } }
 export function clearRun() { try { localStorage.removeItem(KEY); } catch (e) { /* 무시 */ } }
 
 export function mascotName(id) { return (MASCOT_DEFS[id] || MASCOT_DEFS.puru).name; }

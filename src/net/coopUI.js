@@ -31,7 +31,7 @@ export function coopLobbyScene(app) {
     codeIn.addEventListener('input', () => { codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
     codeIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
     body.replaceChildren(...[
-      h('div.note', '친구와 한 필드에서 함께 마왕성까지! 금화는 각자, 성벽은 함께 씁니다. 지도 · 사건 · 결말은 투표로 정하고, 의견이 갈리면 무작위로 정합니다.'),
+      h('div.note', '친구 1~3명과 한 필드에서 함께 마왕성까지! (2~4인) 금화는 각자, 성벽은 함께 씁니다. 지도 · 사건 · 결말은 다수결로 정하고, 표가 같으면 무작위로 정합니다.'),
       err ? h('div.coop-err', err) : null,
       h('button.btn.primary.wide', { onclick: create }, '방 만들기'),
       h('div.or', '또는'),
@@ -44,19 +44,8 @@ export function coopLobbyScene(app) {
     audio.sfxPlay('click');
     body.replaceChildren(h('div.note', '방을 만드는 중…'));
     try {
-      const code = await net.host();
-      const copy = h('button.btn', {
-        onclick: () => { navigator.clipboard && navigator.clipboard.writeText(code).then(() => { copy.textContent = '복사됨!'; }); },
-      }, '코드 복사');
-      body.replaceChildren(
-        h('div.note', '친구에게 이 코드를 알려주세요.'),
-        h('div.room-code', code.split('').map((c) => h('span', c))),
-        h('div.join-row', copy),
-        h('div.waiting', h('i.dot.pulse'), ' 친구를 기다리는 중…'));
-      const off = net.on('_status', (m) => {
-        if (m.s === 'connected') { off(); start(); }
-        if (m.s === 'error') { off(); menu(m.msg); }
-      });
+      await net.host();
+      start();
     } catch (e) { menu(net.statusMsg || '방을 만들지 못했습니다.'); }
   }
 
@@ -84,25 +73,40 @@ export function coopLobbyScene(app) {
 
 export function coopSelectScene(app) {
   const coop = app.coop;
-  let el, offPick;
+  let el, offs = [];
   const d = store();
   const owned = d.mascots || ['puru'];
   const mine = () => coop.picks[coop.me];
-  const theirs = () => coop.picks[1 - coop.me];
-  if (!mine().royal) {
-    const taken = theirs().royal;
-    coop.picks[coop.me] = { royal: ROYALS.find((r) => r.id !== taken && r.id === (coop.host ? 'edric' : 'seren')) ? (coop.host ? 'edric' : 'seren') : ROYALS.find((r) => r.id !== taken).id, mascot: owned.includes(app.lastMascot) ? app.lastMascot : 'puru', ready: false, lv: 1 };
+  const takenBy = (rid) => Object.entries(coop.picks).find(([k, p]) => +k !== coop.me && p && p.royal === rid);
+  if (!mine() || !mine().royal) {
+    const free = ROYALS.filter((r) => !takenBy(r.id));
+    const pref = ['edric', 'seren', 'kyle', 'nix'][coop.me] || 'edric';
+    coop.picks[coop.me] = { royal: (free.find((r) => r.id === pref) || free[0] || ROYALS[0]).id, mascot: owned.includes(app.lastMascot) ? app.lastMascot : 'puru', ready: false, lv: 1 };
   }
-  const send = () => { const p = mine(); p.lv = mascotLevel(p.mascot); coop.net.send({ t: 'pick', p }); render(); };
+  const send = () => {
+    const p = mine();
+    p.lv = mascotLevel(p.mascot);
+    coop.net.send({ t: 'pick', p, who: coop.me });
+    if (coop.host) coop.broadcastSeats();
+    render();
+  };
 
   function render() {
     if (!el) return;
-    const me = mine(), them = theirs();
+    const me = mine();
+    // 내 용사가 다른 사람과 겹치면 (동시에 고른 경우) 자리 번호가 큰 쪽이 양보
+    const clash = takenBy(me.royal);
+    if (clash && +clash[0] < coop.me && !me.ready) {
+      const free = ROYALS.find((r) => !takenBy(r.id) && r.id !== me.royal);
+      if (free) { me.royal = free.id; setTimeout(send, 0); }
+    }
+    const seats = coop.seats;
     const cards = ROYALS.map((r) => {
-      const isMe = me.royal === r.id, isThem = them.royal === r.id;
-      return h('button.royal' + (isMe ? '.sel' : '') + (isThem ? '.taken' : ''), {
+      const isMe = me.royal === r.id;
+      const t = takenBy(r.id);
+      return h('button.royal' + (isMe ? '.sel' : '') + (t ? '.taken' : ''), {
         style: { '--rc': r.color },
-        disabled: isThem || me.ready,
+        disabled: !!t || me.ready,
         onclick: () => { audio.sfxPlay('hover'); me.royal = r.id; send(); },
       },
       h('img', { src: spriteURL(SPR.royals[r.id], 4), alt: '' }),
@@ -110,31 +114,57 @@ export function coopSelectScene(app) {
         h('div', h('span.rname', { style: { color: r.color } }, r.name), h('span.rtitle', r.title)),
         h('div.rlore', r.lore),
         r.perks.map((p) => h('div.perk', p)),
-        isMe ? h('div.tag.me', '나') : null, isThem ? h('div.tag.them', coop.partnerName) : null));
+        isMe ? h('div.tag.me', '나') : null, t ? h('div.tag.them', +t[0] === 0 ? '방장' : `동료 ${t[0]}`) : null));
     });
+    const others = seats.filter((i) => i !== coop.me);
+    const mNames = others.map((i) => { const p = coop.picks[i]; return `${coop.nameOf(i)}: ${p && p.mascot ? MASCOT_DEFS[p.mascot].name : '고르는 중'}`; }).join(' · ');
     const chip = mascotChip(me.mascot, () => {
       audio.sfxPlay('click');
       openMascotPicker(app.ui, { current: me.mascot, owned, onPick: (id) => { me.mascot = id; send(); },
-        note: `${coop.partnerName}의 마스코트: ${them.mascot ? MASCOT_DEFS[them.mascot].name : '고르는 중'} · 같은 마스코트도 함께 데려갈 수 있어요.` });
-    }, { disabled: me.ready, label: `내 마스코트 · ${coop.partnerName}: ${them.mascot ? MASCOT_DEFS[them.mascot].name : '고르는 중'}` });
-    const both = me.ready && them.ready && me.royal !== them.royal;
-    el.replaceChildren(
-      h('div.select-head', h('div.eyebrow', 'CHOOSE YOUR HEROES'), h('h2', '함께 떠날 용사')),
+        note: `${mNames || '동료를 기다리는 중'} · 같은 마스코트도 함께 데려갈 수 있어요.` });
+    }, { disabled: me.ready, label: '내 마스코트' });
+    const allReady = seats.length >= 2 && seats.every((i) => coop.picks[i] && coop.picks[i].ready);
+    const roster = h('div.roster', [0, 1, 2, 3].map((i) => {
+      const on = seats.includes(i);
+      const p = coop.picks[i];
+      const r = p && ROYALS.find((x) => x.id === p.royal);
+      return h('div.seat' + (on ? '' : '.empty') + (i === coop.me ? '.me' : '') + (p && p.ready ? '.ready' : ''),
+        on && r ? h('img', { src: spriteURL(SPR.royals[r.id], 2), alt: '' }) : h('span.q', on ? '…' : '+'),
+        h('b', on ? (i === coop.me ? '나' : i === 0 ? '방장' : `동료 ${i}`) : '빈 자리'),
+        h('small', on ? (p && p.ready ? '준비됨 ✓' : '고르는 중') : '초대 대기'));
+    }));
+    const codeBox = coop.host ? h('div.room-mini', h('span', '방 코드'), h('b', coop.net.code), h('button.btn.sm', {
+      onclick: (e) => { const b = e.currentTarget; navigator.clipboard && navigator.clipboard.writeText(coop.net.code).then(() => { b.textContent = '복사됨!'; }); },
+    }, '복사')) : null;
+    el.replaceChildren(...[
+      h('div.select-head', h('div.eyebrow', `CHOOSE YOUR HEROES · ${seats.length}/4`), h('h2', '함께 떠날 용사')),
+      codeBox,
+      roster,
       h('div.royals', cards),
       chip,
       h('div.select-go',
         h('button.btn', { onclick: () => { audio.sfxPlay('click'); coop.leave(true); app.go('lobby'); } }, '나가기'),
         h('button.btn' + (me.ready ? '' : '.primary'), { onclick: () => { audio.sfxPlay('click'); me.ready = !me.ready; send(); } }, me.ready ? '준비 취소' : '준비 완료'),
-        coop.host ? h('button.btn.primary', { disabled: !both, onclick: startRun }, both ? '여정 시작' : `${coop.partnerName} 준비 대기`) : null),
-    );
+        coop.host ? h('button.btn.primary', { disabled: !allReady, onclick: startRun }, allReady ? `${seats.length}명 출발` : seats.length < 2 ? '동료 대기 중' : '준비 대기') : null),
+    ].filter(Boolean));
   }
 
   function startRun() {
     audio.sfxPlay('click');
-    const run = newCoopRun([{ ...coop.picks[0], name: '방장' }, { ...coop.picks[1], name: '참가자' }]);
+    // 자리 번호를 0..n-1로 정리 (빈 자리 없이)
+    const seats = coop.seats.slice().sort();
+    const list = seats.map((i, k) => ({ ...coop.picks[i], name: k === 0 ? '방장' : `동료 ${k}` }));
+    if (seats.some((s, k) => s !== k)) {
+      // 중간 자리가 비면 뒤 사람을 당긴다: 참가자에게 새 자리 번호를 알린다
+      seats.forEach((s, k) => { if (s !== k) coop.net.sendTo(s, { t: 'reseat', slot: k }); });
+      coop.net.remap && coop.net.remap(seats);
+    }
+    coop.net.locked = true;
+    const run = newCoopRun(list);
     run.me = 0;
-    run.mascotLv = [coop.picks[0].lv || 1, coop.picks[1].lv || 1];
+    run.mascotLv = list.map((p) => p.lv || 1);
     coop.run = run;
+    coop.seats = list.map((_, k) => k);
     app.go('map', { run });
   }
 
@@ -143,9 +173,11 @@ export function coopSelectScene(app) {
       app.bg.setMode('lobby');
       el = h('div.screen.coop-select');
       app.ui.appendChild(el);
-      offPick = coop.onLocal('picks', render);
+      offs.push(coop.onLocal('picks', render));
+      // 방장: 새로 들어온 사람도 이 화면으로
+      if (coop.host) offs.push(coop.net.on('_status', (m) => { if (m.s === 'connected' && m.slot !== undefined && !m.msg) { coop.net.sendTo(m.slot, { t: 'go', name: 'coopSelect', p: {} }); setTimeout(() => coop.broadcastSeats(), 50); } }));
       send();
     },
-    exit() { if (offPick) offPick(); if (el) el.remove(); },
+    exit() { offs.forEach((f) => f()); if (el) el.remove(); },
   };
 }

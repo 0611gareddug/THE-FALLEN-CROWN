@@ -21,7 +21,7 @@ import { MirrorBattle, packField, applyInput } from '../net/mirror.js';
 import { botTick } from './bot.js';
 import { ROYALS } from '../data/text.js';
 import { MASCOTS, TIPS, DEFEAT_LINES, VICTORY_LINES } from '../data/text.js';
-import { SOLO, COOP, W, H } from './layout.js';
+import { SOLO, COOP, W, H, layoutFor, viewOf } from './layout.js';
 
 const TICK = 1 / 60;
 const SPEEDS = [1, 1.5, 2];
@@ -43,10 +43,18 @@ export function battleScene(app, params) {
   const coop = run && run.coop && app.coop ? app.coop : null;
   const me = coop ? coop.me : 0;
   const mascotId = run ? (run.players ? run.players[me].mascot : run.mascot) : params.mascot || 'puru';
-  // 협동: 한 필드(아래 = 나, 위 = 동료) · 동기화
-  const L = coop ? COOP : SOLO;
-  const partnerP = coop ? run.players[1 - me] : null;
-  let offNet = [], syncT = 0, evq = [], aiT = 0, skillAt = [-99, -99], coopDone = false, simT = 0, faceTO = 0, bubTO = 0;
+  // 협동: 한 필드 · 동기화. 2인 8자 길, 3~4인 고리 길. 내 화면에서는 내 보드가 왼쪽 아래(주인 0).
+  const NP = coop ? run.players.length : 1;
+  const L = coop ? layoutFor(NP) : SOLO;
+  const V = coop && !coop.host ? viewOf(L, me) : null;
+  // 방장 기준 자리 번호 ↔ 내 화면 주인 번호 (뒤집기는 자기 자신이 역함수)
+  const loc = (hi) => (V ? V.ownerMap[hi] : hi);
+  const partners = coop ? run.players.map((_, i) => i).filter((i) => i !== me) : [];
+  const partnerP = coop ? run.players[partners[0]] : null;
+  let giftTo = partners[0];
+  let goldAmt = 20, amtText = '';
+  let fullView = false, minimap = null;
+  let offNet = [], syncT = 0, evq = [], aiT = 0, skillAt = [-99, -99, -99, -99], coopDone = false, simT = 0, faceTO = {}, bubTO = {};
   let node = null, nodeTitle = null, lastEscaped = 0, tut = null, moved = false;
   const TUT = [
     ['소환', "아래 '소환' 버튼을 3번 눌러 병사를 불러보세요.", (b) => b.stats.summons >= 3],
@@ -133,45 +141,52 @@ export function battleScene(app, params) {
     app.ui.appendChild(el);
   }
 
-  // ───────── 협동 상단 바: 왼쪽 동료 · 가운데 정보 · 오른쪽 나 ─────────
+  // ───────── 협동 상단 바: 왼쪽 동료(들) · 가운데 정보 · 오른쪽 나 ─────────
   function buildCoopTop() {
-    const my = run.players[me], pr = partnerP;
+    const my = run.players[me];
     const ry = (id) => ROYALS.find((r) => r.id === id) || ROYALS[0];
     hud.wave = h('div.wave', 'PREPARE');
     hud.timer = h('div.timer', '0:08');
     hud.field = h('div.bar.field', h('div.lbl', h('span', '몬스터'), hud.fieldN = h('span', `0/${L.fieldLimit}`)), h('div.track', hud.fieldF = h('div.fill')));
     hud.wall = h('div.bar.wall', h('div.lbl', h('span', '성벽'), hud.wallN = h('span', '100')), h('div.track', hud.wallF = h('div.fill')));
-    hud.pImg = h('img', { src: portraitURL(pr.royal, 'neutral', 2), alt: '' });
-    hud.pBub = h('div.cbub');
-    hud.pGold = h('span', '0'); hud.pStone = h('span', '0');
-    hud.pTag = h('small.ctag');
     hud.gold = h('span', '0'); hud.stone = h('span', '0');
-    const partnerEl = h('button.cpor.pt', { onclick: () => togglePop('partner'), 'aria-label': '동료에게 금화 · 신호 보내기', title: '동료 메뉴 (G)' },
-      h('div.cface', hud.pImg, h('i.cdot')),
-      h('div.cinfo', h('b', { style: { color: ry(pr.royal).color } }, ry(pr.royal).name), h('span.cr', h('i.ic.gold'), hud.pGold, h('i.ic.stone'), hud.pStone), hud.pTag),
-      hud.pBub);
+    hud.pf = {};
+    const many = partners.length > 1;
+    const pEls = partners.map((hi) => {
+      const pr = run.players[hi];
+      const f = hud.pf[hi] = { img: h('img', { src: portraitURL(pr.royal, 'neutral', 2), alt: '' }), bub: h('div.cbub'), gold: h('span', '0'), stone: h('span', '0'), tag: h('small.ctag') };
+      return h('button.cpor.pt' + (many ? '.mini' : ''), { onclick: () => { giftTo = hi; togglePop('partner'); }, 'aria-label': `${ry(pr.royal).name}에게 금화 · 신호 보내기`, title: `${ry(pr.royal).name} 메뉴 (G)` },
+        h('div.cface', f.img, h('i.cdot')),
+        h('div.cinfo', h('b', { style: { color: ry(pr.royal).color } }, ry(pr.royal).name), h('span.cr', h('i.ic.gold'), f.gold, many ? null : h('i.ic.stone'), many ? null : f.stone), f.tag),
+        f.bub);
+    });
+    // 2인 호환: 예전 이름
+    if (!many) { const f = hud.pf[partners[0]]; hud.pImg = f.img; hud.pBub = f.bub; hud.pGold = f.gold; hud.pStone = f.stone; hud.pTag = f.tag; }
     const meEl = h('div.cpor.me',
       h('div.cinfo', h('b', { style: { color: ry(my.royal).color } }, '나 · ' + ry(my.royal).name), h('span.cr', h('i.ic.gold'), hud.gold, h('i.ic.stone'), hud.stone)),
       h('div.cface', h('img', { src: portraitURL(my.royal, 'neutral', 2), alt: '' })));
     const mid = h('div.cmid',
       h('div.top-row', hud.wave, hud.timer, h('button.pause', { 'aria-label': '메뉴', onclick: openPause }, svg(ICON.pause))),
       h('div.bars', hud.field, hud.wall));
-    return h('div.cbar', partnerEl, mid, meEl);
+    return h('div.cbar' + (many ? '.many' : ''), many ? h('div.cparty', pEls) : pEls[0], mid, meEl);
   }
-  function setFace(f) {
-    if (!hud.pImg) return;
-    hud.pImg.src = portraitURL(partnerP.royal, f, 2);
-    clearTimeout(faceTO);
-    faceTO = setTimeout(() => { if (hud.pImg) hud.pImg.src = portraitURL(partnerP.royal, 'neutral', 2); }, 2600);
+  function setFace(f, hi = partners[0]) {
+    const pf = hud.pf && hud.pf[hi];
+    if (!pf) return;
+    const royal = run.players[hi].royal;
+    pf.img.src = portraitURL(royal, f, 2);
+    clearTimeout(faceTO[hi]);
+    faceTO[hi] = setTimeout(() => { pf.img.src = portraitURL(royal, 'neutral', 2); }, 2600);
   }
-  function bubble(text) {
-    if (!hud.pBub) return;
-    hud.pBub.textContent = text;
-    hud.pBub.classList.remove('show'); void hud.pBub.offsetWidth; hud.pBub.classList.add('show');
-    clearTimeout(bubTO);
-    bubTO = setTimeout(() => hud.pBub && hud.pBub.classList.remove('show'), 2800);
+  function bubble(text, hi = partners[0]) {
+    const pf = hud.pf && hud.pf[hi];
+    if (!pf) return;
+    pf.bub.textContent = text;
+    pf.bub.classList.remove('show'); void pf.bub.offsetWidth; pf.bub.classList.add('show');
+    clearTimeout(bubTO[hi]);
+    bubTO[hi] = setTimeout(() => pf.bub.classList.remove('show'), 2800);
   }
-  const boardRing = (o, col) => rend.addFx({ k: 'ring', x: W / 2, y: L.CY[o * 18 + 8], r0: 8, r1: 120, t: 0, d: 0.9, col });
+  const boardRing = (o, col) => rend.addFx({ k: 'ring', x: L.CX[o * 18 + 8], y: L.CY[o * 18 + 8], r0: 8, r1: 120, t: 0, d: 0.9, col });
   function sendPing(k) {
     coop.net.send({ t: 'sig', k });
     audio.sfxPlay('click');
@@ -179,16 +194,19 @@ export function battleScene(app, params) {
     toast(`신호를 보냈다: "${PINGS[k][0]}"`);
     closePop();
   }
-  function recvPing(k) {
+  function recvPing(k, from) {
     const p = PINGS[k];
     if (!p) return;
     audio.sfxPlay('ready');
-    bubble(p[0]);
-    setFace(p[1]);
-    boardRing(1, '#6bc8ff');
+    bubble(p[0], from);
+    setFace(p[1], from);
+    boardRing(loc(from), '#6bc8ff');
   }
-  function giveGold() {
-    if (battle.sendGold(20)) { audio.sfxPlay('coin'); closePop(); }
+  function giveGold(v) {
+    v = Math.floor(v);
+    if (!(v > 0)) { audio.sfxPlay('deny'); toast('보낼 금액을 정해 주세요.'); return; }
+    if (v > battle.gold) { audio.sfxPlay('deny'); toast('금화가 부족합니다.'); return; }
+    if (battle.sendGold(v, loc(giftTo))) { audio.sfxPlay('coin'); amtText = ''; closePop(); }
     else { audio.sfxPlay('deny'); toast('금화가 부족합니다.'); }
   }
 
@@ -294,12 +312,28 @@ export function battleScene(app, params) {
     const p = pop.el;
     const x = h('button.x', { onclick: closePop, 'aria-label': '닫기' }, '×');
     if (pop.kind === 'partner') {
-      const pb = battle.P[1];
+      if (!partners.includes(giftTo)) giftTo = partners[0];
+      const pb = battle.P[loc(giftTo)];
+      const ry = (hi) => ROYALS.find((r) => r.id === run.players[hi].royal) || ROYALS[0];
+      const gold = battle.gold;
+      const amtIn = h('input.amt-in', { type: 'number', min: 1, max: gold, step: 1, inputmode: 'numeric', placeholder: '직접 입력', value: '' });
+      const sendBtn = h('button.btn.primary', { onclick: () => giveGold(amtIn.value ? +amtIn.value : goldAmt) }, '보내기');
+      const label = () => { const v = amtIn.value ? Math.floor(+amtIn.value) : goldAmt; sendBtn.textContent = v > 0 ? `금화 ${v} 보내기` : '보내기'; sendBtn.disabled = !(v > 0) || v > battle.gold; };
+      amtIn.value = amtText;
+      amtIn.addEventListener('input', () => { amtText = amtIn.value; label(); });
+      amtIn.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') sendBtn.click(); });
+      const quick = [20, 50, 100].map((v) => h('button.qamt' + (goldAmt === v && !amtIn.value ? '.on' : ''), { disabled: gold < v, onclick: () => { goldAmt = v; amtText = ''; renderPop(); } }, String(v)))
+        .concat([['절반', () => Math.floor(battle.gold / 2)], ['전부', () => battle.gold]].map(([t, f]) => h('button.qamt', { disabled: f() < 1, onclick: () => { amtText = amtIn.value = String(f()); label(); } }, t)));
       p.replaceChildren(x, h('h3', '동료에게'),
-        h('div.note', `동료 금화 ${pb.gold} · 행운석 ${pb.stones}${coop.partnerAI ? ' · 지금은 AI가 대신 조종 중' : ''}`),
-        h('button.opt', { disabled: battle.gold < 20, onclick: giveGold }, h('div.l', '금화 보내기', h('small', '동료에게 금화 20을 건넨다')), h('div.r', '금화 20')),
+        partners.length > 1 ? h('div.gift-who', partners.map((hi) => h('button.gw' + (hi === giftTo ? '.on' : ''), { style: { '--rc': ry(hi).color }, onclick: () => { giftTo = hi; renderPop(); } },
+          h('img', { src: portraitURL(run.players[hi].royal, 'neutral', 2), alt: '' }), h('span', ry(hi).name)))) : null,
+        h('div.note', `${ry(giftTo).name} 금화 ${pb.gold} · 행운석 ${pb.stones}${coop.ai.has(giftTo) ? ' · 지금은 AI가 대신 조종 중' : ''}`),
+        h('div.gold-send', h('div.qrow', quick), h('div.qrow', amtIn, sendBtn)),
         h('div.pings', Object.entries(PINGS).map(([k, [t]]) => h('button.ping', { onclick: () => sendPing(k) }, t))),
-        h('div.note', '내 유닛을 끌어 위쪽 동료 보드의 빈 칸에 놓으면 선물할 수 있다.'));
+        h('div.note', partners.length > 1 ? '내 유닛을 끌어 동료 보드의 빈 칸에 놓으면 선물할 수 있다. 신호는 모두에게 보인다.' : '내 유닛을 끌어 위쪽 동료 보드의 빈 칸에 놓으면 선물할 수 있다.'));
+      label();
+      const note = p.querySelector('.note');
+      pop.sync = () => { label(); if (note) note.textContent = `${ry(giftTo).name} 금화 ${battle.P[loc(giftTo)].gold} · 행운석 ${battle.P[loc(giftTo)].stones}${coop.ai.has(giftTo) ? ' · 지금은 AI가 대신 조종 중' : ''}`; };
       return;
     }
     if (pop.kind === 'syn') {
@@ -368,7 +402,7 @@ export function battleScene(app, params) {
   // ───────── 이벤트 → 소리/연출/HUD ─────────
   function onEvent(ev) {
     rend.handle(ev, battle);
-    if (coop && ev.o === 1 && !SHARED_EV.has(ev.type)) { partnerEvent(ev); return; }
+    if (coop && ev.o !== undefined && ev.o !== 0 && !SHARED_EV.has(ev.type)) { partnerEvent(ev); return; }
     switch (ev.type) {
       case 'unit':
         if (markSeen(ev.id)) {
@@ -474,13 +508,16 @@ export function battleScene(app, params) {
       case 'combo': audio.sfxPlay('celestial'); announce('COMBO', '우정의 응원! 두 보드 공격 속도 +30%'); break;
       case 'gift': audio.sfxPlay('upgrade'); toast(`${UNIT[ev.id].name}을(를) 동료에게 선물했다.`, 'good'); break;
       case 'giftFull': audio.sfxPlay('deny'); toast('동료의 천상 자리가 가득 찼습니다.'); break;
-      case 'sendGold': toast(`동료에게 금화 ${ev.v}을(를) 보냈다.`, 'good'); break;
+      case 'sendGold': toast(`${coop ? coop.nameOf(loc(ev.to)) : '동료'}에게 금화 ${ev.v}을(를) 보냈다.`, 'good'); break;
       case 'gambleWin2': break;
     }
   }
 
   // 동료 보드에서 일어난 일: 소리 · 짧은 알림만
   function partnerEvent(ev) {
+    const hi = loc(ev.o); // 이벤트를 낸 동료 (방장 기준 자리)
+    const nm = coop.nameOf(hi);
+    const toMe = ev.to === 0;
     switch (ev.type) {
       case 'slash': case 'hit': audio.sfxPlay('hit'); break;
       case 'zap': audio.sfxPlay('zap'); break;
@@ -488,11 +525,11 @@ export function battleScene(app, params) {
       case 'boom': if (ev.kind === 'meteor' || ev.kind === 'flask') audio.sfxPlay('boom'); break;
       case 'judgment': audio.sfxPlay('judgment'); break;
       case 'timeStop': audio.sfxPlay('timestop'); break;
-      case 'celestial': audio.sfxPlay('celestial'); descend(ev.id, true); setFace('happy'); break;
-      case 'gambleWin': if (ev.tier >= 3) { audio.sfxPlay('rare', ev.tier); bubble(`${TIERS[ev.tier].name} 떴다!`); setFace('smug'); } break;
-      case 'skill': audio.sfxPlay('skill'); bubble(`${(MASCOT_DEFS[partnerP.mascot] || MASCOT_DEFS.puru).skill.split(' / ')[0]}!`); break;
-      case 'gift': audio.sfxPlay('rare', 2); toast(`동료가 ${UNIT[ev.id].name}을(를) 선물했다!`, 'good'); setFace('happy'); select(-1); break;
-      case 'sendGold': audio.sfxPlay('coin'); toast(`동료가 금화 ${ev.v}을(를) 보냈다!`, 'good'); setFace('happy'); break;
+      case 'celestial': audio.sfxPlay('celestial'); descend(ev.id, true); setFace('happy', hi); break;
+      case 'gambleWin': if (ev.tier >= 3) { audio.sfxPlay('rare', ev.tier); bubble(`${TIERS[ev.tier].name} 떴다!`, hi); setFace('smug', hi); } break;
+      case 'skill': audio.sfxPlay('skill'); bubble(`${(MASCOT_DEFS[run.players[hi].mascot] || MASCOT_DEFS.puru).skill.split(' / ')[0]}!`, hi); break;
+      case 'gift': if (toMe) { audio.sfxPlay('rare', 2); toast(`${nm}이(가) ${UNIT[ev.id].name}을(를) 선물했다!`, 'good'); setFace('happy', hi); select(-1); } break;
+      case 'sendGold': if (toMe) { audio.sfxPlay('coin'); toast(`${nm}이(가) 금화 ${ev.v}을(를) 보냈다!`, 'good'); setFace('happy', hi); } break;
       case 'eliteDown': audio.sfxPlay('win'); break;
     }
   }
@@ -516,10 +553,14 @@ export function battleScene(app, params) {
     hud.field.classList.toggle('warn', n >= FL * 0.7 && n <= FL);
     hud.field.classList.toggle('danger', n > FL);
     if (coop) {
-      const pb = b.P[1];
-      hud.pGold.textContent = pb.gold;
-      hud.pStone.textContent = pb.stones;
-      hud.pTag.textContent = coop.partnerAI ? 'AI가 대신 조종' : pb.skillT >= pb.skillCd && b.phase !== 'prep' ? '스킬 준비됨' : '';
+      for (const hi of partners) {
+        const pb = b.P[loc(hi)], f = hud.pf[hi];
+        if (!pb || !f) continue;
+        f.gold.textContent = pb.gold;
+        f.stone.textContent = pb.stones;
+        f.tag.textContent = coop.ai.has(hi) ? 'AI가 대신 조종' : pb.skillT >= pb.skillCd && b.phase !== 'prep' ? '스킬 준비됨' : '';
+      }
+      if (minimap) minimap.draw(b);
     }
     hud.wallN.textContent = `${Math.ceil(b.wall)}/${b.wallMax}`;
     hud.wallF.style.width = (b.wall / b.wallMax) * 100 + '%';
@@ -568,7 +609,8 @@ export function battleScene(app, params) {
         next ? h('em', `${active.length ? '  ·  ' : ''}${next.n}종: ${next.text}`) : '',
       );
     }
-    if (pop) renderPop();
+    // 금화 보내기 창은 입력 중일 수 있어 다시 그리지 않고 금액 상태만 갱신
+    if (pop && pop.kind === 'partner') { if (pop.sync) pop.sync(); } else if (pop) renderPop();
     if (selected >= 0 && !b.units[selected]) select(-1);
   }
 
@@ -616,6 +658,7 @@ export function battleScene(app, params) {
       if (d.over >= 0 && d.over !== d.from) {
         if (coop && d.over >= 18) {
           if (battle.units[d.over]) { audio.sfxPlay('deny'); toast('동료 보드의 빈 칸에만 선물할 수 있어요.'); return; }
+          if (rend.emptyOwners && rend.emptyOwners.has(L.ownerOf(d.over))) { audio.sfxPlay('deny'); toast('빈 자리입니다.'); return; }
           battle.move(d.from, d.over);
           select(-1);
           return;
@@ -703,7 +746,7 @@ export function battleScene(app, params) {
     if (coop && !coop.host) return;
     const b = battle;
     if (coop) {
-      for (let o = 0; o < 2; o++) run.players[o].carry = b.exportCarry(o);
+      for (let o = 0; o < b.nP; o++) run.players[o].carry = b.exportCarry(o);
       run.carry = run.players[0].carry;
     }
     data.badLuck = b.badLuck;
@@ -715,7 +758,9 @@ export function battleScene(app, params) {
     // 전투 기록 (보상 화면 · 결말 통계 · 도감)
     const sum = b.summary();
     run.lastBattle = { ...sum, n: s.battles + 1, act: run.act, kind: node.type };
-    s.dmg = s.dmg || [{}, {}]; s.killsO = s.killsO || [0, 0];
+    s.dmg = s.dmg || [{}, {}, {}, {}]; s.killsO = s.killsO || [0, 0, 0, 0];
+    while (s.dmg.length < 4) s.dmg.push({});
+    while (s.killsO.length < 4) s.killsO.push(0);
     b.dmgBy.slice(0, b.nP).forEach((m, o) => { for (const [id, v] of Object.entries(m)) s.dmg[o][id] = Math.round((s.dmg[o][id] || 0) + v); });
     sum.kills.forEach((k, o) => (s.killsO[o] += k));
     recordBattle(run);
@@ -797,19 +842,18 @@ export function battleScene(app, params) {
         const seed = rng.int(1e9);
         const P = run.players;
         if (coop.host) {
-          const lv = run.mascotLv || [1, 1];
+          const lv = run.mascotLv || [1, 1, 1, 1];
           battle = new Battle({
-            seed, layout: COOP, node: cfg, mods,
+            seed, layout: L, node: cfg, mods,
             players: P.map((p, o) => ({ royal: p.royal, mascot: p.mascot, carry: p.carry, badLuck: o === 0 ? data.badLuck : 0, mascotLv: lv[o] })),
           });
-          offNet.push(coop.net.on('in', (m) => { if (!coop.partnerAI) applyInput(battle, m); }));
+          offNet.push(coop.net.on('in', (m) => { if (!coop.ai.has(m.from)) applyInput(battle, m, m.from); }));
         } else {
-          battle = new MirrorBattle((m) => coop.net.send(m));
-          battle.P[0].mascot = P[me].mascot; battle.P[0].royal = P[me].royal;
-          battle.P[1].mascot = P[1 - me].mascot; battle.P[1].royal = P[1 - me].royal;
+          battle = new MirrorBattle((m) => coop.net.send(m), L, me, NP);
+          P.forEach((p, hi) => { const o = loc(hi); battle.P[o].mascot = p.mascot; battle.P[o].royal = p.royal; });
           offNet.push(coop.net.on('bs', (m) => battle.apply(m.s, performance.now())));
         }
-        offNet.push(coop.net.on('sig', (m) => recvPing(m.k)));
+        offNet.push(coop.net.on('sig', (m) => recvPing(m.k, m.from)));
       } else battle = new Battle({ seed: rng.int(1e9), royal: run.royal, mascot: mascotId, badLuck: data.badLuck, carry: run.carry, node: cfg, mods, mascotLv: mascotLevel(mascotId) });
     } else if (params.tutorial) {
       battle = new Battle({ royal: 'edric', mascot: 'puru', badLuck: 0, node: { L: 1, kind: 'battle', waves: [[['skel', 10]], [['skel', 8], ['rat', 8]], [['bat', 4], ['skel', 10]]] } });
@@ -820,14 +864,23 @@ export function battleScene(app, params) {
     } else battle = new Battle({ royal: params.royal, mascot: mascotId, badLuck: data.badLuck, mascotLv: mascotLevel(mascotId) });
     rend = new Renderer(app.gameCv, st, L);
     if (coop) {
-      if (!coop.host) rend.setMirror(true);
+      // 빈 자리 (3인: 4번째 칸) · 자리 색 (방장 기준 자리 번호로)
+      const empty = new Set();
+      for (let o = NP; o < L.boards.length; o++) empty.add(loc(o));
+      rend.setView(V, empty, (o) => (o === 0 ? 0 : 1 + ((loc(o) + 3 - me) % 3)));
       document.body.classList.add('coopb');
+      if (L.kind === 'ring') document.body.classList.add('ringb');
     }
     resize();
     app.gameCv.style.display = 'block';
     app.bg.setMode('game');
     audio.play('battle');
     build();
+    if (coop && L.kind === 'ring') {
+      minimap = makeMinimap(L, battle, () => { fullView = !fullView; audio.sfxPlay('click'); resize(); minimap.el.classList.toggle('on', fullView); });
+      el.appendChild(minimap.el);
+      toast(`${NP}인 협동! 오른쪽 위 작은 지도를 누르면 전장 전체를 볼 수 있어요.`);
+    }
     app.gameCv.addEventListener('pointerdown', onDown);
     app.gameCv.addEventListener('pointermove', onMove);
     app.gameCv.addEventListener('pointerup', onUp);
@@ -845,8 +898,9 @@ export function battleScene(app, params) {
     app.gameCv.style.display = 'none';
     app.pauseHook = null;
     offNet.forEach((f) => f());
-    document.body.classList.remove('coopb');
-    clearTimeout(faceTO); clearTimeout(bubTO);
+    document.body.classList.remove('coopb', 'ringb');
+    if (minimap) { minimap.el.remove(); minimap = null; }
+    Object.values(faceTO).forEach(clearTimeout); Object.values(bubTO).forEach(clearTimeout);
     if (el) el.remove();
     if (pauseEl) pauseEl.remove();
     app.ui.querySelectorAll('.result, .sheet').forEach((x) => x.remove());
@@ -854,8 +908,12 @@ export function battleScene(app, params) {
   const LAND_VIEW = { x: 0, y: 80, w: W, h: 228 };
   function resize() {
     const dpr = window.devicePixelRatio || 1;
-    const view = app.land ? (coop ? COOP.landView : LAND_VIEW) : null;
-    const zoom = app.land ? (coop ? 488 : 630) / view.w : 1;
+    let view = app.land ? (coop ? COOP.landView : LAND_VIEW) : null;
+    // 3~4인 전체 보기: 고리 전체가 보이도록 (화면 비율은 그대로)
+    if (coop && L.kind === 'ring' && fullView) {
+      view = app.land ? { x: 0, y: 248 - (720 * 520 / 488) / 2, w: 720, h: 720 * 520 / 488 } : { x: 0, y: 0, w: 720, h: 1280 };
+    }
+    const zoom = app.land ? (coop ? 488 : 630) / view.w : view ? W / view.w : 1;
     let s = Math.ceil(app.scale * zoom * dpr);
     s = Math.max(1, Math.min(st.low ? 3 : 6, s));
     rend.resize(s, view);
@@ -870,11 +928,12 @@ export function battleScene(app, params) {
         let n = 0;
         while (simT >= TICK && n < 10) { battle.tick(TICK); simT -= TICK; n++; }
         if (n === 10) simT = 0;
-        if (coop.partnerAI) { aiT += dt; if (aiT > 0.5) { aiT = 0; battle.cur = 1; botTick(battle, battle.time); battle.cur = 0; } }
-        // 마스코트 합동: 3초 안에 둘 다 스킬을 쓰면 우정의 응원
+        if (coop.ai.size) { aiT += dt; if (aiT > 0.5) { aiT = 0; for (const o of coop.ai) if (o < battle.nP) { battle.cur = o; botTick(battle, battle.time); } battle.cur = 0; } }
+        // 마스코트 합동: 3초 안에 두 사람 이상이 스킬을 쓰면 우정의 응원
         for (const e of battle.events) if (e.type === 'skill') skillAt[e.o] = battle.time;
-        if (skillAt[0] > 0 && skillAt[1] > 0 && Math.abs(skillAt[0] - skillAt[1]) < 3) {
-          skillAt = [-99, -99];
+        const recent = skillAt.filter((t) => battle.time - t < 3);
+        if (recent.length >= 2) {
+          skillAt = [-99, -99, -99, -99];
           for (const P of battle.P) P.cheerT = Math.max(P.cheerT, 5);
           battle.emit('combo', {});
         }
@@ -940,3 +999,54 @@ export function battleScene(app, params) {
 
   return { enter, exit, frame, resize, get battle() { return battle; }, select, get speed() { return speed; }, set speed(v) { speed = v; } };
 }
+
+// ── 3~4인: 전장 전체 미니맵 (초당 10번 다시 그린다) ──
+const MM_BAND = ['#e8c25a', '#6ba4ff', '#7fe0a0', '#ff8ac8'];
+function makeMinimap(L, battle0, onTap) {
+  const S = 1 / 6, w = Math.round(L.W * S), h = Math.round(384 * S), y0 = 56;
+  const cv = h_('canvas', w * 2, h * 2);
+  const el = document.createElement('button');
+  el.className = 'minimap';
+  el.setAttribute('aria-label', '전장 전체 보기');
+  el.appendChild(cv);
+  el.addEventListener('click', onTap);
+  const g = cv.getContext('2d');
+  // 고정 배경: 길
+  const bg = h_('canvas', w * 2, h * 2), bgx = bg.getContext('2d');
+  bgx.fillStyle = '#0d0f15'; bgx.fillRect(0, 0, w * 2, h * 2);
+  bgx.fillStyle = '#3a3542';
+  for (const sg of L.segs) {
+    const x1 = sg.x1, y1 = sg.y1, x2 = sg.x1 + sg.dx * sg.len, y2 = sg.y1 + sg.dy * sg.len;
+    bgx.fillRect(Math.min(x1, x2) * S * 2 - 2, (Math.min(y1, y2) - y0) * S * 2 - 2, Math.abs(x2 - x1) * S * 2 + 4, Math.abs(y2 - y1) * S * 2 + 4);
+  }
+  const cell = 48 * S * 2;
+  function draw(b) {
+    g.drawImage(bg, 0, 0);
+    for (let i = 0; i < L.nCells; i++) {
+      const o = L.ownerOf(i);
+      const x = (L.CX[i] - 24) * S * 2, y = (L.CY[i] - 24 - y0) * S * 2;
+      const u = b.units[i];
+      g.fillStyle = u ? (u.def.tier === 5 ? '#ff9ad9' : TIERS[u.def.tier].color) : o === 0 ? '#2b2a22' : '#1c2230';
+      g.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+    }
+    for (let o = 0; o < L.boards.length; o++) {
+      const x = (L.CX[o * 18] - 24) * S * 2, y = (L.CY[o * 18] - 24 - y0) * S * 2;
+      g.strokeStyle = MM_BAND[o === 0 ? 0 : 1 + ((o - 1) % 3)];
+      g.globalAlpha = o === 0 ? 0.9 : 0.5;
+      g.strokeRect(x + 0.5, y + 0.5, cell * 6 - 1, cell * 3 - 1);
+      g.globalAlpha = 1;
+    }
+    g.fillStyle = '#ff6b5a';
+    for (const e of b.enemies) {
+      if (!e.alive && e.alive !== undefined) continue;
+      const sz = e.boss ? 5 : e.elite ? 3 : 2;
+      g.fillRect(e.x * S * 2 - sz / 2, (e.y - y0) * S * 2 - sz / 2, sz, sz);
+    }
+    // 지금 보고 있는 칸 (내 보드 쪽 절반)
+    g.strokeStyle = 'rgba(255,255,255,.55)';
+    g.strokeRect(0.5, 0.5, L.W / 2 * S * 2 - 1, h * 2 - 1);
+  }
+  draw(battle0);
+  return { el, draw };
+}
+function h_(tag, w, hgt) { const c = document.createElement(tag); c.width = w; c.height = hgt; return c; }

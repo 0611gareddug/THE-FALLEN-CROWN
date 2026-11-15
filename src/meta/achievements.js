@@ -37,11 +37,7 @@ export const ACHS = [
   { id: 'tax', cat: '스토리', name: '납세의 의무', desc: '용에게 세금 받기', ash: 15 },
   { id: 'dragon', cat: '스토리', name: '용 기수의 귀환', desc: '실바나를 싸우지 않고 되찾기', ash: 20 },
   { id: 'darkEnd', cat: '스토리', name: '요정 나라', desc: '마왕성을 꽃밭으로 바꾸는 결말 보기', ash: 15 },
-  { id: 'brotherEnd', cat: '스토리', name: '소꿉친구의 귀환', desc: '마왕의 그림자가 된 노아를 구하기', ash: 25 },
-  { id: 'allEndings', cat: '스토리', name: '모든 길의 끝', desc: '결말 8개 보기', ash: 100 },
-  { id: 'fateLight', cat: '스토리', name: '빛의 계승자', desc: '용사 결말을 빛으로 보기', ash: 30 },
-  { id: 'fateDark', cat: '스토리', name: '어둠의 계승자', desc: '용사 결말을 어둠으로 보기', ash: 30 },
-  { id: 'fateAll', cat: '스토리', name: '네 용사의 연대기', desc: '네 용사의 결말을 모두 보기', ash: 60 },
+  { id: 'allEndings', cat: '스토리', name: '모든 길의 끝', desc: '공통 결말 7개를 모두 보기', ash: 100 },
   { id: 'collector', cat: '스토리', name: '세리 기절시키기', desc: '용의 영수증으로 세금 꽃게를 쓰러뜨리기', ash: 10 },
   { id: 'allowance', cat: '스토리', name: '천 년 만의 용돈', desc: '전설의 용사 유령에게 용돈 받기', ash: 10 },
   // 병맛 · 숨김 (6)

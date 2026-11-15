@@ -1,4 +1,3 @@
-import { ROYAL_ENDINGS, ROYAL_ENDING_ORDER } from './fate.js';
 // 결말 8개
 export const ENDINGS = {
   rebuild: {
@@ -43,17 +42,8 @@ export const ENDINGS = {
       ['toto', 'smug', '용사님, 기념품 가게 수수료는 제가 챙겼어요.'],
     ],
   },
-  brother: {
-    no: 6, title: '소꿉친구의 귀환', eyebrow: 'A FRIEND COMES HOME',
-    lines: [
-      ['narr', '', '그림자가 흩어지자, 그 안에서 보랏빛 눈의 소년이 무릎을 꿇고 있었다. 노아였다.'],
-      ['narr', '', '"…미안해. 마왕이 속삭였어. 너희가 나를 잊었을 거라고."'],
-      ['narr', '', '용사단은 손을 내밀었다. 마을 회관에 걸린 낡은 그림을, 이번엔 넷이서 다시 그렸다.'],
-      ['narr', '', '이번엔 모두 웃고 있다. 뿌루는 그림 밖으로 삐져나왔지만.'],
-    ],
-  },
   dawn: {
-    no: 7, title: '무지개 다리', eyebrow: 'THE RAINBOW BRIDGE',
+    no: 6, title: '무지개 다리', eyebrow: 'THE RAINBOW BRIDGE',
     lines: [
       ['narr', '', '다섯 개의 무지개 조각이 하나로 맞춰지는 순간, 하늘에 무지개 다리가 놓였다.'],
       ['bran', 'sad', '…40년 전 우리가 하지 못한 일을, 자네들이 해냈군.'],
@@ -63,9 +53,8 @@ export const ENDINGS = {
     ],
   },
   defeat: {
-    no: 8, title: '넘어진 용사단', eyebrow: 'THE WALLS CRUMBLE',
+    no: 7, title: '넘어진 용사단', eyebrow: 'THE WALLS CRUMBLE',
     lines: [['narr', '', '성벽이 무너졌다. 용사단은 일단 집에 가서 낮잠을 자기로 했다. 다시 일어나면 된다.']],
   },
 };
-Object.assign(ENDINGS, ROYAL_ENDINGS);
-export const ENDING_ORDER = ['rebuild', 'saint', 'ash', 'forest', 'republic', 'brother', 'dawn', 'defeat', ...ROYAL_ENDING_ORDER];
+export const ENDING_ORDER = ['rebuild', 'saint', 'ash', 'forest', 'republic', 'dawn', 'defeat'];

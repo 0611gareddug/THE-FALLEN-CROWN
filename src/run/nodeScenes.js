@@ -7,8 +7,7 @@ import { RELIC, RELICS, GRADE, SETS } from '../data/relics.js';
 import { UNIT, BY_TIER, TIERS, UPG_NAMES } from '../data/units.js';
 import { COMPANIONS } from '../data/companions.js';
 import { ROYALS } from '../data/text.js';
-import { ENDINGS } from '../data/endings.js';
-import { royalEnding } from '../data/fate.js';
+import { ENDINGS, ENDING_ORDER } from '../data/endings.js';
 import { place, portrait, CAST } from '../gfx/art2.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { iconURL } from '../gfx/icons.js';
@@ -284,7 +283,6 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       { id: 'forest', t: '숲 동물들과 마왕성을 숲으로 돌려보낸다', ok: (r.tribe || 0) >= 7, need: '숲 동물 마을 평판 7' },
       { id: 'republic', t: '항구 상인회와 마왕성을 관광지로 만든다', ok: (r.guild || 0) >= 7, need: '항구 상인회 평판 7' },
     ];
-    if (run.finalBoss === 'shadow') list.splice(1, 0, { id: 'brother', t: '마왕의 그림자 속 노아에게 손을 내민다', ok: !!run.flags.brotherBond, need: '친구와의 추억 (용사 사건)' });
     list.unshift({ id: 'dawn', t: '다섯 무지개 조각으로 다리를 놓아 저주를 끝낸다', ok: trueOk, need: '무지개 조각 5 · 바르톨과 에일라 인연 5 · 천상 유닛', hidden: !trueOk && run.shards < 3 });
     return list.filter((x) => !x.hidden);
   }
@@ -328,11 +326,6 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     const xp = endRun(run, played[0] || id);
     // 여러 결말(협동)도 모두 기록
     { const dd = store(); dd.endings = dd.endings || []; for (const x of played) if (!dd.endings.includes(x)) dd.endings.push(x); save(); }
-    for (const x of played) {
-      if (!ENDINGS[x].royal) continue;
-      unlockAch(x.endsWith('light') ? 'fateLight' : 'fateDark');
-    }
-    { const got = store().endings || []; if (['edric', 'seren', 'kyle', 'nix'].every((r) => got.some((x) => x.startsWith(r + '_')))) unlockAch('fateAll'); }
     const ash = Math.round(run.act * 20 + run.stats.kills / 30 + (id === 'defeat' ? 0 : 60) + run.shards * 5);
     const d = store(); d.ash += ash; save();
     if (id !== 'defeat') {
@@ -340,9 +333,8 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       unlockAch({ edric: 'edricWin', seren: 'serenWin', kyle: 'kyleWin', nix: 'nixWin' }[run.royal]);
       if (id === 'dawn') { unlockAch('trueEnd'); if (run.mascot === 'rock') unlockAch('rockEnd'); }
       if (id === 'ash') unlockAch('darkEnd');
-      if (id === 'brother') unlockAch('brotherEnd');
     } else unlockAch('defeat1');
-    if ((d.endings || []).length >= 8) unlockAch('allEndings');
+    if (ENDING_ORDER.every((x) => (d.endings || []).includes(x))) unlockAch('allEndings');
     if (d.runs >= 10) unlockAch('runs10');
     const royal = ROYALS.find((r) => r.id === run.royal);
     el = h('div.result' + (id === 'defeat' ? '' : '.win'),
@@ -364,11 +356,9 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     enter() {
       app.bg.setMode('lobby');
       audio.play('lobby');
-      const royalId = !defeat && !forced ? royalEnding(run, run.royal) : null;
       if (defeat) { audio.sfxPlay('defeat'); play('defeat'); }
-      else if (queue) { audio.sfxPlay('victory'); audio.play('fate'); play(queue.shift()); }
+      else if (queue) { audio.sfxPlay('victory'); play(queue.shift()); }
       else if (forced) { audio.sfxPlay('victory'); play(forced); }
-      else if (royalId) { audio.sfxPlay('victory'); audio.play('fate'); play(royalId); } // 8장을 모두 봤으면 용사 결말이 우선
       else { audio.sfxPlay('victory'); choose(); }
     },
     exit: () => { app.ui.querySelectorAll('.result').forEach((x) => x.remove()); if (el) el.remove(); },

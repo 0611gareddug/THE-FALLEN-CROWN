@@ -3,6 +3,7 @@ import { h } from '../ui/dom.js';
 import { store, save } from '../core/storage.js';
 import { UNIT, TIERS } from '../data/units.js';
 import { MASCOT_DEFS } from '../data/mascots.js';
+import { ROYALS } from '../data/text.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 
 const IMG = {};
@@ -26,8 +27,9 @@ export function recordBattle(run) {
 }
 
 function who(run, o) {
-  if (!run.players) return null;
-  return run.players[o] ? run.players[o].name : '';
+  if (!run.players || !run.players[o]) return '';
+  const r = ROYALS.find((x) => x.id === run.players[o].royal);
+  return (o === (run.me || 0) ? '나 · ' : '') + (r ? r.name : run.players[o].name);
 }
 function labelOf(run, o, id) {
   if (id === '@m') {
@@ -62,7 +64,7 @@ export function battleCard(run) {
   const open = store().settings.bstatOpen !== false;
   const body = h('div.bstat-body', { style: { display: open ? '' : 'none' } },
     run.players
-      ? h('div.bstat-vs', [0, 1].map((o) => h('div' + (o === (run.me || 0) ? '.mine' : '.theirs'), h('b', who(run, o)), h('span', `피해 ${fmt(lb.tot[o] || 0)} · 처치 ${lb.kills[o] || 0}`))))
+      ? h('div.bstat-vs' + (run.players.length > 2 ? '.many' : ''), run.players.map((_, o) => o).map((o) => h('div' + (o === (run.me || 0) ? '.mine' : '.theirs'), h('b', who(run, o)), h('span', `피해 ${fmt(lb.tot[o] || 0)} · 처치 ${lb.kills[o] || 0}`))))
       : h('div.bstat-sub', `총 피해 ${fmt(lb.tot[0] || 0)} · 처치 ${lb.kills[0] || 0} · ${lb.t}초`),
     bars(run, lb.top.slice(0, 5), { mvp: true }));
   const head = h('button.bstat-head', {
@@ -89,7 +91,7 @@ export function runStatsBlock(run) {
   return h('div.bstat.run',
     h('div.bstat-head.static', h('span', '여정 기록 · 가장 많이 싸운 유닛')),
     run.players
-      ? h('div.bstat-vs', [0, 1].map((o) => h('div' + (o === (run.me || 0) ? '.mine' : '.theirs'), h('b', who(run, o)), h('span', `피해 ${fmt(tot[o])} · 처치 ${(s.killsO || [0, 0])[o]}`))))
+      ? h('div.bstat-vs' + (run.players.length > 2 ? '.many' : ''), run.players.map((_, o) => o).map((o) => h('div' + (o === (run.me || 0) ? '.mine' : '.theirs'), h('b', who(run, o)), h('span', `피해 ${fmt(tot[o])} · 처치 ${(s.killsO || [])[o] || 0}`))))
       : h('div.bstat-sub', `전투 ${s.battles} · 총 피해 ${fmt(tot[0])} · 처치 ${s.kills}`),
     bars(run, rows.slice(0, 5), { mvp: true }));
 }

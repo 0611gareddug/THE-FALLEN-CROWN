@@ -11,7 +11,6 @@ import { addRelic, addUnit, randomRelic, applyFxAll } from '../run/events.js';
 import { frame, resBar, relicCard, makeShopStock, endingScene } from '../run/nodeScenes.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { portraitURL } from '../run/mapScene.js';
-import { royalEnding } from '../data/fate.js';
 import { battleCard } from '../run/battleStats.js';
 
 const keyOf = (run, tag) => `${tag}:${run.act}:${run.pos || 's'}:${run.stats.battles}:${run.stats.events}`;
@@ -26,7 +25,7 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
   }, it.img ? h('img.mini', { src: it.img, alt: '' }) : null, it.card || h('span.t', it.t), it.sub ? h('small', it.sub) : null));
   const mark = () => {
     const v = coop.votes[key] || [];
-    btns.forEach((b, i) => { b.classList.toggle('v-me', items[i].v === v[coop.me]); b.classList.toggle('v-them', items[i].v === v[1 - coop.me]); });
+    btns.forEach((b, i) => coop.markBtn(b, key, items[i].v));
   };
   host.append(...btns, coop.voteBar(key, label));
   const offs = [coop.onLocal('vote', (m) => { if (m.key === key) mark(); })];
@@ -42,7 +41,7 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
   mark();
 }
 
-// 계속: 둘 다 누르면 넘어간다 (10초가 지나면 자동). 상점은 둘 다 누르거나 한 명이 누르고 5초 뒤.
+// 계속: 모두 누르면 넘어간다 (10초가 지나면 자동). 상점은 모두 누르거나 누군가 누르고 5초 뒤.
 function continueBlock(coop, root, host, run, tag, after) {
   const shop = tag === 'shop';
   voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: shop ? '상점 떠나기' : '계속' }], shop ? { timeout: 90, afterFirst: 5, done: after } : { timeout: 10, done: after });
@@ -98,7 +97,7 @@ export function coopShopScene(app, { run }) {
     enter() {
       app.bg.setMode('game');
       audio.play('map');
-      if (coop.host) { offs.push(coop.net.on('buy', (m) => buy(1, m.i))); coop.sendRun(); }
+      if (coop.host) { offs.push(coop.net.on('buy', (m) => buy(m.from, m.i))); coop.sendRun(); }
       offs.push(coop.onLocal('run', () => { const g = el && el.querySelector('.ev-choices'); if (g) { const keep = g; render(); } else render(); }));
       render();
     },
@@ -120,7 +119,7 @@ export function coopCampScene(app, { run }) {
     voteBlock(coop, el, box, keyOf(run, 'camp'), [
       { v: 'rest', t: '쉰다', sub: `공용 성벽 +${heal}` },
       { v: 'talk', t: '동료와 대화한다', sub: '인연 +1', disabled: !run.party.length },
-      { v: 'upgrade', t: '장비를 손본다', sub: '두 사람 모두 강화 1단계 무료' },
+      { v: 'upgrade', t: '장비를 손본다', sub: '모두 강화 1단계 무료' },
     ], {
       extra: (v) => {
         if (v === 'rest') { const c = run.players[0].carry; c.wall = Math.min(c.wallMax, c.wall + heal); }
@@ -139,7 +138,7 @@ export function coopCampScene(app, { run }) {
     el = frame(app, 'camp', 'CAMPFIRE', '야영지', resBar(coop.run || run), h('div.note', kind === 'talk' ? '누구와 이야기할까?' : '어느 쪽을 손볼까?'), box);
     const items = kind === 'talk'
       ? run.party.map((id) => ({ v: id, t: COMPANIONS[id].name, sub: `인연 ${run.bonds[id] || 0} → ${Math.min(5, (run.bonds[id] || 0) + 1)}`, img: portraitURL(id, 'happy') }))
-      : [0, 1, 2].map((g) => ({ v: g, t: UPG_NAMES[g], sub: '두 사람 모두 +1' }));
+      : [0, 1, 2].map((g) => ({ v: g, t: UPG_NAMES[g], sub: '모두 +1' }));
     voteBlock(coop, el, box, keyOf(run, 'camp-' + kind), items, {
       extra: (v) => {
         if (kind === 'talk') run.bonds[v] = Math.min(5, (run.bonds[v] || 0) + 1);
@@ -150,7 +149,7 @@ export function coopCampScene(app, { run }) {
         audio.sfxPlay('win');
         run = coop.run || run;
         if (kind === 'talk') { const q = COMPANIONS[v].quips; render(`${COMPANIONS[v].name}: "${q[(run.bonds[v] + run.act) % q.length]}" — 인연 ${run.bonds[v]}`); }
-        else render(`${UPG_NAMES[v]} 강화 +1 (두 사람 모두)`);
+        else render(`${UPG_NAMES[v]} 강화 +1 (모두)`);
       },
     });
   }
@@ -169,10 +168,10 @@ export function coopTreasureScene(app, { run }) {
     if (msg) { continueBlock(coop, el, box, run, 'tr-go', () => { if (coop.host) finishNode(app, run); }); return; }
     voteBlock(coop, el, box, keyOf(run, 'tr'), [
       ...(id ? [{ v: 'relic', t: RELIC[id].name, card: relicCard(id) }] : []),
-      { v: 'stones', t: '행운석 2개 (두 사람 모두)' },
+      { v: 'stones', t: '행운석 2개 (모두)' },
     ], {
       extra: (v) => { if (v === 'relic') addRelic(run, id, []); else run.players.forEach((p) => (p.carry.stones += 2)); return null; },
-      done: (v) => { audio.sfxPlay('win'); render(v === 'relic' ? `${RELIC[id].name}을(를) 얻었다.` : '두 사람 모두 행운석 2개를 얻었다.'); },
+      done: (v) => { audio.sfxPlay('win'); render(v === 'relic' ? `${RELIC[id].name}을(를) 얻었다.` : '모두 행운석 2개를 얻었다.'); },
     });
   }
   return { enter() { app.bg.setMode('game'); audio.play('event'); render(); }, exit: () => el && el.remove() };
@@ -186,7 +185,7 @@ export function coopAltarScene(app, { run }) {
     if (el) el.remove();
     const box = h('div.ev-choices');
     el = frame(app, 'temple', 'ALTAR OF FATE', '운명의 제단', resBar(coop.run || run),
-      h('div.note', '두 사람이 같은 수의 행운석을 걸고 주사위 하나를 굴린다. 결과는 둘 다 받는다.'),
+      h('div.note', '모두 같은 수의 행운석을 걸고 주사위 하나를 굴린다. 결과는 모두 받는다.'),
       h('div.altar-table', ['⚀⚁ 건 행운석을 잃는다', '⚂⚃ 돌려받고 +1', '⚄ 유물 1개', '⚅ 영웅 유닛 (3개면 전설) + 반환'].map((t) => h('div', t))),
       msg ? h('div.ev-text', msg) : null, box);
     if (msg) { continueBlock(coop, el, box, run, 'alt-go', () => { if (coop.host) finishNode(app, run); }); return; }
@@ -245,9 +244,9 @@ export function coopRewardScene(app, { run, kind, escaped }) {
     } else {
       const g = 20 + run.act * 15;
       voteBlock(coop, el, box, keyOf(run, 'rw'), [
-        { v: 'gold', t: `금화 +${g} (두 사람 모두)` },
+        { v: 'gold', t: `금화 +${g} (모두)` },
         { v: 'wall', t: '공용 성벽 +18' },
-        { v: 'stone', t: '행운석 +1 (두 사람 모두)' },
+        { v: 'stone', t: '행운석 +1 (모두)' },
       ], {
         extra: (v) => {
           if (v === 'gold') run.players.forEach((p) => (p.carry.gold += g));
@@ -300,7 +299,6 @@ export function coopEndingScene(app, params) {
       { v: 'forest', t: '숲 동물들과 마왕성을 숲으로 돌려보낸다', ok: (r.tribe || 0) >= 7, need: '숲 동물 마을 평판 7' },
       { v: 'republic', t: '항구 상인회와 마왕성을 관광지로 만든다', ok: (r.guild || 0) >= 7, need: '항구 상인회 평판 7' },
     ];
-    if (run.finalBoss === 'shadow') list.splice(2, 0, { v: 'brother', t: '마왕의 그림자 속 노아에게 손을 내민다', ok: !!run.flags.brotherBond, need: '친구와의 추억' });
     return list;
   }
   return {
@@ -308,15 +306,12 @@ export function coopEndingScene(app, params) {
       app.bg.setMode('lobby');
       audio.play('lobby');
       if (defeat) { inner = endingScene(app, { ...params, noCoop: true }); inner.enter(); return; }
-      // 두 용사 모두 운명의 장 8개를 봤으면 각자의 용사 결말이 우선 (방장 → 참가자 순서)
-      const royalIds = run.players.map((p) => royalEnding(run, p.royal)).filter(Boolean);
-      if (royalIds.length) { inner = endingScene(app, { ...params, forced: royalIds, noCoop: true }); inner.enter(); return; }
       audio.sfxPlay('victory');
       const box = h('div.ev-choices', { style: { width: '100%', maxWidth: '440px' } });
       el = h('div.screen.act-intro',
         h('div.eyebrow.rise', 'THE DEMON CASTLE'),
         h('h1.rise', '마왕성 꼭대기에서'),
-        h('div.sub.rise', '두 용사가 함께 정한다. 마왕성의 운명을.'), box);
+        h('div.sub.rise', '모두 함께 정한다. 마왕성의 운명을.'), box);
       app.ui.appendChild(el);
       voteBlock(coop, el, box, `end:${run.seed}`, options().map((o) => ({ v: o.v, t: o.t, sub: o.ok ? '' : o.need, disabled: !o.ok })), {
         vote: true,

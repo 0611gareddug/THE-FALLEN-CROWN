@@ -1,9 +1,9 @@
-// 협동 전투 동기화 (한 필드 · 8자 길)
-// 방장이 필드 전체를 압축해 보내고, 참가자는 위아래를 뒤집은 거울 필드(MirrorBattle)로 그린다.
-// 참가자 화면에서는 자기 보드가 항상 아래(주인 0)에 온다.
+// 협동 전투 동기화 (한 필드 · 2인 8자 길 / 3~4인 고리 길)
+// 방장이 필드 전체를 압축해 보내고, 참가자는 좌우·위아래를 뒤집은 거울 필드(MirrorBattle)로 그린다.
+// 참가자 화면에서는 자기 보드가 항상 왼쪽 아래(주인 0)에 온다.
 import { UNITS, UNIT, CLASS_ORDER } from '../data/units.js';
 import { ENEMIES } from '../data/enemies.js';
-import { COOP, mirrorCell } from '../game/layout.js';
+import { COOP, viewOf } from '../game/layout.js';
 import { defineOwned } from '../game/battle.js';
 
 const UNIT_IDS = UNITS.map((u) => u.id);
@@ -17,7 +17,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
 // ── 방장: 필드 전체 압축 (좌표 · 칸 · 주인은 방장 기준 그대로) ──
 export function packField(b, evs) {
   const h = [b.wave, b.nWaves, PHASES.indexOf(b.phase), r1(b.timer), r1(b.waveT), r1(b.bossT), r1(b.leftT), r1(b.timeStopT), r1(b.ashT), b.overflow ? 1 : 0, b.freezeRow, r1(b.wall), b.wallMax, r1(b.cloudT || 0)];
-  const pp = [0, 1].map((o) => b.as(o, () => [
+  const pp = Array.from({ length: b.nP }, (_, o) => b.as(o, () => [
     b.gold, b.stones, b.badLuck, r1(b.skillT), r1(b.skillCd), b.celestial, b.maxCelestial, b.summonCost(), r1(b.cheerT),
     b.upg[0], b.upg[1], b.upg[2], b.upgradeCost(0), b.upgradeCost(1), b.upgradeCost(2), b.hasEmpty() ? 1 : 0, b.stats.kills, b.freeSummon,
     ...CLASS_ORDER.map((k) => b.syn[k]),
@@ -44,18 +44,23 @@ export function packField(b, evs) {
 }
 
 // 이벤트를 참가자 화면 기준으로 뒤집기
-function mirrorEv(ev, M) {
-  if (ev.o !== undefined) ev.o = 1 - ev.o;
-  if (ev.to !== undefined) ev.to = 1 - ev.to;
-  if (typeof ev.cell === 'number') ev.cell = mirrorCell(ev.cell);
-  if (Array.isArray(ev.from)) ev.from = ev.from.map(mirrorCell);
-  else if (typeof ev.from === 'number') ev.from = mirrorCell(ev.from);
-  if (typeof ev.y === 'number') ev.y = M - ev.y;
-  if (typeof ev.y2 === 'number') ev.y2 = M - ev.y2;
-  if (typeof ev.ty === 'number') ev.ty = M - ev.ty;
-  if (ev.pts) for (let i = 1; i < ev.pts.length; i += 2) ev.pts[i] = M - ev.pts[i];
-  if (ev.targets) ev.targets = ev.targets.map(([x, y]) => [x, M - y]);
-  if (ev.type === 'freeze') ev.row = 2 - ev.row;
+function mirrorEv(ev, V) {
+  const om = V.ownerMap;
+  if (ev.o !== undefined && om[ev.o] !== undefined) ev.o = om[ev.o];
+  if (ev.to !== undefined && om[ev.to] !== undefined) ev.to = om[ev.to];
+  if (ev.from !== undefined && typeof ev.from === 'number' && ev.type === 'sendGold') { /* 금화 보낸 사람은 주인 번호 */ ev.from = om[ev.from]; }
+  else if (Array.isArray(ev.from)) ev.from = ev.from.map(V.cell);
+  else if (typeof ev.from === 'number') ev.from = V.cell(ev.from);
+  if (typeof ev.cell === 'number') ev.cell = V.cell(ev.cell);
+  if (typeof ev.x === 'number') ev.x = V.tx(ev.x);
+  if (typeof ev.x2 === 'number') ev.x2 = V.tx(ev.x2);
+  if (typeof ev.tx === 'number') ev.tx = V.tx(ev.tx);
+  if (typeof ev.y === 'number') ev.y = V.ty(ev.y);
+  if (typeof ev.y2 === 'number') ev.y2 = V.ty(ev.y2);
+  if (typeof ev.ty === 'number') ev.ty = V.ty(ev.ty);
+  if (ev.pts) for (let i = 0; i < ev.pts.length; i += 2) { ev.pts[i] = V.tx(ev.pts[i]); ev.pts[i + 1] = V.ty(ev.pts[i + 1]); }
+  if (ev.targets) ev.targets = ev.targets.map(([x, y]) => [V.tx(x), V.ty(y)]);
+  if (ev.type === 'freeze' && V.fy) ev.row = 2 - ev.row;
   return ev;
 }
 
@@ -68,14 +73,16 @@ const newP = () => ({
 
 // ── 참가자: 거울 필드 ──
 export class MirrorBattle {
-  constructor(send) {
+  constructor(send, L = COOP, slot = 1, nP = 2) {
     this.send = send;
-    this.L = COOP;
-    this.M = COOP.mirrorY;
-    this.nCells = COOP.nCells;
+    this.L = L;
+    this.V = viewOf(L, slot);
+    this.slot = slot;
+    this.nCells = L.nCells;
     this.coop = true;
-    this.nP = 2;
-    this.P = [newP(), newP()];
+    this.nP = L.boards.length;
+    this.realP = nP;
+    this.P = Array.from({ length: this.nP }, newP);
     this.cur = 0;
     this.units = new Array(this.nCells).fill(null);
     this.mergeable = new Array(this.nCells).fill(false);
@@ -92,21 +99,23 @@ export class MirrorBattle {
     this.time = 0;
     this.t0 = 0; this.t1 = 0;
   }
+  // 방장 기준 주인 번호 → 내 화면 주인 번호
+  local(o) { return this.V.ownerMap[o]; }
 
   apply(s, now) {
-    const M = this.M;
+    const V = this.V;
     const H = s.h;
     this.wave = H[0]; this.nWaves = H[1]; this.phase = PHASES[H[2]] || 'wave';
     [this.timer, this.waveT, this.bossT, this.leftT, this.timeStopT, this.ashT] = H.slice(3, 9);
-    this.overflow = !!H[9]; this.freezeRow = H[10] < 0 ? -1 : 2 - H[10]; this.wall = H[11]; this.wallMax = H[12]; this.cloudT = H[13] || 0;
-    for (let ho = 0; ho < 2; ho++) {
-      const P = this.P[1 - ho], a = s.pp[ho];
+    this.overflow = !!H[9]; this.freezeRow = H[10] < 0 ? -1 : V.fy ? 2 - H[10] : H[10]; this.wall = H[11]; this.wallMax = H[12]; this.cloudT = H[13] || 0;
+    for (let ho = 0; ho < s.pp.length; ho++) {
+      const P = this.P[V.ownerMap[ho]], a = s.pp[ho];
       [P.gold, P.stones, P.badLuck, P.skillT, P.skillCd, P.celestial, P.maxCelestial, P.sc, P.cheerT] = a;
       P.upg = [a[9], a[10], a[11]]; P.uc = [a[12], a[13], a[14]]; P.he = !!a[15]; P.stats.kills = a[16]; P.freeSummon = a[17];
       CLASS_ORDER.forEach((k, i) => (P.syn[k] = a[18 + i]));
     }
     for (let hi = 0; hi < this.nCells; hi++) {
-      const i = mirrorCell(hi);
+      const i = V.cellMap[hi];
       this.mergeable[i] = s.m[hi] === '1';
       const x = s.u[hi];
       if (!x) { this.units[i] = null; continue; }
@@ -125,11 +134,11 @@ export class MirrorBattle {
       seen.add(uid);
       let x = this.emap.get(uid);
       const type = ENEMY_IDS[e[o + 1]];
-      const nx = e[o + 2] / 8, ny = M - e[o + 3] / 8;
+      const nx = V.tx(e[o + 2] / 8), ny = V.ty(e[o + 3] / 8);
       if (!x || x.type !== type) { x = { uid, type, def: ENEMIES[type], px: nx, py: ny, x: nx, y: ny, alive: true }; this.emap.set(uid, x); }
       else { x.px = x.x; x.py = x.y; }
       x.nx = nx; x.ny = ny;
-      x.dx = e[o + 4]; x.dy = 0;
+      x.dx = V.fx ? -e[o + 4] : e[o + 4]; x.dy = 0;
       const f = e[o + 6];
       x.boss = !!(f & 1); x.elite = !!(f & 2); x.invis = !!(f & 4); x.flash = f & 8 ? 0.05 : 0; x.shield = !!(f & 16);
       x.slowAmt = f & 32 ? 0.2 : 0; x.stunT = f & 64 ? 0.2 : 0; x.burnT = f & 128 ? 0.2 : 0; x.clone = !!(f & 256);
@@ -141,12 +150,15 @@ export class MirrorBattle {
     const p = new Int16Array(s.p);
     this.projs = [];
     for (let o = 0; o < p.length; o += P_STRIDE) {
-      const ang = -p[o + 3] / 1000, px = p[o + 1] / 8, py = M - p[o + 2] / 8;
+      let ang = p[o + 3] / 1000;
+      if (V.fy) ang = -ang;
+      if (V.fx) ang = Math.PI - ang;
+      const px = V.tx(p[o + 1] / 8), py = V.ty(p[o + 2] / 8);
       this.projs.push({ kind: PROJ[p[o]], x: px, y: py, ang, tx: px + Math.cos(ang) * 10, ty: py + Math.sin(ang) * 10 });
     }
     this.zones = s.z.map(([s0, s1, t, fox]) => ({ s0, s1, t, dur: 3, fox: !!fox }));
     this.boss = s.boss ? { alive: true, type: ENEMY_IDS[s.boss[0]], def: ENEMIES[ENEMY_IDS[s.boss[0]]], hp: s.boss[1], maxHp: s.boss[2], shield: !!s.boss[3] } : null;
-    for (const ev of s.ev) this.events.push(mirrorEv(ev, M));
+    for (const ev of s.ev) this.events.push(mirrorEv(ev, V));
     if (s.res) this.result = s.res;
     this.t0 = this.t1 || now; this.t1 = now;
   }
@@ -171,7 +183,7 @@ export class MirrorBattle {
   upgradeCost(g) { return this.P[this.cur].uc[g]; }
   unitDmg(u) { return u.dmgV || 0; }
   bossInfo() { return this.boss; }
-  totalStat(k) { return this.P[0].stats[k] + this.P[1].stats[k]; }
+  totalStat(k) { return this.P.reduce((a, P) => a + (P.stats[k] || 0), 0); }
   mergePartners(cell) {
     const u = this.units[cell];
     if (!u || u.def.tier >= 4) return null;
@@ -195,28 +207,30 @@ export class MirrorBattle {
   summon() { if (this.gold < this.summonCost() || !this.hasEmpty()) return false; return this.act('summon'); }
   gamble(level) { return this.act('gamble', { g: level }); }
   pity() { return this.act('pity'); }
-  merge(cell) { if (!this.mergePartners(cell) || this.ownerOf(cell) !== 0) return false; return this.act('merge', { c: mirrorCell(cell) }); }
-  sell(cell) { if (this.ownerOf(cell) !== 0) return 0; return this.act('sell', { c: mirrorCell(cell) }); }
+  merge(cell) { if (!this.mergePartners(cell) || this.ownerOf(cell) !== 0) return false; return this.act('merge', { c: this.V.cell(cell) }); }
+  sell(cell) { if (this.ownerOf(cell) !== 0) return 0; return this.act('sell', { c: this.V.cell(cell) }); }
   move(from, to) {
     if (from === to || this.ownerOf(from) !== 0) return false;
     const a = this.units[from], b = this.units[to];
     if (!a) return false;
     if (this.ownerOf(to) !== 0) { if (b) return false; }
     else { this.units[to] = a; this.units[from] = b; } // 즉시 반영해 손맛을 살린다
-    return this.act('move', { f: mirrorCell(from), c: mirrorCell(to) });
+    return this.act('move', { f: this.V.cell(from), c: this.V.cell(to) });
   }
   craft(i) { return this.act('craft', { i }); }
   upgrade(g) { if (this.gold < this.upgradeCost(g)) return false; return this.act('upgrade', { g }); }
   skill() { if (this.skillT < this.skillCd || this.phase === 'prep') return false; return this.act('skill'); }
-  cleanse(c) { return this.act('cleanse', { c: mirrorCell(c) }); }
-  sendGold(v = 20) { if (this.gold < v) return false; return this.act('gold', { v }); }
+  cleanse(c) { return this.act('cleanse', { c: this.V.cell(c) }); }
+  // to: 내 화면 주인 번호 → 방장 기준으로 바꿔 보낸다 (뒤집기 대응표는 자기 자신이 역함수)
+  sendGold(v = 20, to = 1) { v = Math.floor(v); if (!(v > 0) || this.gold < v) return false; return this.act('gold', { v, to: this.V.ownerMap[to] }); }
 }
 defineOwned(MirrorBattle);
 // 거울 필드는 sc/uc/he를 따로 쓰므로 OWN 목록 밖의 값은 P에서 직접 읽는다
 
-// ── 방장: 참가자(주인 1) 입력 적용 ──
-export function applyInput(b, m) {
-  return b.as(1, () => {
+// ── 방장: 참가자(자리 who) 입력 적용 ──
+export function applyInput(b, m, who = 1) {
+  if (who < 1 || who >= b.nP) return false;
+  return b.as(who, () => {
     switch (m.a) {
       case 'summon': return b.summon();
       case 'gamble': return b.gamble(m.g);
@@ -228,7 +242,7 @@ export function applyInput(b, m) {
       case 'upgrade': return b.upgrade(m.g);
       case 'skill': return b.skill();
       case 'cleanse': return b.cleanse(m.c);
-      case 'gold': return b.sendGold(20);
+      case 'gold': return b.sendGold(m.v || 20, m.to);
     }
     return false;
   });

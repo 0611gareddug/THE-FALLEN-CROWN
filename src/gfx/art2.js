@@ -669,8 +669,6 @@ export const CAST = {
   librarian: { name: '사서 할머니', skin: '#f0d0b0', hair: '#d8d8e0', style: 'long', cloth: '#7a5a9a', cloth2: '#ffd36b', glasses: true, voice: [380, 'sine'] },
   forger: { name: '위조범 핀', skin: '#e8c0a0', hair: '#5a4030', style: 'cap', mustache: true, cloth: '#6a5a3a', cloth2: '#c8c0a0', voice: [560, 'square'] },
   cousin: { name: '테오도르', skin: '#f4e0d4', hair: '#d8c08a', style: 'short', cloth: '#5a6a9a', cloth2: '#e8c25a', crownSmall: true, cold: true, voice: [600, 'triangle'] },
-  noah: { name: '노아', skin: '#f4dcc8', hair: '#8ab0e0', style: 'messy', cloth: '#5a8ad0', cloth2: '#ffd36b', voice: [600, 'triangle'] },
-  noahShadow: { name: '그림자 노아', skin: '#c8b8e0', hair: '#4a3a6a', style: 'messy', cloth: '#2e1a44', cloth2: '#9b5fd6', cold: true, voice: [480, 'sine'] },
   nox: { name: '마왕 녹스', skin: '#b9a3e3', hair: '#2e1a44', style: 'short', cloth: '#4a2a6a', cloth2: '#c0392b', horns: true, crownSmall: true, voice: [150, 'sawtooth'] },
   granny: { name: '어부 할머니', skin: '#f0c8a8', hair: '#e8e8e8', style: 'long', cloth: '#4aa8e0', cloth2: '#ffffff', voice: [420, 'triangle'] },
   kid: { name: '마을 꼬마', skin: '#f6d2b0', hair: '#a86a3a', style: 'messy', cloth: '#e8a040', cloth2: '#ffffff', voice: [900, 'square'] },

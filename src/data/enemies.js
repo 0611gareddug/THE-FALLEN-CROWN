@@ -37,10 +37,10 @@ export const ENEMIES = {
   griffin: { name: '천둥 그리핀', hp: 24, spd: 24, armor: 0.25, mres: 0.3, boss: true, gimmick: 'thunder', title: '3막 보스 · 구름 산' },
   silvana: { name: '얼어붙은 용 실바나', hp: 22, spd: 17, armor: 0.35, mres: 0.35, boss: true, gimmick: 'freeze', title: '마왕성 · 용의 둥지' },
   // 최종 보스: 마왕 녹스. 체력이 다하면 진정한 모습으로 변신한다 (2단계)
-  crown: { name: '마왕 녹스', hp: 14, spd: 20, armor: 0.3, mres: 0.3, boss: true, gimmick: 'steal', title: '최종 보스 · 마왕성', phase2: 'crown2' },
-  crown2: { name: '진정한 마왕 녹스', hp: 15, spd: 24, armor: 0.35, mres: 0.35, boss: true, gimmick: 'ashrain', title: '최종 보스 · 2단계' },
-  aspel: { name: '어둠에 물든 마왕 녹스', hp: 14, spd: 21, armor: 0.2, mres: 0.5, boss: true, gimmick: 'ashrain', title: '최종 보스 · 마왕성', phase2: 'crown2' },
-  shadow: { name: '마왕의 그림자', hp: 21, spd: 24, armor: 0.25, mres: 0.25, boss: true, gimmick: 'split', title: '최종 보스 · 마왕성' },
+  crown: { name: '마왕 녹스', hp: 12, spd: 20, armor: 0.3, mres: 0.3, boss: true, gimmick: 'steal', title: '최종 보스 · 마왕성', phase2: 'crown2' },
+  crown2: { name: '진정한 마왕 녹스', hp: 13, spd: 24, armor: 0.35, mres: 0.35, boss: true, gimmick: 'ashrain', title: '최종 보스 · 2단계' },
+  aspel: { name: '어둠에 물든 마왕 녹스', hp: 12, spd: 21, armor: 0.2, mres: 0.5, boss: true, gimmick: 'ashrain', title: '최종 보스 · 마왕성', phase2: 'crown2' },
+  shadow: { name: '마왕의 그림자', hp: 18, spd: 24, armor: 0.25, mres: 0.25, boss: true, gimmick: 'split', title: '최종 보스 · 마왕성' },
 };
 
 export const BOSS_GIMMICK_TEXT = {

@@ -43,6 +43,7 @@ const BOOM_COL = { fire: ['#ff8a3a', '#ffe36b'], flask: ['#9be08a', '#e0ffd0'], 
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
 const SOLO_TORCH = [[8, 92], [346, 92], [8, 294], [346, 294]];
 const COOP_TORCH = [[8, 56], [346, 56], [8, 230], [346, 230], [8, 430], [346, 430]];
+const RING_TORCH = [[8, 56], [706, 56], [8, 230], [706, 230], [8, 430], [706, 430], [352, 230], [362, 230]];
 
 export class Renderer {
   constructor(canvas, settings, layout = SOLO) {
@@ -145,7 +146,8 @@ export class Renderer {
   buildStaticCoop() {
     const L = this.L;
     const c = document.createElement('canvas');
-    c.width = W / 2; c.height = H / 2;
+    const LW = L.W || W;
+    c.width = LW / 2; c.height = H / 2;
     const g = c.getContext('2d');
     let seed = 11;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -153,9 +155,9 @@ export class Renderer {
     g.fillRect(0, 0, c.width, c.height);
     const fy0 = (L.view.y >> 1) + 2, fy1 = ((L.view.y + L.view.h) >> 1) - 2;
     g.fillStyle = '#171920';
-    g.fillRect(4, fy0, 172, fy1 - fy0);
-    for (let i = 0; i < 1300; i++) {
-      const x = 4 + ((rnd() * 172) | 0), y = fy0 + ((rnd() * (fy1 - fy0)) | 0);
+    g.fillRect(4, fy0, LW / 2 - 8, fy1 - fy0);
+    for (let i = 0; i < 1300 * (LW / W); i++) {
+      const x = 4 + ((rnd() * (LW / 2 - 8)) | 0), y = fy0 + ((rnd() * (fy1 - fy0)) | 0);
       g.fillStyle = rnd() < 0.5 ? '#1c1e26' : '#13151b';
       g.fillRect(x, y, 1, 1);
     }
@@ -188,9 +190,15 @@ export class Renderer {
     const my = ys[1];
     g.fillStyle = '#3e2a2a';
     for (let x = PLx + 16; x < PRx - 12; x += 12) g.fillRect(x, my - 1, 4, 2);
-    // 보드 칸: 아래(나) 금빛, 위(동료) 푸른빛
+    // 보드 칸: 나(0) 금빛, 동료는 자리마다 다른 색, 빈 자리는 어둡게
+    const empty = this.emptyOwners || new Set();
     for (let i = 0; i < L.nCells; i++) {
       const mine = L.ownerOf(i) === 0;
+      if (empty.has(L.ownerOf(i))) {
+        const x = (L.CX[i] - CELL / 2) / 2, y = (L.CY[i] - CELL / 2) / 2;
+        g.fillStyle = '#121319'; g.fillRect(x + 2, y + 2, 20, 20);
+        continue;
+      }
       const x = (L.CX[i] - CELL / 2) / 2, y = (L.CY[i] - CELL / 2) / 2;
       g.fillStyle = '#101118';
       g.fillRect(x + 1, y + 1, 22, 22);
@@ -204,13 +212,16 @@ export class Renderer {
       g.fillRect(x + 11, y + 10, 2, 4); g.fillRect(x + 10, y + 11, 4, 2);
     }
     // 보드 테두리 띠 (주인 색)
-    for (let o = 0; o < 2; o++) {
+    const BAND = ['#5a4626', '#2a3a5a', '#2a5a3a', '#5a2a4a'];
+    for (let o = 0; o < L.boards.length; o++) {
+      if (empty.has(o)) continue;
       const x = (L.CX[o * 18] - CELL / 2) / 2, y = (L.CY[o * 18] - CELL / 2) / 2;
-      g.fillStyle = o === 0 ? '#5a4626' : '#2a3a5a';
+      g.fillStyle = BAND[this.bandOf ? this.bandOf(o) : o] || BAND[1];
       g.fillRect(x, y - 1, 144, 1); g.fillRect(x, y + 72, 144, 1);
     }
     // 시작 지점 (무너진 문): 길의 첫 점
-    const [gx, gy] = this.mirror ? [L.pts[0][0], L.mirrorY - L.pts[0][1]] : L.pts[0];
+    const V = this.V;
+    const [gx, gy] = V ? [V.tx(L.pts[0][0]), V.ty(L.pts[0][1])] : L.pts[0];
     const l = gx / 2 - 7, t = gy / 2 - 7;
     g.fillStyle = '#0a0a0e';
     g.fillRect(l - 1, t - 4, 16, 18);
@@ -220,7 +231,9 @@ export class Renderer {
     g.fillRect(l + 2, t - 2, 10, 2);
     this.bg = c;
   }
-  setMirror(m) { this.mirror = m; this.buildStatic(); }
+  // 참가자 화면 변환 (layout.viewOf) · 빈 자리 · 자리 색
+  setView(V, emptyOwners, bandOf) { this.V = V; this.emptyOwners = emptyOwners; this.bandOf = bandOf; this.buildStatic(); }
+  setMirror(m) { this.V = m ? { tx: (x) => x, ty: (y) => this.L.mirrorY - y } : null; this.buildStatic(); }
 
   // ── 파티클 ──
   part(x, y, vx, vy, life, col, size = 2, grav = 0) {
@@ -281,7 +294,7 @@ export class Renderer {
       }
       case 'sendGold': {
         const o = ev.to || 0;
-        this.burst(W / 2, this.L.cy(o * 18 + 8), 26, ['#e8c25a', '#ffe36b', '#a87a2a'], 110, 0.8, 2, 40);
+        this.burst(this.L.cx(o * 18 + 8), this.L.cy(o * 18 + 8), 26, ['#e8c25a', '#ffe36b', '#a87a2a'], 110, 0.8, 2, 40);
         break;
       }
       case 'sell': this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 10, ['#e8c25a', '#a87a2a'], 50, 0.5, 2, 60); break;
@@ -405,7 +418,8 @@ export class Renderer {
     ctx.setTransform(S, 0, 0, S, Math.round((sx - v.x) * S), Math.round((sy - v.y) * S));
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = 1;
-    ctx.drawImage(this.bg, 0, 0, W, H);
+    const LW = this.L.W || W;
+    ctx.drawImage(this.bg, 0, 0, LW, H);
 
     this.drawTorches(ctx);
     this.drawZones(ctx, battle);
@@ -421,23 +435,23 @@ export class Renderer {
     if (battle.ashT > 0 && !this.settings.low) {
       ctx.globalAlpha = 0.12;
       ctx.fillStyle = '#4a4550';
-      ctx.fillRect(0, this.fieldY0(), W, this.fieldH());
+      ctx.fillRect(0, this.fieldY0(), LW, this.fieldH());
       ctx.globalAlpha = 1;
-      if (Math.random() < 0.8) this.part(Math.random() * W, this.fieldY0() + 2, (Math.random() - 0.5) * 20, 60 + Math.random() * 40, 2.5, Math.random() < 0.2 ? '#ff8a3a' : '#8a8490', 2);
+      if (Math.random() < 0.8) this.part(Math.random() * LW, this.fieldY0() + 2, (Math.random() - 0.5) * 20, 60 + Math.random() * 40, 2.5, Math.random() < 0.2 ? '#ff8a3a' : '#8a8490', 2);
     }
     if (battle.cloudT > 0) {
       // 구름양의 뭉게 방패
       const a = Math.min(1, battle.cloudT / 0.6);
       ctx.globalAlpha = 0.13 * a;
       ctx.fillStyle = '#e8f4ff';
-      ctx.fillRect(0, this.fieldY0(), W, this.fieldH());
+      ctx.fillRect(0, this.fieldY0(), LW, this.fieldH());
       ctx.globalAlpha = 1;
-      if (!this.settings.low && Math.random() < 0.5) this.part(Math.random() * W, this.fieldY0() + this.fieldH() - 4, (Math.random() - 0.5) * 16, -14 - Math.random() * 10, 1.4, '#ffffff', 3);
+      if (!this.settings.low && Math.random() < 0.5) this.part(Math.random() * LW, this.fieldY0() + this.fieldH() - 4, (Math.random() - 0.5) * 16, -14 - Math.random() * 10, 1.4, '#ffffff', 3);
     }
     if (battle.timeStopT > 0) {
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = '#7a5ad0';
-      ctx.fillRect(0, this.fieldY0(), W, this.fieldH());
+      ctx.fillRect(0, this.fieldY0(), LW, this.fieldH());
     }
     if (this.flash) {
       const f = this.flash;
@@ -446,7 +460,7 @@ export class Renderer {
       else {
         ctx.globalAlpha = f.a * (1 - f.t / f.d);
         ctx.fillStyle = f.col;
-        ctx.fillRect(0, 0, W, H);
+        ctx.fillRect(0, 0, LW, H);
       }
     }
     ctx.globalAlpha = 1;
@@ -456,7 +470,7 @@ export class Renderer {
   fieldH() { return this.L.kind === 'solo' ? 210 : this.L.view.h; }
 
   drawTorches(ctx) {
-    const pts = this.L.kind === 'solo' ? SOLO_TORCH : COOP_TORCH;
+    const pts = this.L.kind === 'solo' ? SOLO_TORCH : this.L.kind === 'ring' ? RING_TORCH : COOP_TORCH;
     for (let i = 0; i < pts.length; i++) {
       const [x, y] = pts[i];
       ctx.fillStyle = '#3a3542';
@@ -481,7 +495,7 @@ export class Renderer {
       const step = 8;
       for (let s = z.s0; s <= z.s1; s += step) {
         this.L.path(s, TMP);
-        if (this.mirror) TMP.y = this.L.mirrorY - TMP.y;
+        if (this.V) { TMP.x = this.V.tx(TMP.x); TMP.y = this.V.ty(TMP.y); }
         const f = ((this.t * 12 + s) | 0) % 3;
         ctx.globalAlpha = a * 0.9;
         ctx.fillStyle = z.fox ? (f ? '#5ab8ff' : '#d8f4ff') : f ? '#ff8a3a' : '#ffe36b';

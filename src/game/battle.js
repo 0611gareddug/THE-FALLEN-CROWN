@@ -16,11 +16,15 @@ const GAMBLE = [
 ];
 export const PITY_MAX = 10;
 // 협동 보정: 적 수 · 보스/정예 체력
-export const COOP_COUNT = 2.4;
-export const COOP_BOSS = 5;
-export const COOP_HP = 2.8;
+export const COOP_COUNT = 2.2;
+export const COOP_BOSS = 4.2;
+export const COOP_HP = 2.3;
+// 인원별 [적 수, 일반 체력, 정예·보스 체력] — 인원이 많을수록 조금 더 어렵게
+export const COOP_SCALE = { 2: [COOP_COUNT, COOP_HP, COOP_BOSS], 3: [3.7, 3.05, 6.7], 4: [4.9, 3.3, 8.5] };
+// 공용 성벽 배수
+export const coopWall = (n) => (n <= 1 ? 1 : 1 + 0.25 * (n - 1));
 // 난이도: 일반 판 적 체력 배수 · 막이 깊어질수록 방어/저항 강화
-export const DIFF_HP = 1.0;
+export const DIFF_HP = 0.8;
 // 공명: 소환 · 진화 때 내 보드의 같은 등급 유닛이 다시 나올 확률 (유닛 종류가 늘어도 진화가 너무 어려워지지 않게)
 export const RESONANCE = 0.6;
 const DEF_UP = (L) => Math.max(0, Math.min(0.18, (L - 1.5) * 0.011));
@@ -34,9 +38,10 @@ export class Battle {
     this.rng = new RNG(opt.seed);
     this.L = opt.layout || SOLO;
     this.nCells = this.L.nCells;
-    this.coop = this.L.kind === 'coop';
+    this.coop = this.L.kind !== 'solo';
     const pl = opt.players || [{ royal: opt.royal, mascot: opt.mascot, badLuck: opt.badLuck, carry: opt.carry, mascotLv: opt.mascotLv, eggKills: opt.eggKills }];
     this.nP = pl.length;
+    this.sc = COOP_SCALE[Math.min(4, this.nP)] || [1, 1, 1];
     this.P = pl.map(() => ({}));
     this.cur = 0;
     this.units = new Array(this.nCells).fill(null);
@@ -55,7 +60,7 @@ export class Battle {
     const c0 = pl[0].carry;
     if (c0) { this.wallMax = c0.wallMax; this.wall = c0.wall; }
     else {
-      this.wallMax = Math.round((100 + ((pl[0].royal || 'edric') === 'edric' ? 20 : 0)) * (this.coop ? 1.25 : 1));
+      this.wallMax = Math.round((100 + ((pl[0].royal || 'edric') === 'edric' ? 20 : 0)) * coopWall(this.nP));
       this.wall = this.wallMax;
     }
     for (let o = 0; o < this.nP; o++) {
@@ -109,7 +114,7 @@ export class Battle {
     this.freezeT = 0;
     this.cloudT = 0;
     // 전투 기록: 주인별 유닛 피해량 · 적 종류별 처치 수
-    this.dmgBy = [{}, {}];
+    this.dmgBy = [{}, {}, {}, {}];
     this.killT = {};
     this.wallSaves = this.R.bossGuard || 0;
     this.timeStopT = 0;
@@ -313,6 +318,7 @@ export class Battle {
     const a = this.units[from], b = this.units[to];
     if (!a || a.o !== this.cur) return false;
     const ot = this.ownerOf(to);
+    if (ot >= this.nP) return false; // 빈 자리 (3인)
     if (ot !== this.cur) return this.gift(from, to);
     this.units[to] = a; a.cell = to;
     this.units[from] = b; if (b) b.cell = from;
@@ -339,9 +345,10 @@ export class Battle {
   }
 
   // ── 협동: 금화 보내기 ──
-  sendGold(v = 20) {
-    const ot = 1 - this.cur;
-    if (this.nP < 2 || this.gold < v || this.result) return false;
+  sendGold(v = 20, to) {
+    const ot = to === undefined ? (this.cur === 0 ? 1 : 0) : to;
+    v = Math.floor(v);
+    if (this.nP < 2 || !(v > 0) || this.gold < v || this.result || ot === this.cur || ot < 0 || ot >= this.nP) return false;
     this.gold -= v;
     this.P[ot].gold += v;
     this.stats.sent += v;
@@ -580,7 +587,7 @@ export class Battle {
     for (const [type, n] of this.node.waves[w - 1]) {
       const d = ENEMIES[type];
       if (d.boss || d.elite) { special.push(type); continue; }
-      const m = this.coop ? Math.round(n * COOP_COUNT) : n;
+      const m = this.coop ? Math.round(n * this.sc[0]) : n;
       for (let i = 0; i < m; i++) list.push(type);
     }
     this.rng.shuffle(list);
@@ -625,7 +632,7 @@ export class Battle {
     if (def.boss) hp = (this.node.trial ? BOSS_HP : hpAt(L) * def.hp) * (1 + (this.R.bossHp || 0)) * (type === 'morven' ? 1 - (this.R.morvenWeak || 0) : 1);
     else hp = hpAt(L) * def.hp * (1 + (this.R.enemyHp || 0));
     if (!this.node.trial) hp *= DIFF_HP;
-    if (this.coop) hp *= def.boss || def.elite ? COOP_BOSS : COOP_HP;
+    if (this.coop) hp *= def.boss || def.elite ? this.sc[2] : this.sc[1];
     e.uid = this.uid++;
     e.type = type; e.def = def; e.boss = !!def.boss;
     e.hp = e.maxHp = hp;
@@ -1229,7 +1236,7 @@ export class Battle {
       const st = e.def.splitType || 'mini';
       for (let k = 0; k < e.def.split; k++) {
         const m = this.spawn(st, e.s - k * 8);
-        m.hp = m.maxHp = hpAt(this.curL()) * ENEMIES[st].hp * (this.coop ? COOP_HP : 1);
+        m.hp = m.maxHp = hpAt(this.curL()) * ENEMIES[st].hp * (this.coop ? this.sc[1] : 1);
         m.dist = e.dist - k * 8;
       }
     }

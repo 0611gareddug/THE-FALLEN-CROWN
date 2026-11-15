@@ -9,7 +9,6 @@ import { RNG } from '../core/rng.js';
 import { place, portrait, CAST, PLACES } from '../gfx/art2.js';
 import { COMPANIONS } from '../data/companions.js';
 import { unlockAch } from '../meta/achievements.js';
-import { FATE_TITLES } from '../data/fate.js';
 import { ROYALS } from '../data/text.js';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
@@ -43,14 +42,13 @@ export function eventScene(app, { run, eventId }) {
     return { r, win, changes: ch, needLeave: m.needLeave || null, unlockMascot: m.unlockMascot || null, ach: m.ach || null, skipBattle: !!m.skipBattle };
   }
 
-  const fate = ev.kind === 'fate';
   const royalInfo = ev.royal ? ROYALS.find((r) => r.id === ev.royal) : null;
   function drawBg(key) { const g = bgCv.getContext('2d'); g.clearRect(0, 0, 240, 135); g.drawImage(place(key), 0, 0); }
 
   function enter() {
     app.bg.setMode('game');
-    audio.play(fate ? 'fate' : 'event');
-    el = h('div.screen.event' + (fate ? '.fate' : ''));
+    audio.play('event');
+    el = h('div.screen.event');
     bgCv = h('canvas.ev-bg', { width: 240, height: 135 });
     drawBg(ev.bg);
     por = h('canvas.ev-por', { width: 32, height: 32 });
@@ -58,27 +56,16 @@ export function eventScene(app, { run, eventId }) {
     textEl = h('div.ev-text');
     choicesEl = h('div.ev-choices');
     const box = h('div.ev-box', nameEl, textEl, choicesEl);
-    const eyebrow = fate ? `운명의 장 ${ROMAN[ev.ch - 1]} · ${royalInfo.name} · ${FATE_TITLES[ev.royal]}` : PLACES[ev.bg] || '';
+    const eyebrow = PLACES[ev.bg] || '';
     el.append(
       bgCv,
-      fate ? h('div.fate-vig') : null,
-      h('div.ev-head', h('div.eyebrow', { style: fate ? { color: royalInfo.color } : null }, eyebrow), h('div.ev-title', ev.title)),
+      h('div.ev-head', h('div.eyebrow', eyebrow), h('div.ev-title', ev.title)),
       por, box,
     );
     el.addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) advance(); });
     app.ui.appendChild(el);
     window.addEventListener('keydown', onKey);
-    if (fate) {
-      // 장 제목 카드
-      const card = h('div.fate-card',
-        h('div.fc-eye', `CHAPTER ${ROMAN[ev.ch - 1]} OF VIII`),
-        h('div.fc-royal', { style: { color: royalInfo.color } }, `${royalInfo.name} · ${FATE_TITLES[ev.royal]}`),
-        h('div.fc-title', ev.title),
-        h('div.fc-rule'));
-      el.appendChild(card);
-      audio.sfxPlay('boss');
-      setTimeout(() => { card.classList.add('out'); setTimeout(() => card.remove(), 700); play(ev.intro, showChoices); }, 2100);
-    } else play(ev.intro, showChoices);
+    play(ev.intro, showChoices);
   }
 
   function onKey(e) {
@@ -171,7 +158,7 @@ export function eventScene(app, { run, eventId }) {
         // 선택은 그 왕족 플레이어가 한다. 나는 의견만 보낼 수 있다.
         const who = royalInfo ? royalInfo.name : run.players[owner].name;
         choicesEl.replaceChildren(
-          h('div.note.opinion', `${who}의 ${fate ? '운명의 장' : '용사 사건'}입니다. 선택은 ${who}이(가) 합니다 — 눌러서 의견을 보내세요.`),
+          h('div.note.opinion', `${who}의 용사 사건입니다. 선택은 ${who}이(가) 합니다 — 눌러서 의견을 보내세요.`),
           ...list.filter((c) => condOk(run, c.cond)).map((c) => h('button.ev-choice.opine' + (c.side ? '.side-' + c.side : ''), {
             'data-i': ev.choices.indexOf(c),
             onclick: () => { audio.sfxPlay('click'); coop.vote(key, ev.choices.indexOf(c)); markVotes(key); },
@@ -199,8 +186,7 @@ export function eventScene(app, { run, eventId }) {
     const v = coop.votes[key] || [];
     choicesEl.querySelectorAll('.ev-choice').forEach((b) => {
       const i = +b.dataset.i;
-      b.classList.toggle('v-me', i === v[coop.me]);
-      b.classList.toggle('v-them', i === v[1 - coop.me]);
+      coop.markBtn(b, key, i);
     });
   }
   // 협동: 결정된 결과를 보여준다 (효과는 이미 방장이 적용)
@@ -349,10 +335,6 @@ export function eventScene(app, { run, eventId }) {
     if (coop && !coop.host) { recordMeta(); return; }
     if (!ev.special) { run.seen.push(ev.id); run.stats.events++; }
     recordMeta();
-    if (fate && run.inNode && run.inNode.queue) {
-      run.inNode.queue.shift();
-      if (run.inNode.queue.length) { if (!run.coop) saveRun(run); app.go('event', { run, eventId: run.inNode.queue[0] }); return; }
-    }
     if (ev.id === 'dragon_talk') {
       run.inNode.talked = true;
       if (meta.skipBattle) { finishNode(app, run); return; }

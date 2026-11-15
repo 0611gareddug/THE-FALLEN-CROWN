@@ -36,7 +36,7 @@ export function lobbyScene(app) {
         }
         startNew();
       }],
-      ['함께하기', () => app.go('coopLobby'), '2인 협동'],
+      ['함께하기', () => app.go('coopLobby'), '2~4인 협동'],
       ['연대기', () => chroniclePanel(el)],
       ['용사단 보물창고', () => treasuryPanel(el)],
       ['설정', () => settingsPanel(el, app)],
@@ -77,7 +77,7 @@ export function lobbyScene(app) {
             }, label, sub ? h('span.soon', sub) : null)))),
       ),
       h('div.sparkle.fade', { style: { animationDelay: `${delay + 1.6}s` } }, svg(ICON.star)),
-      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v1.2 · 행운의 용사단'),
+      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v1.3 · 행운의 용사단'),
     );
     app.ui.appendChild(el);
     firstVisit = false;

@@ -1,7 +1,6 @@
 // 런 진행 흐름: 칸 들어가기 · 끝내기 · 막 전환 · 결말
 import { nodeOf, saveRun, clearRun, genMap, ACTS, LAST_ACT } from './run.js';
 import { pickEvent } from './events.js';
-import { fateId } from '../data/fate.js';
 import { store, save } from '../core/storage.js';
 
 const guest = (app) => app.coop && app.coop.role === 'guest';
@@ -13,11 +12,6 @@ export function enterNode(app, run, id) {
   run.inNode = { id, type: nd.type };
   if (nd.type === 'event') {
     run.inNode.eventId = pickEvent(run);
-  }
-  if (nd.type === 'fate') {
-    // 협동이면 두 왕족의 장을 차례로 (방장 → 참가자)
-    const royals = run.players ? run.players.map((p) => p.royal) : [run.royal];
-    run.inNode.queue = royals.map((r) => fateId(r, nd.fateN));
   }
   if (!run.coop) saveRun(run);
   resumeNode(app, run);
@@ -36,7 +30,6 @@ export function resumeNode(app, run) {
       app.go('battle', { run, nodeId: n.id });
       break;
     case 'event': app.go('event', { run, eventId: n.eventId }); break;
-    case 'fate': if (n.queue && n.queue.length) app.go('event', { run, eventId: n.queue[0] }); else finishNode(app, run); break;
     case 'shop': app.go('shop', { run }); break;
     case 'camp': app.go('camp', { run }); break;
     case 'treasure': app.go('treasure', { run }); break;
@@ -77,7 +70,7 @@ export function nextAct(app, run) {
 
 // 최종 보스 결정
 export function finalBoss(run) {
-  if (run.flags.brotherRoute) return 'shadow';
+  if (run.flags.shadowRoute || run.flags.brotherRoute) return 'shadow';
   if (run.flags.ashRite) return 'aspel'; // 요정 여왕의 그림자 꽃가루를 받으면 마왕이 어둠에 물든다
   return 'crown';
 }

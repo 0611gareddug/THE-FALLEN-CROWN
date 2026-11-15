@@ -59,7 +59,7 @@ function makeLayout(kind, boards, pts, extra) {
     }
     return out;
   });
-  return { kind, boards, nCells, cellRect, CX, CY, cx, cy, cellAt, NB, ownerOf: (i) => (i / 18) | 0, pts, ...polyPath(pts), ...extra };
+  return { kind, W: extra.W || W, boards, nCells, cellRect, CX, CY, cx, cy, cellAt, NB, ownerOf: (i) => (i / 18) | 0, pts, ...polyPath(pts), ...extra };
 }
 
 export const SOLO = makeLayout('solo', [{ x: BX, y: BY }], [[PL, PT], [PR, PT], [PR, PB], [PL, PB]], {
@@ -73,6 +73,40 @@ export const COOP = makeLayout('coop', [{ x: BX, y: CM + 14 }, { x: BX, y: CT + 
     view: { x: 0, y: 56, w: W, h: 384 }, landView: { x: 0, y: 56, w: W, h: 384 }, fieldLimit: 150,
     mirrorY: CT + CB, // 참가자 화면: 위아래를 뒤집어 자기 보드가 아래로
   });
+
+// 3~4인: 8자 길을 가로로 두 배로 늘린 고리 길 + 보드 4칸 (왼쪽 아래 · 오른쪽 아래 · 왼쪽 위 · 오른쪽 위)
+// 자리 0(방장)은 왼쪽 아래. 참가자 화면은 좌우/위아래를 뒤집어 자기 보드가 항상 왼쪽 아래에 온다.
+export const RW = 720;
+const PR2 = RW - PL;
+const RING_SLOTS = [{ x: BX, y: CM + 14 }, { x: RW / 2 + BX, y: CM + 14 }, { x: BX, y: CT + 14 }, { x: RW / 2 + BX, y: CT + 14 }];
+// 3인도 같은 4칸 고리를 쓰고 오른쪽 위 칸은 비워 둔다 (뒤집어 보여 줄 때 칸이 맞도록)
+const ringOf = (n) => makeLayout('ring', RING_SLOTS,
+  [[PL, CT], [PR2, CT], [PR2, CM], [PL, CM], [PL, CB], [PR2, CB], [PR2, CM], [PL, CM]], {
+    W: RW, view: { x: 0, y: 56, w: RW, h: 384 }, landView: { x: 0, y: 56, w: W, h: 384 }, fieldLimit: n === 3 ? 200 : 250,
+    mirrorY: CT + CB, mirrorX: RW, slotFlip: [[0, 0], [1, 0], [0, 1], [1, 1]], seats: n,
+  });
+export const RING3 = ringOf(3);
+export const RING4 = ringOf(4);
+COOP.mirrorX = W; COOP.slotFlip = [[0, 0], [0, 1]]; COOP.seats = 2;
+export const layoutFor = (n) => (n >= 4 ? RING4 : n === 3 ? RING3 : n === 2 ? COOP : SOLO);
+
+// 자리 slot의 화면 변환: 좌우(fx) · 위아래(fy) 뒤집기. 칸 번호 대응표는 자기 자신이 역함수다.
+const viewCache = new Map();
+export function viewOf(L, slot) {
+  const key = L.kind + L.nCells + ':' + slot;
+  if (viewCache.has(key)) return viewCache.get(key);
+  const [fx, fy] = (L.slotFlip && L.slotFlip[slot]) || [0, 0];
+  const tx = (x) => (fx ? L.mirrorX - x : x), ty = (y) => (fy ? L.mirrorY - y : y);
+  const cellMap = new Int16Array(L.nCells);
+  for (let i = 0; i < L.nCells; i++) {
+    // 같은 칸 안의 한 점을 뒤집어 찾는다 (가운데에서 조금 비켜서 경계 오차를 피함)
+    cellMap[i] = L.cellAt(tx(L.CX[i]), ty(L.CY[i]));
+  }
+  const ownerMap = Array.from({ length: L.boards.length }, (_, o) => (cellMap[o * 18] / 18) | 0);
+  const v = { fx, fy, tx, ty, cellMap, ownerMap, cell: (i) => (i < 0 ? i : cellMap[i]) };
+  viewCache.set(key, v);
+  return v;
+}
 
 // 위아래 뒤집기: 주인 교체 + 행 뒤집기
 export const mirrorCell = (i) => { if (i < 0) return i; const o = (i / 18) | 0, j = i % 18, r = (j / COLS) | 0, c = j % COLS; return (1 - o) * 18 + (2 - r) * COLS + c; };

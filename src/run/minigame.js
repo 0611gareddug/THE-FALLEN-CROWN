@@ -290,7 +290,9 @@ export function coopMinigameScene(app, { run }) {
   const id = gameOf(run);
   const G = GAMES[id];
   let el, res, game, offs = [], doneMine = false;
-  const partner = h('div.mg-partner', `${coop.partnerName}: 놀이 중…`);
+  const partner = h('div.mg-partners');
+  const pst = {};
+  const drawPartners = () => partner.replaceChildren(...coop.others.map((i) => h('div.mg-partner' + (pst[i] && pst[i].done ? '.done' : ''), `${coop.nameOf(i)}: ${pst[i] ? pst[i].text : '놀이 중…'}`)));
   const goBox = h('div.ev-choices');
   const mine = () => coop.myCarry(coop.run || run);
   const redrawRes = () => { const n = resBar(Object.assign({}, coop.run || run, { carry: mine() })); res.replaceWith(n); res = n; };
@@ -319,10 +321,11 @@ export function coopMinigameScene(app, { run }) {
       },
     });
   }
-  // 둘 다 끝내면 넘어간다. 한 명이 먼저 끝내면 상대에게 20초.
+  // 모두 끝내면 넘어간다. 누군가 먼저 끝내면 나머지에게 20초 (3인 30초 · 4인 40초).
+  const wait = () => 20 + 10 * Math.max(0, coop.n - 2);
   function voteDone() {
     const key = `mg:${run.act}:${run.pos}`;
-    coop.openVote(key, { options: [true], timeout: 180, afterFirst: 20 });
+    coop.openVote(key, { options: [true], timeout: 180, afterFirst: wait() });
     coop.vote(key, true);
     goBox.append(coop.voteBar(key, () => '다음으로'));
     coop.whenDecided(key, () => {
@@ -336,8 +339,9 @@ export function coopMinigameScene(app, { run }) {
     enter() {
       app.bg.setMode('game');
       audio.play('event');
-      if (coop.host) offs.push(coop.net.on('mgd', (m) => hostApply(1, m.d || {})));
-      offs.push(coop.net.on('mgs', (m) => { partner.textContent = `${coop.partnerName}: ${m.text}`; partner.classList.toggle('done', !!m.done); if (m.done && !doneMine) partner.textContent += ' — 끝나면 함께 넘어갑니다 (먼저 끝낸 사람 기준 20초)'; }));
+      if (coop.host) offs.push(coop.net.on('mgd', (m) => { if (m.from > 0 && m.from < coop.n) hostApply(m.from, m.d || {}); }));
+      offs.push(coop.net.on('mgs', (m) => { pst[m.from] = { text: m.text + (m.done && !doneMine ? ` — 먼저 끝낸 사람 기준 ${wait()}초 뒤 함께 넘어갑니다` : ''), done: !!m.done }; drawPartners(); }));
+      drawPartners();
       offs.push(coop.onLocal('run', () => { if (el) redrawRes(); }));
       render();
     },

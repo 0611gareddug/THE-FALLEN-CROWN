@@ -56,18 +56,5 @@ for (const [k, v] of Object.entries(repMax)) if (v < 10) warn(`${k} 평판 최�
 const kinds = {};
 for (const e of Object.values(EVENT_DATA)) if (!e.special) kinds[e.kind] = (kinds[e.kind] || 0) + 1;
 console.log('사건 수:', Object.values(EVENT_DATA).filter((e) => !e.special).length, kinds);
-// 운명의 장: 왕족마다 1~6장, 선택지 빛/어둠 각 1개, 전용 유물 존재
-for (const r of ['edric', 'seren', 'kyle', 'nix']) {
-  for (let n = 1; n <= 8; n++) {
-    const e = EVENT_DATA[`fate_${r}_${n}`];
-    if (!e) { err(`운명의 장 없음: ${r} ${n}장`); continue; }
-    const sides = e.choices.map((c) => c.side).sort().join(',');
-    if (sides !== 'dark,light') err(`${e.id}: 빛/어둠 선택지 구성 오류 (${sides})`);
-    for (const c of e.choices) {
-      if (!c.fx || !RELIC[c.fx.relic] || RELIC[c.fx.relic].royal !== r) err(`${e.id}: 전용 유물 오류 ${c.fx && c.fx.relic}`);
-      if (!c.fx.fate || c.fx.fate !== `${r}:${c.side}`) err(`${e.id}: fate 표시 오류`);
-    }
-  }
-}
 console.log(`\n오류 ${errors}개 · 경고 ${warns}개`);
 process.exit(errors ? 1 : 0);
