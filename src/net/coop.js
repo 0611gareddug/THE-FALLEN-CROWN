@@ -1,4 +1,4 @@
-// 협동 세션: 방장이 여정 상태를 쥐고, 참가자 화면을 함께 넘긴다. 투표 · 운명의 주사위 · 연결 상태.
+// 협동 세션: 방장이 여정 상태를 쥐고, 참가자 화면을 함께 넘긴다. 투표(갈리면 무작위) · 연결 상태.
 import { h } from '../ui/dom.js';
 import { audio } from '../core/audio.js';
 import { relinkRun } from '../run/run.js';
@@ -32,8 +32,7 @@ export class Coop {
     this.hook('run', (m) => this.onRunMsg(m));
     this.hook('vote', (m) => this.onVote(m));
     this.hook('decided', (m) => this.onDecided(m));
-    this.hook('tie', (m) => this.onTie(m));
-    this.hook('stake', (m) => this.onStake(m));
+    this.hook('vtime', (m) => this.onVTime(m));
     this.hook('pick', (m) => { this.picks[1 - this.me] = m.p; this.emitLocal('picks'); });
     this.hook('_status', (m) => this.onStatus(m));
     this.hook('bye', () => this.partnerLeft(true));
@@ -91,18 +90,22 @@ export class Coop {
   myCarry(run) { return run.players ? run.players[this.me].carry : run.carry; }
 
   // ── 투표 ──
-  // 두 사람 모두 openVote 후 vote. 방장이 결과를 정해 알린다.
+  // 기본: 두 사람 모두 고르면 결정, 갈리면 즉시 무작위. 10초가 지나면 고른 쪽(없으면 무작위)으로.
+  // first: 먼저 누른 사람이 정한다 (계속 · 보상 등)
+  // afterFirst: 둘 다 누르거나, 한 명이 누른 뒤 N초가 지나면 결정 (상점 떠나기)
   openVote(key, opt = {}) {
     if (this.open[key]) return;
-    this.open[key] = { ...opt, start: performance.now(), timeout: (opt.timeout || 20) * 1000 };
+    this.open[key] = { ...opt, start: performance.now(), timeout: (opt.timeout || 10) * 1000 };
     this.votes[key] = this.votes[key] || [undefined, undefined];
     if (this.host) {
       clearTimeout(this.open[key].timer);
-      this.open[key].timer = setTimeout(() => this.resolve(key, true), this.open[key].timeout);
+      this.open[key].timer = setTimeout(() => this.resolve(key), this.open[key].timeout);
+      this.tryResolve(key);
     }
   }
   vote(key, pick) {
     this.votes[key] = this.votes[key] || [undefined, undefined];
+    if (this.decided[key] !== undefined) return;
     this.votes[key][this.me] = pick;
     this.net.send({ t: 'vote', key, who: this.me, pick });
     this.emitLocal('vote', { key });
@@ -117,67 +120,60 @@ export class Coop {
   tryResolve(key) {
     const v = this.votes[key];
     const o = this.open[key];
-    if (!o || this.decided[key] !== undefined || o.tie) return;
+    if (!o || !v || this.decided[key] !== undefined) return;
     const alone = !this.net.connected || this.partnerAI;
-    if (o.owner !== undefined && o.owner !== null && v[o.owner] !== undefined) { this.finish(key, v[o.owner]); return; }
-    if (v[0] !== undefined && (v[1] !== undefined || alone)) {
-      if (alone || v[1] === undefined || JSON.stringify(v[0]) === JSON.stringify(v[1])) this.finish(key, v[0]);
-      else this.startTie(key);
+    const a = v[0], b = v[1];
+    const any = a !== undefined ? a : b;
+    if (o.owner !== undefined && o.owner !== null) { if (v[o.owner] !== undefined) this.finish(key, v[o.owner]); else if (alone && a !== undefined) this.finish(key, a); return; }
+    if (o.first) { if (any !== undefined) this.finish(key, any); return; }
+    if (a !== undefined && (b !== undefined || alone)) {
+      if (alone || b === undefined || JSON.stringify(a) === JSON.stringify(b)) this.finish(key, a);
+      else this.finish(key, this.rng.next() < 0.5 ? a : b, { a, b });
+      return;
+    }
+    if (o.afterFirst && any !== undefined && !o.afT) {
+      o.afT = setTimeout(() => { const w = this.votes[key] || []; this.finish(key, w[0] !== undefined ? w[0] : w[1]); }, o.afterFirst * 1000);
+      // 남은 시간 표시를 위해 기준 시각을 다시 잡는다
+      o.start = performance.now(); o.timeout = o.afterFirst * 1000;
+      this.net.send({ t: 'vtime', key, ms: o.timeout });
     }
   }
   resolve(key) {
     const v = this.votes[key] || [];
     const o = this.open[key];
-    if (!o || this.decided[key] !== undefined || o.tie) return;
-    const picks = [v[0], v[1]].filter((x) => x !== undefined);
-    if (picks.length === 2 && JSON.stringify(v[0]) !== JSON.stringify(v[1])) { this.startTie(key); return; }
-    if (picks.length) { this.finish(key, picks[0]); return; }
+    if (!o || this.decided[key] !== undefined) return;
+    const a = v[0], b = v[1];
+    if (a !== undefined && b !== undefined && JSON.stringify(a) !== JSON.stringify(b)) { this.finish(key, this.rng.next() < 0.5 ? a : b, { a, b }); return; }
+    if (a !== undefined || b !== undefined) { this.finish(key, a !== undefined ? a : b); return; }
     const opts = o.options || [true];
-    this.finish(key, opts[this.rng.int(opts.length)]);
+    this.finish(key, opts[this.rng.int(opts.length)], { timeout: true });
   }
-  startTie(key) {
-    const o = this.open[key];
-    o.tie = { a: this.votes[key][0], b: this.votes[key][1], stakes: [0, 0] };
-    this.net.send({ t: 'tie', key, a: o.tie.a, b: o.tie.b });
-    this.onTie({ key, a: o.tie.a, b: o.tie.b });
-    setTimeout(() => {
-      const s = o.tie.stakes;
-      const p = Math.max(0.2, Math.min(0.8, 0.5 + 0.1 * (s[0] - s[1])));
-      const roll = this.rng.next();
-      const result = roll < p ? o.tie.a : o.tie.b;
-      // 건 행운석은 결과와 관계없이 소모
-      if (this.run && this.run.players) this.run.players.forEach((pl, i) => { pl.carry.stones = Math.max(0, pl.carry.stones - s[i]); });
-      this.finish(key, result, { p, roll, stakes: s, a: o.tie.a, b: o.tie.b });
-      if (this.run) this.sendRun();
-    }, 5200);
-  }
-  onTie(m) { this.emitLocal('tie', m); }
-  stake(key, n) {
-    this.net.send({ t: 'stake', key, who: this.me, n });
-    this.onStake({ key, who: this.me, n });
-  }
-  onStake(m) {
-    const o = this.open[m.key];
-    if (this.host && o && o.tie) o.tie.stakes[m.who] = m.n;
-    this.emitLocal('stake', m);
-  }
-  finish(key, result, tie) {
+  finish(key, result, rand) {
     if (this.decided[key] !== undefined) return;
-    const extra = this.open[key] && this.open[key].extra ? this.open[key].extra(result) : null;
+    const o = this.open[key];
+    if (o) { clearTimeout(o.timer); clearTimeout(o.afT); }
+    const extra = o && o.extra ? o.extra(result) : null;
     // 바뀐 여정 상태를 먼저 보내고 결정을 알린다
     if (this.run) this.net.send({ t: 'run', run: JSON.stringify(this.run) });
-    const msg = { t: 'decided', key, result, tie: tie || null, extra };
+    const msg = { t: 'decided', key, result, rand: rand || null, extra };
     this.net.send(msg);
     this.onDecided(msg);
   }
   onDecided(m) {
     if (this.decided[m.key] !== undefined) return;
     this.decided[m.key] = m.result;
-    if (this.open[m.key]) clearTimeout(this.open[m.key].timer);
-    const run = () => { const w = this.waiters[m.key]; delete this.waiters[m.key]; if (w) w(m.result, m.extra); };
-    if (m.tie) this.emitLocal('tieResult', { ...m, done: run });
-    else run();
+    const o = this.open[m.key];
+    if (o) { clearTimeout(o.timer); clearTimeout(o.afT); }
+    if (m.rand && (m.rand.a !== undefined || m.rand.timeout)) {
+      const label = this.labels[m.key] || ((x) => String(x));
+      audio.sfxPlay('dice');
+      this.toastAll(m.rand.timeout ? `시간이 다 됐다! 무작위 → "${label(m.result)}"` : `의견이 갈렸다! 무작위 결정 → "${label(m.result)}"`);
+    }
+    const w = this.waiters[m.key];
+    delete this.waiters[m.key];
+    if (w) w(m.result, m.extra);
   }
+  onVTime(m) { const o = this.open[m.key]; if (o) { o.start = performance.now(); o.timeout = m.ms; } }
   whenDecided(key, cb) {
     if (this.decided[key] !== undefined) { cb(this.decided[key]); return; }
     this.waiters[key] = cb;
@@ -185,7 +181,9 @@ export class Coop {
   clearVote(key) { delete this.votes[key]; delete this.open[key]; delete this.decided[key]; delete this.waiters[key]; }
 
   // 투표 상태 표시줄 (남은 시간 · 상대 선택)
+  labels = {};
   voteBar(key, label = (x) => String(x)) {
+    this.labels[key] = label;
     const bar = h('div.vote-bar');
     const fill = h('i');
     const txt = h('span');
@@ -200,57 +198,18 @@ export class Coop {
       const mine = v[this.me];
       if (o) fill.style.width = Math.max(0, 100 - ((performance.now() - o.start) / o.timeout) * 100) + '%';
       const pName = this.partnerAI ? 'AI 동료' : this.partnerName;
-      txt.textContent = this.decided[key] !== undefined ? '결정!' : mine === undefined ? `${pName}: ${other === undefined ? '고르는 중…' : label(other)}` : other === undefined ? `${pName}의 선택을 기다리는 중…` : `${pName}: ${label(other)}`;
+      let t;
+      if (this.decided[key] !== undefined) t = '결정!';
+      else if (o && o.first) t = '먼저 누른 사람이 정합니다';
+      else if (mine === undefined) t = `${pName}: ${other === undefined ? '고르는 중…' : label(other)}`;
+      else if (other === undefined) t = o && o.afterFirst ? `${pName}을(를) 잠깐 기다리는 중… (곧 출발)` : `${pName}의 선택을 기다리는 중… (갈리면 무작위)`;
+      else t = `${pName}: ${label(other)}`;
+      txt.textContent = t;
     };
     const iv = setInterval(upd, 200);
     const off = this.onLocal('vote', upd);
     upd();
     return bar;
-  }
-
-  // 운명의 주사위 화면 (의견이 갈렸을 때)
-  tieOverlay(root, key, label) {
-    let myStake = 0;
-    const box = h('div.dice');
-    const odds = h('div.dice-need');
-    const num = h('div.dice-num', '??');
-    const btn = h('button.btn', {
-      onclick: () => {
-        const stones = this.myCarry(this.run || {}).stones || 0;
-        if (myStake >= 3 || myStake >= stones) { audio.sfxPlay('deny'); return; }
-        myStake++;
-        audio.sfxPlay('stone');
-        this.stake(key, myStake);
-      },
-    }, '행운석 걸기 (+10%p)');
-    const stakes = [0, 0];
-    const render = () => {
-      const p = Math.max(0.2, Math.min(0.8, 0.5 + 0.1 * (stakes[0] - stakes[1])));
-      const v = this.votes[key] || [];
-      odds.textContent = `방장 "${label(v[0])}" ${Math.round(p * 100)}%  ·  참가자 "${label(v[1])}" ${Math.round((1 - p) * 100)}%`;
-    };
-    const offS = this.onLocal('stake', (m) => { if (m.key === key) { stakes[m.who] = m.n; render(); } });
-    box.append(h('div.dice-card', h('div.eyebrow', 'DICE OF FATE'), h('div', { style: { fontSize: '13px', margin: '6px 0' } }, '의견이 갈렸다! 운명의 주사위가 정한다.'), num, odds, h('div.dice-btns', btn)));
-    render();
-    root.appendChild(box);
-    audio.sfxPlay('dice');
-    const offR = this.onLocal('tieResult', (m) => {
-      if (m.key !== key) return;
-      offR(); offS();
-      btn.remove();
-      let k = 0;
-      const spin = setInterval(() => {
-        num.textContent = String(1 + ((Math.random() * 100) | 0)).padStart(2, '0');
-        if (++k > 14) {
-          clearInterval(spin);
-          num.textContent = String(Math.ceil(m.tie.roll * 100)).padStart(2, '0');
-          num.classList.add('win');
-          odds.textContent = `결과: "${label(m.result)}"`;
-          audio.sfxPlay('win');
-          setTimeout(() => { box.remove(); m.done(); }, 1100);
-        }
-      }, 70);
-    });
   }
 
   // ── 연결 상태 ──

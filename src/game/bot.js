@@ -3,10 +3,11 @@ import { RECIPES } from '../data/units.js';
 
 export function botTick(b, t) {
   if (b.result) return;
-  for (let i = 0; i < 18; i++) if (b.mergeable[i] && b.merge(i)) return;
+  const b0 = b.cur * 18;
+  for (let i = b0; i < b0 + 18; i++) if (b.mergeable[i] && b.merge(i)) return;
   for (let r = 0; r < RECIPES.length; r++) if (b.craft(r)) return;
   if (b.badLuck >= 10) b.pity();
-  for (let i = 0; i < 18; i++) { const u = b.units[i]; if (u && (u.corrupt > 0 || u.ice > 0)) b.cleanse(i); }
+  for (let i = b0; i < b0 + 18; i++) { const u = b.units[i]; if (u && (u.corrupt > 0 || u.ice > 0)) b.cleanse(i); }
   if (b.stones >= 2 && b.hasEmpty() && t > 20) b.gamble(b.stones >= 4 ? 1 : 0);
   if (b.hasEmpty()) { if (b.gold >= b.summonCost()) b.summon(); }
   else {
@@ -15,7 +16,7 @@ export function botTick(b, t) {
     else if (b.gold >= b.upgradeCost(2) && b.upg[2] < b.upg[1]) b.upgrade(2);
     else {
       let worst = -1;
-      for (let i = 0; i < 18; i++) { const u = b.units[i]; if (u && u.def.tier === 0 && !b.mergeable[i]) { worst = i; break; } }
+      for (let i = b0; i < b0 + 18; i++) { const u = b.units[i]; if (u && u.def.tier === 0 && !b.mergeable[i]) { worst = i; break; } }
       if (worst >= 0 && b.gold < b.summonCost()) b.sell(worst);
     }
   }

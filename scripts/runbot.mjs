@@ -3,12 +3,14 @@ import { Battle } from '../src/game/battle.js';
 import { UNIT } from '../src/data/units.js';
 import { botTick } from '../src/game/bot.js';
 import { makeBattle } from '../src/data/enemies.js';
-import { newRun, available, nodeOf, buildMods, runFx, genMap, ACTS } from '../src/run/run.js';
+import { COOP } from '../src/game/layout.js';
+import { newRun, newCoopRun, available, nodeOf, buildMods, runFx, genMap, ACTS } from '../src/run/run.js';
 import { finalBoss } from '../src/run/flow.js';
 import { EVENTS, pickEvent, condOk, applyFx, rollChance, tickMods, addRelic, randomRelic, addUnit } from '../src/run/events.js';
 import { RNG } from '../src/core/rng.js';
 
 const RUNS = +(process.argv[2] || 30);
+const IS_COOP = process.argv[3] === 'coop';
 
 function fight(run, nd, rng) {
   let kind = nd.type === 'dragon' ? 'boss' : nd.type;
@@ -17,15 +19,23 @@ function fight(run, nd, rng) {
   if (nd.type === 'dragon') boss = 'silvana';
   const cfg = makeBattle(rng, run.act, nd.row, kind, boss);
   const mods = buildMods(run); mods.morvenWeak = runFx(run).morvenWeak;
-  const b = new Battle({ seed: rng.int(1e9), royal: run.royal, mascot: run.mascot, carry: run.carry, node: cfg, mods });
+  const b = run.coop
+    ? new Battle({ seed: rng.int(1e9), layout: COOP, players: run.players.map((p) => ({ royal: p.royal, mascot: p.mascot, carry: p.carry })), node: cfg, mods })
+    : new Battle({ seed: rng.int(1e9), royal: run.royal, mascot: run.mascot, carry: run.carry, node: cfg, mods });
   let t = 0, acc = 0;
-  while (!b.result && t < 1200) { b.tick(1 / 60); t += 1 / 60; acc += 1 / 60; if (acc > 0.5) { acc = 0; botTick(b, t); } b.events.length = 0; }
+  while (!b.result && t < 1200) {
+    b.tick(1 / 60); t += 1 / 60; acc += 1 / 60;
+    if (acc > 0.5) { acc = 0; for (let o = 0; o < b.nP; o++) { b.cur = o; botTick(b, t); } b.cur = 0; }
+    b.events.length = 0;
+  }
   if (b.result !== 'victory') { deaths[`${run.act}막 ${nd.type}`] = (deaths[`${run.act}막 ${nd.type}`] || 0) + 1; return false; }
-  run.carry = b.exportCarry();
-  run.stats.kills += b.stats.kills;
+  if (run.coop) { for (let o = 0; o < 2; o++) run.players[o].carry = b.exportCarry(o); run.carry = run.players[0].carry; }
+  else run.carry = b.exportCarry();
+  run.stats.kills += b.totalStat('kills');
   tickMods(run, kind === 'boss');
   if ((nd.type === 'boss' && run.act < 3) || nd.type === 'dragon') run.shards++;
   if (nd.type === 'elite' || nd.type === 'boss' || nd.type === 'dragon') addRelic(run, randomRelic(run, null), []);
+  else if (run.coop) for (const p of run.players) p.carry.gold += 20 + run.act * 15;
   else run.carry.gold += 20 + run.act * 15;
   return true;
 }
@@ -49,7 +59,9 @@ const wallAtBoss = [[], [], []];
 const t0 = Date.now();
 for (let r = 0; r < RUNS; r++) {
   const royal = ['edric', 'seren', 'kyle'][r % 3];
-  const run = newRun({ royal, mascot: 'puru', seed: 5000 + r });
+  const run = IS_COOP
+    ? newCoopRun([{ royal, mascot: 'puru' }, { royal: ['seren', 'kyle', 'edric'][r % 3], mascot: 'cat' }], 5000 + r)
+    : newRun({ royal, mascot: 'puru', seed: 5000 + r });
   const rng = new RNG(9000 + r);
   let alive = true;
   while (alive) {

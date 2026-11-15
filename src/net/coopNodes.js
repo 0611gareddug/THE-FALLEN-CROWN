@@ -14,10 +14,10 @@ import { portraitURL } from '../run/mapScene.js';
 
 const keyOf = (run, tag) => `${tag}:${run.act}:${run.pos || 's'}:${run.stats.battles}:${run.stats.events}`;
 
-// 투표 블록: 버튼들 + 상대 선택 표시 + 운명의 주사위
+// 선택 블록: 버튼들 + 상대 선택 표시. 기본은 먼저 누른 사람이 정하고, vote면 10초 투표(갈리면 무작위).
 function voteBlock(coop, root, host, key, items, opts = {}) {
   const label = (v) => { const it = items.find((x) => x.v === v); return it ? it.t : '?'; };
-  coop.openVote(key, { options: items.filter((x) => !x.disabled).map((x) => x.v), extra: opts.extra, timeout: opts.timeout });
+  coop.openVote(key, { options: items.filter((x) => !x.disabled).map((x) => x.v), extra: opts.extra, timeout: opts.timeout || (opts.vote ? 10 : 60), first: opts.vote || opts.afterFirst ? false : true, afterFirst: opts.afterFirst });
   const btns = items.map((it) => h('button.ev-choice', {
     'data-v': String(it.v), disabled: !!it.disabled,
     onclick: () => { audio.sfxPlay('click'); coop.vote(key, it.v); mark(); },
@@ -27,13 +27,15 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
     btns.forEach((b, i) => { b.classList.toggle('v-me', items[i].v === v[coop.me]); b.classList.toggle('v-them', items[i].v === v[1 - coop.me]); });
   };
   host.append(...btns, coop.voteBar(key, label));
-  const offs = [coop.onLocal('vote', (m) => { if (m.key === key) mark(); }), coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(root, key, label); })];
+  const offs = [coop.onLocal('vote', (m) => { if (m.key === key) mark(); })];
   coop.whenDecided(key, (v, extra) => { offs.forEach((f) => f()); if (coop.host) coop.sendRun(); opts.done && opts.done(v, extra); });
   mark();
 }
 
+// 계속: 먼저 누른 사람이 넘긴다. 상점은 둘 다 누르거나 한 명이 누르고 5초 뒤.
 function continueBlock(coop, root, host, run, tag, after) {
-  voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: '계속' }], { timeout: 30, done: after });
+  const shop = tag === 'shop';
+  voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: shop ? '상점 떠나기' : '계속' }], shop ? { timeout: 90, afterFirst: 5, done: after } : { timeout: 60, first: true, done: after });
 }
 
 // ───────── 상점: 공용 진열대, 각자 자기 금화로 ─────────
@@ -304,7 +306,7 @@ export function coopEndingScene(app, params) {
         h('div.sub.rise', '두 왕족이 함께 정한다. 왕관의 운명을.'), box);
       app.ui.appendChild(el);
       voteBlock(coop, el, box, `end:${run.seed}`, options().map((o) => ({ v: o.v, t: o.t, sub: o.ok ? '' : o.need, disabled: !o.ok })), {
-        timeout: 40,
+        vote: true,
         done: (id) => { el.remove(); el = null; inner = endingScene(app, { ...params, forced: id, noCoop: true }); inner.enter(); },
       });
     },

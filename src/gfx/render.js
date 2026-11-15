@@ -31,7 +31,7 @@ function evoBadge(col) {
   evoCache.set(col, c);
   return c;
 }
-import { W, H, COLS, ROWS, CELL, BX, BY, PL, PR, PT, PB, PERIM, cellX, cellY, pathPos } from '../game/layout.js';
+import { W, H, COLS, ROWS, CELL, BX, BY, PL, PR, PT, PB, SOLO } from '../game/layout.js';
 
 const RAINBOW = ['#ff6b6b', '#ffb36b', '#ffe36b', '#7fe08a', '#6bc8ff', '#c99bff'];
 const PCOL = {
@@ -41,9 +41,12 @@ const PCOL = {
 };
 const BOOM_COL = { fire: ['#ff8a3a', '#ffe36b'], flask: ['#9be08a', '#e0ffd0'], meteor: ['#ff7a2a', '#ffe36b'], star: ['#ffe36b', '#ffffff'], mini: ['#ff9a4a', '#ffd08a'], melee: ['#ffffff', '#c9a85c'], shadow: ['#8a5ad0', '#1a1020'] };
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
+const SOLO_TORCH = [[8, 92], [346, 92], [8, 294], [346, 294]];
+const COOP_TORCH = [[8, 56], [346, 56], [8, 230], [346, 230], [8, 430], [346, 430]];
 
 export class Renderer {
-  constructor(canvas, settings) {
+  constructor(canvas, settings, layout = SOLO) {
+    this.L = layout;
     this.cv = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.settings = settings;
@@ -74,6 +77,7 @@ export class Renderer {
 
   // ── 정적 배경 (아트 해상도 180×320) ──
   buildStatic() {
+    if (this.L.kind !== 'solo') { this.buildStaticCoop(); return; }
     const c = document.createElement('canvas');
     c.width = W / 2; c.height = H / 2;
     const g = c.getContext('2d');
@@ -137,6 +141,87 @@ export class Renderer {
     this.bg = c;
   }
 
+  // ── 협동 필드: 8자 길 + 위(동료)·아래(나) 보드 ──
+  buildStaticCoop() {
+    const L = this.L;
+    const c = document.createElement('canvas');
+    c.width = W / 2; c.height = H / 2;
+    const g = c.getContext('2d');
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    g.fillStyle = '#0d0f15';
+    g.fillRect(0, 0, c.width, c.height);
+    const fy0 = (L.view.y >> 1) + 2, fy1 = ((L.view.y + L.view.h) >> 1) - 2;
+    g.fillStyle = '#171920';
+    g.fillRect(4, fy0, 172, fy1 - fy0);
+    for (let i = 0; i < 1300; i++) {
+      const x = 4 + ((rnd() * 172) | 0), y = fy0 + ((rnd() * (fy1 - fy0)) | 0);
+      g.fillStyle = rnd() < 0.5 ? '#1c1e26' : '#13151b';
+      g.fillRect(x, y, 1, 1);
+    }
+    // 길 사각형 목록 (아트 좌표)
+    const rects = L.segs.map((sg) => {
+      const x1 = sg.x1 / 2, y1 = sg.y1 / 2, x2 = (sg.x1 + sg.dx * sg.len) / 2, y2 = (sg.y1 + sg.dy * sg.len) / 2;
+      return [Math.min(x1, x2) - 7, Math.min(y1, y2) - 7, Math.abs(x2 - x1) + 14, Math.abs(y2 - y1) + 14];
+    });
+    g.fillStyle = '#0b0c10';
+    for (const [x, y, w, h] of rects) g.fillRect(x - 1, y - 1, w + 2, h + 2);
+    g.fillStyle = '#2b2830';
+    for (const [x, y, w, h] of rects) g.fillRect(x, y, w, h);
+    const inLane = (px, py) => rects.some(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h);
+    for (let yy = 0; yy < c.height; yy += 3)
+      for (let xx = (yy / 3) % 2 ? 2 : 0; xx < c.width; xx += 4) {
+        if (!inLane(xx, yy) || !inLane(xx + 2, yy + 1)) continue;
+        g.fillStyle = rnd() < 0.5 ? '#36323c' : '#312d37';
+        g.fillRect(xx, yy, 3, 2);
+      }
+    // 안쪽 가장자리 하이라이트 (각 고리 안쪽)
+    g.fillStyle = '#4a4552';
+    const PLx = L.pts[0][0] / 2, PRx = L.pts[1][0] / 2;
+    const ys = [...new Set(L.pts.map((p) => p[1] / 2))].sort((a, b) => a - b);
+    for (let k = 0; k < ys.length - 1; k++) {
+      const t = ys[k] + 7, b = ys[k + 1] - 7;
+      g.fillRect(PLx + 7, t, PRx - PLx - 14, 1); g.fillRect(PLx + 7, b - 1, PRx - PLx - 14, 1);
+      g.fillRect(PLx + 7, t, 1, b - t); g.fillRect(PRx - 8, t, 1, b - t);
+    }
+    // 가운데 교차로 문양
+    const my = ys[1];
+    g.fillStyle = '#3e2a2a';
+    for (let x = PLx + 16; x < PRx - 12; x += 12) g.fillRect(x, my - 1, 4, 2);
+    // 보드 칸: 아래(나) 금빛, 위(동료) 푸른빛
+    for (let i = 0; i < L.nCells; i++) {
+      const mine = L.ownerOf(i) === 0;
+      const x = (L.CX[i] - CELL / 2) / 2, y = (L.CY[i] - CELL / 2) / 2;
+      g.fillStyle = '#101118';
+      g.fillRect(x + 1, y + 1, 22, 22);
+      g.fillStyle = mine ? '#1f1f28' : '#1b1f2b';
+      g.fillRect(x + 2, y + 2, 20, 20);
+      g.fillStyle = mine ? '#2b2a33' : '#242b3a';
+      g.fillRect(x + 2, y + 2, 20, 1); g.fillRect(x + 2, y + 2, 1, 20);
+      g.fillStyle = '#14151c';
+      g.fillRect(x + 2, y + 21, 20, 1); g.fillRect(x + 21, y + 2, 1, 20);
+      g.fillStyle = mine ? '#2a2620' : '#1f2634';
+      g.fillRect(x + 11, y + 10, 2, 4); g.fillRect(x + 10, y + 11, 4, 2);
+    }
+    // 보드 테두리 띠 (주인 색)
+    for (let o = 0; o < 2; o++) {
+      const x = (L.CX[o * 18] - CELL / 2) / 2, y = (L.CY[o * 18] - CELL / 2) / 2;
+      g.fillStyle = o === 0 ? '#5a4626' : '#2a3a5a';
+      g.fillRect(x, y - 1, 144, 1); g.fillRect(x, y + 72, 144, 1);
+    }
+    // 시작 지점 (무너진 문): 길의 첫 점
+    const [gx, gy] = this.mirror ? [L.pts[0][0], L.mirrorY - L.pts[0][1]] : L.pts[0];
+    const l = gx / 2 - 7, t = gy / 2 - 7;
+    g.fillStyle = '#0a0a0e';
+    g.fillRect(l - 1, t - 4, 16, 18);
+    g.fillStyle = '#3a3542';
+    g.fillRect(l - 3, t - 6, 3, 20); g.fillRect(l + 14, t - 6, 3, 20); g.fillRect(l - 3, t - 7, 20, 3);
+    g.fillStyle = '#5a2a22';
+    g.fillRect(l + 2, t - 2, 10, 2);
+    this.bg = c;
+  }
+  setMirror(m) { this.mirror = m; this.buildStatic(); }
+
   // ── 파티클 ──
   part(x, y, vx, vy, life, col, size = 2, grav = 0) {
     if (this.parts.length > (this.settings.low ? 120 : 480)) return;
@@ -166,16 +251,16 @@ export class Renderer {
     switch (ev.type) {
       case 'dmg': this.num(ev.x, ev.y, ev.v, ev.crit); break;
       case 'summon': case 'gambleWin': case 'merge': {
-        const x = cellX(ev.cell), y = cellY(ev.cell);
+        const x = this.L.cx(ev.cell), y = this.L.cy(ev.cell);
         const col = TIERS[ev.tier].glow;
         this.burst(x, y + 6, 10 + ev.tier * 6, [col, '#ffffff'], 50 + ev.tier * 15, 0.6, 2, -40);
         if (ev.tier >= 2) this.addFx({ k: 'pillar', x, y, col: TIERS[ev.tier].color, t: 0, d: 0.9 + ev.tier * 0.15, w: 10 + ev.tier * 3 });
         if (ev.tier >= 4) this.doShake(5);
-        if (ev.type === 'merge') for (const c of ev.from) this.burst(cellX(c), cellY(c), 8, ['#c8c8d8', '#6a6a7a'], 40, 0.4);
+        if (ev.type === 'merge') for (const c of ev.from) this.burst(this.L.cx(c), this.L.cy(c), 8, ['#c8c8d8', '#6a6a7a'], 40, 0.4);
         break;
       }
       case 'celestial': {
-        const x = cellX(ev.cell), y = cellY(ev.cell);
+        const x = this.L.cx(ev.cell), y = this.L.cy(ev.cell);
         this.addFx({ k: 'pillar', x, y, col: '#ffffff', t: 0, d: 2, w: 26, rainbow: true });
         this.addFx({ k: 'ring', x, y, r0: 4, r1: 260, t: 0, d: 1.2, col: '#ffffff', rainbow: true });
         this.burst(x, y, 60, RAINBOW, 160, 1.2, 2, -20);
@@ -184,11 +269,22 @@ export class Renderer {
       }
       case 'gambleFail': {
         // 잿더미가 흩날리는 꽝 연출
-        const x = W / 2, y = 196;
+        const x = this.L.CX[(ev.o || 0) * 18 + 8], y = this.L.CY[(ev.o || 0) * 18 + 8];
         this.burst(x, y, 40, ['#6a6470', '#3a3540', '#9a94a0'], 90, 1.2, 2, 30);
         break;
       }
-      case 'sell': this.burst(cellX(ev.cell), cellY(ev.cell), 10, ['#e8c25a', '#a87a2a'], 50, 0.5, 2, 60); break;
+      case 'gift': {
+        const x = this.L.cx(ev.cell), y = this.L.cy(ev.cell);
+        this.burst(x, y, 22, ['#7fe08a', '#ffe36b', '#ffffff'], 90, 0.7, 2, -30);
+        this.addFx({ k: 'ring', x, y, r0: 4, r1: 40, t: 0, d: 0.5, col: '#7fe08a' });
+        break;
+      }
+      case 'sendGold': {
+        const o = ev.to || 0;
+        this.burst(W / 2, this.L.cy(o * 18 + 8), 26, ['#e8c25a', '#ffe36b', '#a87a2a'], 110, 0.8, 2, 40);
+        break;
+      }
+      case 'sell': this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 10, ['#e8c25a', '#a87a2a'], 50, 0.5, 2, 60); break;
       case 'slash': this.addFx({ k: 'slash', x: ev.x, y: ev.y, t: 0, d: 0.14, big: ev.big, col: ev.tier >= 4 ? '#ffe36b' : '#ffffff', a: Math.random() * 6 }); break;
       case 'zap': this.addFx({ k: 'zap', pts: ev.pts, t: 0, d: 0.12 }); break;
       case 'beam': this.addFx({ k: 'beam', x: ev.x, y: ev.y, x2: ev.x2, y2: ev.y2, t: 0, d: 0.28 }); this.doShake(2); break;
@@ -227,10 +323,10 @@ export class Renderer {
         if (ev.awake) this.doShake(12);
         break;
       }
-      case 'corrupt': this.burst(cellX(ev.cell), cellY(ev.cell), 16, ['#c99bff', '#5a2a6a'], 70, 0.6); break;
-      case 'cleanse': if (ev.done) this.burst(cellX(ev.cell), cellY(ev.cell), 18, ['#ffffff', '#fff2a8'], 90, 0.6, 2, -40); break;
+      case 'corrupt': this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 16, ['#c99bff', '#5a2a6a'], 70, 0.6); break;
+      case 'cleanse': if (ev.done) this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 18, ['#ffffff', '#fff2a8'], 90, 0.6, 2, -40); break;
       case 'freeze': this.flash = { col: '#a8e4ff', t: 0, d: 0.5, a: 0.25 }; this.doShake(4); break;
-      case 'icebreak': if (ev.done) this.burst(cellX(ev.cell), cellY(ev.cell), 14, ['#a8e4ff', '#ffffff'], 90, 0.5, 2, 60); break;
+      case 'icebreak': if (ev.done) this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 14, ['#a8e4ff', '#ffffff'], 90, 0.5, 2, 60); break;
       case 'steal': this.burst(ev.x, ev.y - 10, 18, ['#e8c25a', '#a87a2a'], 80, 0.7, 2, 40); break;
       case 'ashrain': this.flash = { col: '#6a6470', t: 0, d: 0.6, a: 0.3 }; break;
       case 'split': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 90, t: 0, d: 0.6, col: '#c99bff' }); this.doShake(5); break;
@@ -241,10 +337,10 @@ export class Renderer {
       case 'eat': this.burst(ev.x, ev.y, 4, ['#8a5a2a'], 40, 0.3); break;
       case 'immune': this.num(ev.x, ev.y, '0', false); break;
       case 'upgrade': {
-        for (let i = 0; i < COLS * ROWS; i++) {
+        for (let i = (ev.o || 0) * 18, e = i + 18; i < e; i++) {
           const u = battle.units[i];
           if (u && Math.min(2, u.def.tier <= 1 ? 0 : u.def.tier <= 3 ? 1 : 2) === ev.g)
-            this.burst(cellX(i), cellY(i) + 8, 4, ['#ffe36b', '#ffffff'], 30, 0.5, 1, -60);
+            this.burst(this.L.cx(i), this.L.cy(i) + 8, 4, ['#ffe36b', '#ffffff'], 30, 0.5, 1, -60);
         }
         break;
       }
@@ -282,14 +378,14 @@ export class Renderer {
     if (battle.ashT > 0 && !this.settings.low) {
       ctx.globalAlpha = 0.12;
       ctx.fillStyle = '#4a4550';
-      ctx.fillRect(0, 90, W, 210);
+      ctx.fillRect(0, this.fieldY0(), W, this.fieldH());
       ctx.globalAlpha = 1;
-      if (Math.random() < 0.8) this.part(Math.random() * W, 92, (Math.random() - 0.5) * 20, 60 + Math.random() * 40, 2.5, Math.random() < 0.2 ? '#ff8a3a' : '#8a8490', 2);
+      if (Math.random() < 0.8) this.part(Math.random() * W, this.fieldY0() + 2, (Math.random() - 0.5) * 20, 60 + Math.random() * 40, 2.5, Math.random() < 0.2 ? '#ff8a3a' : '#8a8490', 2);
     }
     if (battle.timeStopT > 0) {
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = '#7a5ad0';
-      ctx.fillRect(0, 90, W, 210);
+      ctx.fillRect(0, this.fieldY0(), W, this.fieldH());
     }
     if (this.flash) {
       const f = this.flash;
@@ -304,9 +400,12 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  fieldY0() { return this.L.kind === 'solo' ? 90 : this.L.view.y; }
+  fieldH() { return this.L.kind === 'solo' ? 210 : this.L.view.h; }
+
   drawTorches(ctx) {
-    const pts = [[8, 92], [346, 92], [8, 294], [346, 294]];
-    for (let i = 0; i < 4; i++) {
+    const pts = this.L.kind === 'solo' ? SOLO_TORCH : COOP_TORCH;
+    for (let i = 0; i < pts.length; i++) {
       const [x, y] = pts[i];
       ctx.fillStyle = '#3a3542';
       ctx.fillRect(x, y, 6, 10);
@@ -329,7 +428,8 @@ export class Renderer {
       const a = Math.min(1, z.t / 0.5);
       const step = 8;
       for (let s = z.s0; s <= z.s1; s += step) {
-        pathPos(s, TMP);
+        this.L.path(s, TMP);
+        if (this.mirror) TMP.y = this.L.mirrorY - TMP.y;
         const f = ((this.t * 12 + s) | 0) % 3;
         ctx.globalAlpha = a * 0.9;
         ctx.fillStyle = f ? '#ff8a3a' : '#ffe36b';
@@ -343,9 +443,10 @@ export class Renderer {
 
   drawUnits(ctx, b) {
     const t = this.t;
-    for (let i = 0; i < COLS * ROWS; i++) {
+    const CX = this.L.CX, CY = this.L.CY;
+    for (let i = 0, n = this.L.nCells; i < n; i++) {
       const u = b.units[i];
-      const cx = BX + (i % COLS) * CELL, cy = BY + ((i / COLS) | 0) * CELL;
+      const cx = CX[i] - 24, cy = CY[i] - 24;
       if (i === this.selected) {
         ctx.fillStyle = '#c9a85c';
         const L = 8;
@@ -435,10 +536,11 @@ export class Renderer {
     // 선택한 유닛의 진화 재료
     const sel = this.selected;
     const partners = sel >= 0 && b.mergeable[sel] ? b.mergePartners(sel) : null;
-    for (let i = 0; i < COLS * ROWS; i++) {
+    const CX = this.L.CX, CY = this.L.CY;
+    for (let i = 0, n = this.L.nCells; i < n; i++) {
       const u = b.units[i];
       if (!u) continue;
-      const cx = BX + (i % COLS) * CELL, cy = BY + ((i / COLS) | 0) * CELL;
+      const cx = CX[i] - 24, cy = CY[i] - 24;
       let col = null, a = 0;
       if (ready.has(i)) { col = RAINBOW[((t * 8 + i) | 0) % 6]; a = 0.9; }
       else if (b.mergeable[i]) { col = TIERS[u.def.tier + 1].color; a = pulse; }
@@ -453,18 +555,18 @@ export class Renderer {
       ctx.fillRect(cx + CELL - 4, cy + 2, 2, CELL - 4);
     }
     if (partners) {
-      const x0 = cellX(sel), y0 = cellY(sel);
+      const x0 = this.L.cx(sel), y0 = this.L.cy(sel);
       ctx.globalAlpha = 0.85;
       ctx.fillStyle = '#ffe36b';
       for (const p of partners) {
-        const x1 = cellX(p), y1 = cellY(p);
+        const x1 = this.L.cx(p), y1 = this.L.cy(p);
         const n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 6));
         const off = (t * 3) % 1;
         for (let k = 0; k < n; k++) {
           const f = (k + off) / n;
           ctx.fillRect(Math.round(x0 + (x1 - x0) * f) - 1, Math.round(y0 + (y1 - y0) * f) - 1, 3, 3);
         }
-        const cx = BX + (p % COLS) * CELL, cy = BY + ((p / COLS) | 0) * CELL;
+        const cx = CX[p] - 24, cy = CY[p] - 24;
         ctx.fillRect(cx + 1, cy + 1, CELL - 2, 3);
         ctx.fillRect(cx + 1, cy + CELL - 4, CELL - 2, 3);
         ctx.fillRect(cx + 1, cy + 1, 3, CELL - 2);
@@ -681,11 +783,23 @@ export class Renderer {
     if (!u) return;
     const c = d.over;
     if (c >= 0) {
-      const cx = BX + (c % COLS) * CELL, cy = BY + ((c / COLS) | 0) * CELL;
-      ctx.globalAlpha = 0.25;
-      ctx.fillStyle = '#c9a85c';
+      const cx = this.L.CX[c] - 24, cy = this.L.CY[c] - 24;
+      // 동료 보드: 빈 칸이면 선물(초록), 아니면 불가(빨강)
+      const other = this.L.ownerOf(c) !== this.L.ownerOf(d.from);
+      const col = !other ? '#c9a85c' : b.units[c] ? '#e0463a' : '#7fe08a';
+      ctx.globalAlpha = other ? 0.35 + Math.sin(this.t * 10) * 0.1 : 0.25;
+      ctx.fillStyle = col;
       ctx.fillRect(cx + 2, cy + 2, CELL - 4, CELL - 4);
       ctx.globalAlpha = 1;
+      if (other && !b.units[c]) {
+        // 선물 상자 아이콘
+        ctx.fillStyle = '#7fe08a';
+        ctx.fillRect(cx + 16, cy + 20, 16, 12);
+        ctx.fillStyle = '#1b1622';
+        ctx.fillRect(cx + 23, cy + 20, 2, 12); ctx.fillRect(cx + 16, cy + 25, 16, 2);
+        ctx.fillStyle = '#ffe36b';
+        ctx.fillRect(cx + 19, cy + 15, 4, 4); ctx.fillRect(cx + 25, cy + 15, 4, 4);
+      }
     }
     const spr = SPR.units[u.def.id];
     ctx.drawImage(spr.r, Math.round(d.x - 16), Math.round(d.y - 28), 32, 32);

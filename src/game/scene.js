@@ -7,7 +7,7 @@ import { store, save, markSeen } from '../core/storage.js';
 import { settingsPanel } from '../ui/panels.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { UNIT, TIERS, CLASSES, CLASS_ORDER, SYNERGY, RECIPES, MAX_CELESTIAL, UPG_NAMES, upgGroup } from '../data/units.js';
-import { FIELD_LIMIT, ENEMIES, BOSS_GIMMICK_TEXT, makeBattle } from '../data/enemies.js';
+import { ENEMIES, BOSS_GIMMICK_TEXT, makeBattle } from '../data/enemies.js';
 import { MASCOT_DEFS } from '../data/mascots.js';
 import { COMPANIONS } from '../data/companions.js';
 import { RNG } from '../core/rng.js';
@@ -16,16 +16,20 @@ import { finalBoss } from '../run/flow.js';
 import { tickMods } from '../run/events.js';
 import { unlockAch } from '../meta/achievements.js';
 import { portraitURL } from '../run/mapScene.js';
-import { MirrorBattle, packBoard, applyInput } from '../net/mirror.js';
+import { MirrorBattle, packField, applyInput } from '../net/mirror.js';
 import { botTick } from './bot.js';
 import { ROYALS } from '../data/text.js';
 import { MASCOTS, TIPS, DEFEAT_LINES, VICTORY_LINES } from '../data/text.js';
-import { cellAt, W, H } from './layout.js';
+import { SOLO, COOP, W, H } from './layout.js';
 
 const TICK = 1 / 60;
 const SPEEDS = [1, 1.5, 2];
+// 협동에서 동료 보드 것이어도 내 화면에 그대로 보여줄 공용 이벤트
+const SHARED_EV = new Set(['wave', 'waveClear', 'wallHit', 'guarded', 'freeze', 'steal', 'ashrain', 'split', 'heal', 'raise', 'enrage', 'victory', 'defeat', 'combo', 'roar', 'corrupt', 'cleanse', 'icebreak']);
 const tierCol = (t) => (t === 5 ? '#ff9ad9' : TIERS[t].color);
 const unitImg = (id, s = 3) => spriteURL(SPR.units[id].r, s);
+// 협동 신호: [말, 표정]
+const PINGS = { block: ['여기 막아줘!', 'angry'], evo: ['진화 해줘!', 'shock'], gold: ['금화 부탁!', 'sad'], ok: ['좋아!', 'happy'] };
 const fmtT = (s) => { s = Math.max(0, Math.ceil(s)); return `${(s / 60) | 0}:${String(s % 60).padStart(2, '0')}`; };
 
 export function battleScene(app, params) {
@@ -38,8 +42,10 @@ export function battleScene(app, params) {
   const coop = run && run.coop && app.coop ? app.coop : null;
   const me = coop ? coop.me : 0;
   const mascotId = run ? (run.players ? run.players[me].mascot : run.mascot) : params.mascot || 'puru';
-  // 협동: 상대 보드 · 상대 렌더러 · 동기화
-  let partner = null, prend = null, pcv = null, plabel = null, offNet = [], syncT = 0, evq = [[], []], aiT = 0, skillAt = [-99, -99], coopDone = false, simT = 0;
+  // 협동: 한 필드(아래 = 나, 위 = 동료) · 동기화
+  const L = coop ? COOP : SOLO;
+  const partnerP = coop ? run.players[1 - me] : null;
+  let offNet = [], syncT = 0, evq = [], aiT = 0, skillAt = [-99, -99], coopDone = false, simT = 0, faceTO = 0, bubTO = 0;
   let node = null, nodeTitle = null, lastEscaped = 0, tut = null, moved = false;
   const TUT = [
     ['소환', "아래 '소환' 버튼을 3번 눌러 병사를 불러보세요.", (b) => b.stats.summons >= 3],
@@ -65,13 +71,13 @@ export function battleScene(app, params) {
 
   // ───────── HUD 구성 ─────────
   function build() {
-    const top = h('div.top',
+    const top = coop ? buildCoopTop() : h('div.top',
       h('div.top-row',
         hud.wave = h('div.wave', 'PREPARE'),
         hud.timer = h('div.timer', '0:06'),
         h('button.pause', { 'aria-label': '일시정지', onclick: openPause }, svg(ICON.pause))),
       h('div.bars',
-        hud.field = h('div.bar.field', h('div.lbl', h('span', '필드 몬스터'), hud.fieldN = h('span', `0/${FIELD_LIMIT}`)), h('div.track', hud.fieldF = h('div.fill'))),
+        hud.field = h('div.bar.field', h('div.lbl', h('span', '필드 몬스터'), hud.fieldN = h('span', `0/${L.fieldLimit}`)), h('div.track', hud.fieldF = h('div.fill'))),
         hud.wall = h('div.bar.wall', h('div.lbl', h('span', '성벽'), hud.wallN = h('span', '100')), h('div.track', hud.wallF = h('div.fill')))),
       h('div.res',
         h('span', h('i.ic.gold'), hud.gold = h('span', '0')),
@@ -80,6 +86,11 @@ export function battleScene(app, params) {
         hud.pity = h('div.pity', { title: '불운 게이지: 꽝 10번이면 영웅 확정 소환' }, '불운'),
       ),
     );
+    if (coop) {
+      hud.evo = h('button.evo', { onclick: cycleEvo, 'aria-label': '진화 가능한 유닛 보기', title: '진화 가능한 유닛 선택' }, '▲ 진화 ', hud.evoN = h('b', '0'));
+      hud.pity = h('div.pity', { title: '불운 게이지: 꽝 10번이면 영웅 확정 소환' }, '불운');
+      hud.cres = h('div.res.cres-row', hud.evo, h('button.synbtn', { onclick: () => togglePop('syn') }, '시너지'), h('span.gifthint', '유닛을 위로 끌면 선물'), hud.pity);
+    }
     hud.pips = [];
     for (let i = 0; i < PITY_MAX; i++) { const p = h('i'); hud.pips.push(p); hud.pity.appendChild(p); }
     hud.pityBtn = h('button', { onclick: () => { if (battle.pity()) audio.sfxPlay('click'); } }, '영웅 확정');
@@ -98,6 +109,7 @@ export function battleScene(app, params) {
     }));
     hud.tip = h('div.tip', TIPS[0]);
     hud.card = h('div.card');
+    hud.syn = syn;
     hud.mid = h('div.mid', syn, hud.tip, hud.card);
 
     const m = MASCOT_DEFS[mascotId] || MASCOT_DEFS.puru;
@@ -116,8 +128,67 @@ export function battleScene(app, params) {
 
     hud.toast = h('div.toast');
     hud.popHost = h('div');
-    el = h('div.hud', top, hud.boss, hud.mid, tools, actions, hud.popHost, hud.toast);
+    el = h('div.hud' + (coop ? '.coop' : ''), top, hud.cres || null, hud.boss, hud.mid, tools, actions, hud.popHost, hud.toast);
     app.ui.appendChild(el);
+  }
+
+  // ───────── 협동 상단 바: 왼쪽 동료 · 가운데 정보 · 오른쪽 나 ─────────
+  function buildCoopTop() {
+    const my = run.players[me], pr = partnerP;
+    const ry = (id) => ROYALS.find((r) => r.id === id) || ROYALS[0];
+    hud.wave = h('div.wave', 'PREPARE');
+    hud.timer = h('div.timer', '0:08');
+    hud.field = h('div.bar.field', h('div.lbl', h('span', '몬스터'), hud.fieldN = h('span', `0/${L.fieldLimit}`)), h('div.track', hud.fieldF = h('div.fill')));
+    hud.wall = h('div.bar.wall', h('div.lbl', h('span', '성벽'), hud.wallN = h('span', '100')), h('div.track', hud.wallF = h('div.fill')));
+    hud.pImg = h('img', { src: portraitURL(pr.royal, 'neutral', 2), alt: '' });
+    hud.pBub = h('div.cbub');
+    hud.pGold = h('span', '0'); hud.pStone = h('span', '0');
+    hud.pTag = h('small.ctag');
+    hud.gold = h('span', '0'); hud.stone = h('span', '0');
+    const partnerEl = h('button.cpor.pt', { onclick: () => togglePop('partner'), 'aria-label': '동료에게 금화 · 신호 보내기', title: '동료 메뉴 (G)' },
+      h('div.cface', hud.pImg, h('i.cdot')),
+      h('div.cinfo', h('b', { style: { color: ry(pr.royal).color } }, ry(pr.royal).name), h('span.cr', h('i.ic.gold'), hud.pGold, h('i.ic.stone'), hud.pStone), hud.pTag),
+      hud.pBub);
+    const meEl = h('div.cpor.me',
+      h('div.cinfo', h('b', { style: { color: ry(my.royal).color } }, '나 · ' + ry(my.royal).name), h('span.cr', h('i.ic.gold'), hud.gold, h('i.ic.stone'), hud.stone)),
+      h('div.cface', h('img', { src: portraitURL(my.royal, 'neutral', 2), alt: '' })));
+    const mid = h('div.cmid',
+      h('div.top-row', hud.wave, hud.timer, h('button.pause', { 'aria-label': '메뉴', onclick: openPause }, svg(ICON.pause))),
+      h('div.bars', hud.field, hud.wall));
+    return h('div.cbar', partnerEl, mid, meEl);
+  }
+  function setFace(f) {
+    if (!hud.pImg) return;
+    hud.pImg.src = portraitURL(partnerP.royal, f, 2);
+    clearTimeout(faceTO);
+    faceTO = setTimeout(() => { if (hud.pImg) hud.pImg.src = portraitURL(partnerP.royal, 'neutral', 2); }, 2600);
+  }
+  function bubble(text) {
+    if (!hud.pBub) return;
+    hud.pBub.textContent = text;
+    hud.pBub.classList.remove('show'); void hud.pBub.offsetWidth; hud.pBub.classList.add('show');
+    clearTimeout(bubTO);
+    bubTO = setTimeout(() => hud.pBub && hud.pBub.classList.remove('show'), 2800);
+  }
+  const boardRing = (o, col) => rend.addFx({ k: 'ring', x: W / 2, y: L.CY[o * 18 + 8], r0: 8, r1: 120, t: 0, d: 0.9, col });
+  function sendPing(k) {
+    coop.net.send({ t: 'sig', k });
+    audio.sfxPlay('click');
+    boardRing(0, '#e8c25a');
+    toast(`신호를 보냈다: "${PINGS[k][0]}"`);
+    closePop();
+  }
+  function recvPing(k) {
+    const p = PINGS[k];
+    if (!p) return;
+    audio.sfxPlay('ready');
+    bubble(p[0]);
+    setFace(p[1]);
+    boardRing(1, '#6bc8ff');
+  }
+  function giveGold() {
+    if (battle.sendGold(20)) { audio.sfxPlay('coin'); closePop(); }
+    else { audio.sfxPlay('deny'); toast('금화가 부족합니다.'); }
   }
 
   // ───────── 동작 ─────────
@@ -139,7 +210,7 @@ export function battleScene(app, params) {
   function cycleEvo() {
     const cells = [];
     const seenIds = new Set();
-    battle.units.forEach((u, i) => { if (u && battle.mergeable[i] && !seenIds.has(u.def.id)) { seenIds.add(u.def.id); cells.push(i); } });
+    battle.units.forEach((u, i) => { if (i < 18 && u && battle.mergeable[i] && !seenIds.has(u.def.id)) { seenIds.add(u.def.id); cells.push(i); } });
     if (!cells.length) return;
     evoIdx = (evoIdx + 1) % cells.length;
     select(cells[evoIdx]);
@@ -148,7 +219,7 @@ export function battleScene(app, params) {
   let prevEvo = new Set();
   function checkEvo() {
     const ids = new Set();
-    battle.units.forEach((u, i) => { if (u && battle.mergeable[i]) ids.add(u.def.id); });
+    battle.units.forEach((u, i) => { if (i < 18 && u && battle.mergeable[i]) ids.add(u.def.id); });
     for (const id of ids) {
       if (!prevEvo.has(id)) {
         audio.sfxPlay('ready');
@@ -174,7 +245,8 @@ export function battleScene(app, params) {
     const u = selected >= 0 ? battle.units[selected] : null;
     if (!u) { c.classList.remove('show'); c.replaceChildren(); return; }
     const d = u.def;
-    const partners = battle.mergePartners(selected);
+    const theirs = coop && selected >= 18;
+    const partners = theirs ? null : battle.mergePartners(selected);
     const refund = d.tier >= 5 ? 0 : u.spent ? Math.floor(u.spent * 0.5) : TIERS[d.tier].sell;
     const dps = battle.unitDmg(u) * d.rate * u.spd;
     c.replaceChildren(
@@ -187,7 +259,7 @@ export function battleScene(app, params) {
           h('div.stats', h('span', `피해 ${Math.round(battle.unitDmg(u))}`), h('span', `초당 ${Math.round(dps)}`), h('span', `사거리 ${d.range > 500 ? '∞' : Math.round(u.range / 24)}`)))),
       h('div.desc', d.desc),
       h('div.quip', `“${d.quip}”`),
-      h('div.acts',
+      theirs ? h('div.acts', h('span', { style: { fontSize: '10.5px', color: '#8fb4ff', alignSelf: 'center' } }, '동료의 유닛 · 진화가 필요하면 신호를 보내 보자')) : h('div.acts',
         d.tier < 4 ? h('button.btn' + (partners ? '.primary' : ''), {
           disabled: !partners,
           style: partners ? null : { opacity: 0.4 },
@@ -198,7 +270,7 @@ export function battleScene(app, params) {
     );
     c.classList.add('show');
   }
-  const countSame = (d) => battle.units.filter((x) => x && x.def === d).length;
+  const countSame = (d) => battle.units.filter((x, i) => i < 18 && x && x.def === d).length;
 
   // ───────── 팝업 (강화 · 도박 · 천상) ─────────
   function togglePop(kind) {
@@ -210,12 +282,29 @@ export function battleScene(app, params) {
     hud.popHost.appendChild(pop.el);
     renderPop();
   }
-  function closePop() { if (pop) { pop.el.remove(); pop = null; } }
+  function closePop() {
+    if (!pop) return;
+    if (pop.kind === 'syn') hud.mid.prepend(hud.syn);
+    pop.el.remove(); pop = null;
+  }
 
   function renderPop() {
     if (!pop) return;
     const p = pop.el;
     const x = h('button.x', { onclick: closePop, 'aria-label': '닫기' }, '×');
+    if (pop.kind === 'partner') {
+      const pb = battle.P[1];
+      p.replaceChildren(x, h('h3', '동료에게'),
+        h('div.note', `동료 금화 ${pb.gold} · 행운석 ${pb.stones}${coop.partnerAI ? ' · 지금은 AI가 대신 조종 중' : ''}`),
+        h('button.opt', { disabled: battle.gold < 20, onclick: giveGold }, h('div.l', '금화 보내기', h('small', '동료에게 금화 20을 건넨다')), h('div.r', '금화 20')),
+        h('div.pings', Object.entries(PINGS).map(([k, [t]]) => h('button.ping', { onclick: () => sendPing(k) }, t))),
+        h('div.note', '내 유닛을 끌어 위쪽 동료 보드의 빈 칸에 놓으면 선물할 수 있다.'));
+      return;
+    }
+    if (pop.kind === 'syn') {
+      if (!p.contains(hud.syn)) p.replaceChildren(x, h('h3', '내 보드 시너지'), hud.syn);
+      return;
+    }
     if (pop.kind === 'upgrade') {
       p.replaceChildren(x, h('h3', '강화'),
         ...[0, 1, 2].map((g) => {
@@ -264,6 +353,7 @@ export function battleScene(app, params) {
   // ───────── 이벤트 → 소리/연출/HUD ─────────
   function onEvent(ev) {
     rend.handle(ev, battle);
+    if (coop && ev.o === 1 && !SHARED_EV.has(ev.type)) { partnerEvent(ev); return; }
     switch (ev.type) {
       case 'unit':
         if (markSeen(ev.id)) {
@@ -354,14 +444,35 @@ export function battleScene(app, params) {
       case 'delivered': toast('느릿: "등기… 도착…했습니다…"', 'good'); break;
       case 'summonZero': audio.sfxPlay('fail'); toast('무한 가챠 부적: 0명 소환. 금화만 사라졌다.', 'fail'); unlockAch('zero'); break;
       case 'upgrade': audio.sfxPlay('upgrade'); break;
-      case 'victory': lastEscaped = ev.escaped || 0; if (!coop) endT = 1.6; else toast(partner && partner.result === 'victory' ? '두 보드 모두 승리!' : '내 보드 정리 완료! 동료를 도와 기다리는 중…', 'good'); break;
-      case 'defeat': if (!coop) endT = 1.6; break;
+      case 'victory': lastEscaped = ev.escaped || 0; if (!coop) endT = 1.6; else { audio.sfxPlay('victory'); announce('VICTORY', '함께 지켜냈다'); } break;
+      case 'defeat': if (!coop) endT = 1.6; else { audio.sfxPlay('defeat'); announce('DEFEAT', '성벽이 무너졌다', 'boss'); } break;
       case 'combo': audio.sfxPlay('celestial'); announce('COMBO', '우정의 응원! 두 보드 공격 속도 +30%'); break;
+      case 'gift': audio.sfxPlay('upgrade'); toast(`${UNIT[ev.id].name}을(를) 동료에게 선물했다.`, 'good'); break;
+      case 'giftFull': audio.sfxPlay('deny'); toast('동료의 천상 자리가 가득 찼습니다.'); break;
+      case 'sendGold': toast(`동료에게 금화 ${ev.v}을(를) 보냈다.`, 'good'); break;
       case 'gambleWin2': break;
     }
   }
 
-  function persistLuck() { data.badLuck = battle.badLuck; save(); }
+  // 동료 보드에서 일어난 일: 소리 · 짧은 알림만
+  function partnerEvent(ev) {
+    switch (ev.type) {
+      case 'slash': case 'hit': audio.sfxPlay('hit'); break;
+      case 'zap': audio.sfxPlay('zap'); break;
+      case 'kill': audio.sfxPlay(ev.boss ? 'boom' : 'kill'); break;
+      case 'boom': if (ev.kind === 'meteor' || ev.kind === 'flask') audio.sfxPlay('boom'); break;
+      case 'judgment': audio.sfxPlay('judgment'); break;
+      case 'timeStop': audio.sfxPlay('timestop'); break;
+      case 'celestial': audio.sfxPlay('celestial'); announce('CELESTIAL', `동료 · ${UNIT[ev.id].name}`); setFace('happy'); break;
+      case 'gambleWin': if (ev.tier >= 3) { audio.sfxPlay('rare', ev.tier); bubble(`${TIERS[ev.tier].name} 떴다!`); setFace('smug'); } break;
+      case 'skill': audio.sfxPlay('skill'); bubble(`${(MASCOT_DEFS[partnerP.mascot] || MASCOT_DEFS.puru).skill.split(' / ')[0]}!`); break;
+      case 'gift': audio.sfxPlay('rare', 2); toast(`동료가 ${UNIT[ev.id].name}을(를) 선물했다!`, 'good'); setFace('happy'); select(-1); break;
+      case 'sendGold': audio.sfxPlay('coin'); toast(`동료가 금화 ${ev.v}을(를) 보냈다!`, 'good'); setFace('happy'); break;
+      case 'eliteDown': audio.sfxPlay('win'); break;
+    }
+  }
+
+  function persistLuck() { if (coop && !coop.host) return; data.badLuck = battle.badLuck; save(); }
 
   // ───────── HUD 갱신 (초당 10회) ─────────
   function updateHud() {
@@ -374,10 +485,17 @@ export function battleScene(app, params) {
       hud.timer.className = 'timer' + (b.phase === 'rest' ? ' rest' : '');
     }
     const n = b.liveCount();
-    hud.fieldN.textContent = `${n}/${FIELD_LIMIT}`;
-    hud.fieldF.style.width = Math.min(100, n) + '%';
-    hud.field.classList.toggle('warn', n >= 70 && n <= FIELD_LIMIT);
-    hud.field.classList.toggle('danger', n > FIELD_LIMIT);
+    const FL = L.fieldLimit;
+    hud.fieldN.textContent = `${n}/${FL}`;
+    hud.fieldF.style.width = Math.min(100, (n / FL) * 100) + '%';
+    hud.field.classList.toggle('warn', n >= FL * 0.7 && n <= FL);
+    hud.field.classList.toggle('danger', n > FL);
+    if (coop) {
+      const pb = b.P[1];
+      hud.pGold.textContent = pb.gold;
+      hud.pStone.textContent = pb.stones;
+      hud.pTag.textContent = coop.partnerAI ? 'AI가 대신 조종' : pb.skillT >= pb.skillCd && b.phase !== 'prep' ? '스킬 준비됨' : '';
+    }
     hud.wallN.textContent = `${Math.ceil(b.wall)}/${b.wallMax}`;
     hud.wallF.style.width = (b.wall / b.wallMax) * 100 + '%';
     hud.wall.classList.toggle('low', b.wall < b.wallMax * 0.3);
@@ -439,12 +557,20 @@ export function battleScene(app, params) {
     audio.resume();
     if (paused || battle.result) return;
     const [x, y] = toLogical(e);
-    const c = cellAt(x, y);
+    const c = L.cellAt(x, y);
+    if (coop && c >= 18 && battle.units[c]) {
+      // 동료 유닛: 끌 수는 없고, 정화/얼음 깨기로 도울 수 있다
+      const u = battle.units[c];
+      if (u.corrupt > 0 || u.ice > 0) { battle.cleanse(c); rend.burst(...cellCenter(c), 6, u.corrupt > 0 ? ['#c99bff', '#ffffff'] : ['#a8e4ff', '#ffffff'], 60, 0.3); return; }
+      audio.sfxPlay('hover');
+      select(selected === c ? -1 : c);
+      return;
+    }
     if (c >= 0 && battle.units[c]) {
       drag = { from: c, sx: x, sy: y, x, y, moved: false, over: c, id: e.pointerId };
       app.gameCv.setPointerCapture(e.pointerId);
       rend.drag = drag;
-    } else if (y > 90 && y < 300) {
+    } else if (coop ? y > 56 && y < 440 : y > 90 && y < 300) {
       select(-1);
       closePop();
     }
@@ -454,7 +580,7 @@ export function battleScene(app, params) {
     const [x, y] = toLogical(e);
     drag.x = x; drag.y = y;
     if (!drag.moved && Math.hypot(x - drag.sx, y - drag.sy) > 7) drag.moved = true;
-    drag.over = cellAt(x, y);
+    drag.over = L.cellAt(x, y);
   }
   function onUp(e) {
     if (!drag || e.pointerId !== drag.id) return;
@@ -463,6 +589,12 @@ export function battleScene(app, params) {
     rend.drag = null;
     if (d.moved) {
       if (d.over >= 0 && d.over !== d.from) {
+        if (coop && d.over >= 18) {
+          if (battle.units[d.over]) { audio.sfxPlay('deny'); toast('동료 보드의 빈 칸에만 선물할 수 있어요.'); return; }
+          battle.move(d.from, d.over);
+          select(-1);
+          return;
+        }
         battle.move(d.from, d.over);
         moved = true;
         audio.sfxPlay('hover');
@@ -475,7 +607,7 @@ export function battleScene(app, params) {
       select(selected === d.from ? -1 : d.from);
     }
   }
-  function cellCenter(i) { return [36 + (i % 6) * 48 + 24, 124 + ((i / 6) | 0) * 48 + 24]; }
+  function cellCenter(i) { return [L.cx(i), L.cy(i)]; }
   function onKey(e) {
     if (e.repeat) return;
     const k = e.key.toLowerCase();
@@ -486,6 +618,8 @@ export function battleScene(app, params) {
     else if (k === 'e') togglePop('upgrade');
     else if (k === 'r') useSkill();
     else if (k === ' ') { e.preventDefault(); cycleSpeed(); }
+    else if (k === 'g' && coop) togglePop('partner');
+    else if (k === 't') togglePop('recipe');
   }
 
   // ───────── 일시정지 · 결과 ─────────
@@ -516,18 +650,15 @@ export function battleScene(app, params) {
     if (coop && !coop.host) return;
     const b = battle;
     if (coop) {
-      run.players[0].carry = battle.exportCarry();
-      run.players[1].carry = partner.exportCarry();
-      run.players[1].carry.wall = run.players[0].carry.wall;
+      for (let o = 0; o < 2; o++) run.players[o].carry = b.exportCarry(o);
       run.carry = run.players[0].carry;
-      const s2 = run.stats;
-      s2.kills += partner.stats.kills; s2.merges += partner.stats.merges; s2.celestials += partner.stats.celestials;
     }
     data.badLuck = b.badLuck;
     data.tips = true;
     save();
     const s = run.stats;
-    s.kills += b.stats.kills; s.merges += b.stats.merges; s.celestials += b.stats.celestials; s.fails += b.stats.fails; s.gambles += b.stats.gambles;
+    const tot = (k) => (coop ? b.totalStat(k) : b.stats[k]);
+    s.kills += tot('kills'); s.merges += tot('merges'); s.celestials += tot('celestials'); s.fails += tot('fails'); s.gambles += tot('gambles');
     if (!win) { audio.stop(); app.go('ending', { run, defeat: true }); return; }
     if (!coop) run.carry = b.exportCarry();
     s.battles++;
@@ -537,7 +668,7 @@ export function battleScene(app, params) {
     if (kind === 'boss' && run.act < 3) { run.shards = Math.min(5, run.shards + 1); unlockAch(run.act === 1 ? 'act1' : 'act2'); }
     if (kind === 'dragon') { run.shards = Math.min(5, run.shards + 1); unlockAch('dragonKill'); }
     if (b.wall <= 5) unlockAch('wall1');
-    if (b.stats.maxField >= 120) unlockAch('overflow');
+    if (b.stats.maxField >= (coop ? 170 : 120)) unlockAch('overflow');
     if (b.stats.celestials > 0 || s.celestials > 0) unlockAch('cel1');
     if (b.celestial >= 2) unlockAch('cel2');
     if (s.fails >= 10) unlockAch('fail10');
@@ -603,24 +734,22 @@ export function battleScene(app, params) {
       mods.morvenWeak = runFx(run).morvenWeak;
       nodeTitle = node.type === 'elite' ? '정예의 길' : node.type === 'boss' ? null : `${ACTS[run.act - 1].name} · ${node.row + 1}번째 별`;
       if (coop) {
-        mods.bossHp = (mods.bossHp || 0) - 0.4; // 보스는 두 보드에 나눠 등장
         const seed = rng.int(1e9);
+        const P = run.players;
         if (coop.host) {
-          const P = run.players;
           const lv = run.mascotLv || [1, 1];
-          battle = new Battle({ seed, royal: P[0].royal, mascot: P[0].mascot, badLuck: data.badLuck, carry: P[0].carry, node: cfg, mods, mascotLv: lv[0] });
-          const c1 = { ...P[1].carry, wall: P[0].carry.wall, wallMax: P[0].carry.wallMax };
-          partner = new Battle({ seed: seed + 7, royal: P[1].royal, mascot: P[1].mascot, badLuck: 0, carry: c1, node: cfg, mods, mascotLv: lv[1] });
-          offNet.push(coop.net.on('in', (m) => { if (!coop.partnerAI) applyInput(partner, m); }));
+          battle = new Battle({
+            seed, layout: COOP, node: cfg, mods,
+            players: P.map((p, o) => ({ royal: p.royal, mascot: p.mascot, carry: p.carry, badLuck: o === 0 ? data.badLuck : 0, mascotLv: lv[o] })),
+          });
+          offNet.push(coop.net.on('in', (m) => { if (!coop.partnerAI) applyInput(battle, m); }));
         } else {
-          battle = new MirrorBattle((m) => coop.net.send(m), 1);
-          partner = new MirrorBattle(null, 0);
-          offNet.push(coop.net.on('bs', (m) => {
-            const now = performance.now();
-            battle.apply(m.B[1], now); partner.apply(m.B[0], now);
-            battle.wall = partner.wall = m.w; battle.wallMax = partner.wallMax = m.wm;
-          }));
+          battle = new MirrorBattle((m) => coop.net.send(m));
+          battle.P[0].mascot = P[me].mascot; battle.P[0].royal = P[me].royal;
+          battle.P[1].mascot = P[1 - me].mascot; battle.P[1].royal = P[1 - me].royal;
+          offNet.push(coop.net.on('bs', (m) => battle.apply(m.s, performance.now())));
         }
+        offNet.push(coop.net.on('sig', (m) => recvPing(m.k)));
       } else battle = new Battle({ seed: rng.int(1e9), royal: run.royal, mascot: mascotId, badLuck: data.badLuck, carry: run.carry, node: cfg, mods, mascotLv: mascotLevel(mascotId) });
     } else if (params.tutorial) {
       battle = new Battle({ royal: 'edric', mascot: 'puru', badLuck: 0, node: { L: 1, kind: 'battle', waves: [[['skel', 10]], [['skel', 8], ['rat', 8]], [['bat', 4], ['skel', 10]]] } });
@@ -629,15 +758,9 @@ export function battleScene(app, params) {
       battle.gold = 80;
       tut = { step: 0 };
     } else battle = new Battle({ royal: params.royal, mascot: mascotId, badLuck: data.badLuck, mascotLv: mascotLevel(mascotId) });
-    rend = new Renderer(app.gameCv, st);
+    rend = new Renderer(app.gameCv, st, L);
     if (coop) {
-      pcv = h('canvas.partner-cv');
-      const pst = { ...st, dmgNums: false, shake: false, low: true };
-      prend = new Renderer(pcv, pst);
-      const pr = run.players[1 - me];
-      const royal = ROYALS.find((r) => r.id === pr.royal);
-      plabel = h('div.partner-lbl', h('img', { src: spriteURL(SPR.royals[pr.royal], 1), alt: '' }), h('b', { style: { color: royal.color } }, royal.name), h('span.pl-stat'));
-      document.getElementById('stage').append(pcv, plabel);
+      if (!coop.host) rend.setMirror(true);
       document.body.classList.add('coopb');
     }
     resize();
@@ -650,7 +773,7 @@ export function battleScene(app, params) {
     app.gameCv.addEventListener('pointerup', onUp);
     app.gameCv.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey);
-    const royal = run ? run.royal : params.royal || 'edric';
+    const royal = run ? (run.players ? run.players[me].royal : run.royal) : params.royal || 'edric';
     toast(royal === 'kyle' ? '카일: "일단 금고부터 확인하자."' : royal === 'seren' ? '세렌: "금서 3권 챙겼어. 아니, 행운석 3개."' : '에드릭: "정의는 승리한다. 아마도."');
   }
   function exit() {
@@ -662,7 +785,8 @@ export function battleScene(app, params) {
     app.gameCv.style.display = 'none';
     app.pauseHook = null;
     offNet.forEach((f) => f());
-    if (pcv) { pcv.remove(); plabel.remove(); document.body.classList.remove('coopb'); }
+    document.body.classList.remove('coopb');
+    clearTimeout(faceTO); clearTimeout(bubTO);
     if (el) el.remove();
     if (pauseEl) pauseEl.remove();
     app.ui.querySelectorAll('.result, .sheet').forEach((x) => x.remove());
@@ -670,69 +794,47 @@ export function battleScene(app, params) {
   const LAND_VIEW = { x: 0, y: 80, w: W, h: 228 };
   function resize() {
     const dpr = window.devicePixelRatio || 1;
-    const zoom = app.land ? (coop ? 522 : 630) / LAND_VIEW.w : 1;
+    const view = app.land ? (coop ? COOP.landView : LAND_VIEW) : null;
+    const zoom = app.land ? (coop ? 488 : 630) / view.w : 1;
     let s = Math.ceil(app.scale * zoom * dpr);
     s = Math.max(1, Math.min(st.low ? 3 : 6, s));
-    rend.resize(s, app.land ? LAND_VIEW : null);
-    if (prend) prend.resize(Math.max(1, Math.min(3, Math.ceil(app.scale * (app.land ? 0.62 : 0.5) * dpr))), LAND_VIEW);
+    rend.resize(s, view);
   }
 
-  // ── 협동 프레임 ──
+  // ── 협동 프레임: 방장이 필드 하나를 돌리고 참가자에게 보낸다 ──
   function coopFrame(dt) {
     const now = performance.now();
     if (coop.host) {
       if (!coopDone) {
         simT += dt * speed;
         let n = 0;
-        while (simT >= TICK && n < 10) {
-          const w0 = battle.wall, w1 = partner.wall;
-          if (!battle.result) battle.tick(TICK);
-          if (!partner.result) partner.tick(TICK);
-          // 성벽 공유: 두 보드가 받은 피해를 합친다
-          const shared = Math.min(battle.wallMax, w0 - (w0 - battle.wall) - (w1 - partner.wall));
-          battle.wall = partner.wall = shared;
-          simT -= TICK; n++;
-        }
+        while (simT >= TICK && n < 10) { battle.tick(TICK); simT -= TICK; n++; }
         if (n === 10) simT = 0;
-        if (coop.partnerAI) { aiT += dt; if (aiT > 0.5) { aiT = 0; botTick(partner, battle.time); } }
+        if (coop.partnerAI) { aiT += dt; if (aiT > 0.5) { aiT = 0; battle.cur = 1; botTick(battle, battle.time); battle.cur = 0; } }
         // 마스코트 합동: 3초 안에 둘 다 스킬을 쓰면 우정의 응원
-        for (const [b, i] of [[battle, 0], [partner, 1]]) for (const e of b.events) if (e.type === 'skill') skillAt[i] = battle.time;
+        for (const e of battle.events) if (e.type === 'skill') skillAt[e.o] = battle.time;
         if (skillAt[0] > 0 && skillAt[1] > 0 && Math.abs(skillAt[0] - skillAt[1]) < 3) {
           skillAt = [-99, -99];
-          battle.cheerT = Math.max(battle.cheerT, 5); partner.cheerT = Math.max(partner.cheerT, 5);
-          battle.emit('combo', {}); partner.emit('combo', {});
+          for (const P of battle.P) P.cheerT = Math.max(P.cheerT, 5);
+          battle.emit('combo', {});
         }
-        evq[0].push(...battle.events); evq[1].push(...partner.events);
-        const lost = battle.wall <= 0 || battle.result === 'defeat' || partner.result === 'defeat';
-        const won = battle.result === 'victory' && partner.result === 'victory';
-        if (lost || won) {
+        for (const e of battle.events) evq.push(e);
+        if (battle.result) {
           coopDone = true;
-          if (lost) { battle.result = 'defeat'; partner.result = 'defeat'; }
-          setTimeout(() => finishRun(won), 1600);
+          setTimeout(() => finishRun(battle.result === 'victory'), 2200);
         }
       }
       syncT += dt;
       if (syncT >= 0.08) {
         syncT = 0;
-        const B = [
-          packBoard({ ...battle, events: evq[0], summonCost: () => battle.summonCost(), unitDmg: (u) => battle.unitDmg(u), upgradeCost: (g) => battle.upgradeCost(g), hasEmpty: () => battle.hasEmpty() }, true),
-          packBoard({ ...partner, events: evq[1], summonCost: () => partner.summonCost(), unitDmg: (u) => partner.unitDmg(u), upgradeCost: (g) => partner.upgradeCost(g), hasEmpty: () => partner.hasEmpty() }, false),
-        ];
-        coop.net.send({ t: 'bs', B, w: battle.wall, wm: battle.wallMax });
-        evq = [[], []];
+        coop.net.send({ t: 'bs', s: packField(battle, evq) });
+        evq = [];
       }
-    } else {
-      battle.interp(now);
-      partner.interp(now);
-    }
-    // 내 보드 이벤트 · 상대 보드 이벤트
+    } else battle.interp(now);
     const evs = battle.events;
     for (let i = 0; i < evs.length; i++) onEvent(evs[i]);
     evs.length = 0;
-    for (const e of partner.events) if (e.type !== 'dmg') prend.handle(e, partner);
-    partner.events.length = 0;
     rend.draw(battle, dt);
-    prend.draw(partner, dt);
   }
 
   function frame(dt) {
@@ -756,10 +858,6 @@ export function battleScene(app, params) {
     if (hudT <= 0) {
       hudT = 0.1;
       updateHud();
-      if (plabel) {
-        const b = partner;
-        plabel.querySelector('.pl-stat').textContent = `${coop && coop.partnerAI ? 'AI · ' : ''}금화 ${b.gold} · 행운석 ${b.stones}${b.result === 'victory' ? ' · 정리 완료' : ''}`;
-      }
     }
     if (battle.overflow && !paused) {
       alarmT -= dt;
@@ -780,5 +878,5 @@ export function battleScene(app, params) {
     if (endT > 0) { endT -= dt; if (endT <= 0) { endT = -1; finish(false); } }
   }
 
-  return { enter, exit, frame, resize, get battle() { return battle; }, get partner() { return partner; }, select, get speed() { return speed; }, set speed(v) { speed = v; } };
+  return { enter, exit, frame, resize, get battle() { return battle; }, select, get speed() { return speed; }, set speed(v) { speed = v; } };
 }

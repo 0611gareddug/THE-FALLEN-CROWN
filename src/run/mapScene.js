@@ -44,7 +44,6 @@ export function mapScene(app, { run }) {
       const key = voteKey();
       coop.openVote(key, { options: available(run) });
       offs.push(coop.onLocal('vote', (m) => { if (m.key === key) markVotes(); }));
-      offs.push(coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(el, key, (id) => nodeLabel(id)); }));
       offs.push(coop.onLocal('run', (r) => { run = r; build(); markVotes(); }));
       coop.whenDecided(key, (id) => { audio.sfxPlay('click'); if (coop.host) enterNode(app, run, id); });
     }

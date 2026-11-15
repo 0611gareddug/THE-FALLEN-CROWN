@@ -135,7 +135,6 @@ export function eventScene(app, { run, eventId }) {
       const allowed = ev.choices.map((c, i) => i).filter((i) => list.includes(ev.choices[i]) && condOk(run, ev.choices[i].cond));
       coop.openVote(key, { options: allowed, owner, extra: (idx) => hostOutcome(ev.choices[idx]) });
       offs.push(coop.onLocal('vote', (m) => { if (m.key === key) markVotes(key); }));
-      offs.push(coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(el, key, (i) => (ev.choices[i] ? ev.choices[i].t.slice(0, 14) : '?')); }));
       coop.whenDecided(key, (idx, out) => { if (coop.host) coop.sendRun(); present(ev.choices[idx], out); });
       if (owner !== null && owner !== coop.me) {
         choicesEl.replaceChildren(h('div.note', `${run.players[owner].name}의 왕족 사건입니다. 선택을 기다리는 중…`), coop.voteBar(key, (i) => ev.choices[i].t));
@@ -213,12 +212,11 @@ export function eventScene(app, { run, eventId }) {
     choicesEl.append(h('div.note', { style: { margin: '6px 0' } }, `동료가 가득 찼습니다. ${COMPANIONS[newbie].name}을(를) 데려가려면 한 명과 헤어져야 합니다. (투표)`),
       ...opts.map((id) => h('button.ev-choice', { 'data-i': id, onclick: () => { audio.sfxPlay('click'); coop.vote(key, id); } }, h('span.t', id === 'none' ? `${COMPANIONS[newbie].name}은(는) 데려가지 않는다` : `${COMPANIONS[id].name}와 헤어진다`))),
       coop.voteBar(key, (id) => (id === 'none' ? '데려가지 않음' : COMPANIONS[id].name)));
-    offs.push(coop.onLocal('tie', (m) => { if (m.key === key) coop.tieOverlay(el, key, (id) => (id === 'none' ? '데려가지 않음' : COMPANIONS[id].name)); }));
     coop.whenDecided(key, () => { if (coop.host) coop.sendRun(); meta.needLeave = null; choicesEl.replaceChildren(); coopContinue(); });
   }
   function coopContinue() {
     const key = `${base}:done`;
-    coop.openVote(key, { options: [true], timeout: 30 });
+    coop.openVote(key, { options: [true], timeout: 60, first: true });
     const btn = h('button.ev-choice.go', { onclick: () => { btn.disabled = true; audio.sfxPlay('click'); coop.vote(key, true); } }, h('span.t', '계속'));
     choicesEl.append(btn, coop.voteBar(key, () => '계속'));
     coop.whenDecided(key, () => done());
