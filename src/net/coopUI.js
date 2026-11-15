@@ -9,6 +9,7 @@ import { mascotChip, openMascotPicker } from '../ui/mascotPick.js';
 import { MASCOT_DEFS } from '../data/mascots.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { newCoopRun, mascotLevel } from '../run/run.js';
+import { nickDialog, getNick } from './nick.js';
 
 export function coopLobbyScene(app) {
   let el, body, codeIn;
@@ -24,6 +25,7 @@ export function coopLobbyScene(app) {
         h('button.btn', { onclick: () => { audio.sfxPlay('click'); net.close(); app.go('lobby'); } }, '돌아가기')));
     app.ui.appendChild(el);
     menu();
+    if (!store().nickAsked) nickDialog(app.ui, { first: true, done: () => menu() });
   }
 
   function menu(err) {
@@ -33,6 +35,7 @@ export function coopLobbyScene(app) {
     body.replaceChildren(...[
       h('div.note', '친구 1~3명과 한 필드에서 함께 마왕성까지! (2~4인) 금화는 각자, 성벽은 함께 씁니다. 지도 · 사건 · 결말은 다수결로 정하고, 표가 같으면 무작위로 정합니다.'),
       err ? h('div.coop-err', err) : null,
+      h('div.nick-line', h('span', '내 닉네임'), h('b', getNick() || '없음'), h('button.btn.sm', { onclick: () => { audio.sfxPlay('click'); nickDialog(app.ui, { first: !getNick(), done: () => menu() }); } }, getNick() ? '바꾸기' : '정하기')),
       h('button.btn.primary.wide', { onclick: create }, '방 만들기'),
       h('div.or', '또는'),
       h('div.join-row', codeIn, h('button.btn', { onclick: join }, '참가')),
@@ -81,8 +84,9 @@ export function coopSelectScene(app) {
   if (!mine() || !mine().royal) {
     const free = ROYALS.filter((r) => !takenBy(r.id));
     const pref = ['edric', 'seren', 'kyle', 'nix'][coop.me] || 'edric';
-    coop.picks[coop.me] = { royal: (free.find((r) => r.id === pref) || free[0] || ROYALS[0]).id, mascot: owned.includes(app.lastMascot) ? app.lastMascot : 'puru', ready: false, lv: 1 };
+    coop.picks[coop.me] = { royal: (free.find((r) => r.id === pref) || free[0] || ROYALS[0]).id, mascot: owned.includes(app.lastMascot) ? app.lastMascot : 'puru', ready: false, lv: 1, nick: getNick() };
   }
+  mine().nick = getNick();
   const send = () => {
     const p = mine();
     p.lv = mascotLevel(p.mascot);
@@ -130,7 +134,8 @@ export function coopSelectScene(app) {
       const r = p && ROYALS.find((x) => x.id === p.royal);
       return h('div.seat' + (on ? '' : '.empty') + (i === coop.me ? '.me' : '') + (p && p.ready ? '.ready' : ''),
         on && r ? h('img', { src: spriteURL(SPR.royals[r.id], 2), alt: '' }) : h('span.q', on ? '…' : '+'),
-        h('b', on ? (i === coop.me ? '나' : i === 0 ? '방장' : `동료 ${i}`) : '빈 자리'),
+        h('b', on ? (p && p.nick ? p.nick : i === coop.me ? '나' : i === 0 ? '방장' : `동료 ${i}`) : '빈 자리'),
+        on && i === coop.me && p && p.nick ? h('i.seat-me', '나') : null,
         h('small', on ? (p && p.ready ? '준비됨 ✓' : '고르는 중') : '초대 대기'));
     }));
     const codeBox = coop.host ? h('div.room-mini', h('span', '방 코드'), h('b', coop.net.code), h('button.btn.sm', {

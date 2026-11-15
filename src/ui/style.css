@@ -967,3 +967,142 @@ body:not(.land) .coop-select .royal .rname { font-size: 13.5px; }
 body:not(.land) .coop-select .royal .perk { font-size: 10px; line-height: 1.35; }
 body:not(.land) .coop-select .royal .tag { position: absolute; right: 8px; top: 6px; margin: 0; }
 body:not(.land) .room-mini { top: 2px; right: 8px; }
+
+/* ══════════════ 이야기 가독성 (v1.4): 이름표 + 양피지 카드 + 큰 글자 ══════════════ */
+.ev-box { padding: 14px 14px 18px; background: linear-gradient(180deg, #151826, #0f111a); }
+.ev-name {
+  display: inline-block; margin-left: 116px; min-height: 0; padding: 4px 14px 3px; border-radius: 10px 10px 0 0;
+  background: var(--tagc, #e9d9a8); color: #1d1722; font-size: 14.5px; font-weight: 700; letter-spacing: .06em;
+  position: relative; z-index: 1; box-shadow: 0 -1px 0 rgba(255,255,255,.4) inset;
+}
+.ev-name.none { visibility: hidden; }
+.ev-card {
+  position: relative; padding: 14px 16px 16px; border-radius: 4px 12px 12px 12px; min-height: 92px;
+  background: #fbf6ea; border: 2px solid var(--tagc-b, #e6d6ab); box-shadow: 0 3px 0 #b9a77a, 0 8px 18px rgba(0,0,0,.45);
+}
+.ev-card.narr { background: #ece4d3; border-color: #cfc2a2; border-radius: 12px; }
+.ev-card .ev-text, .ev-card .ev-text.narr {
+  margin: 0; min-height: 0; font-size: 16.5px; line-height: 1.75; color: #2a2128; font-style: normal; font-weight: 500;
+  white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere;
+}
+.ev-card.narr .ev-text { color: #4a3f36; }
+.ev-card .ev-more { color: #b0812a; font-size: 12px; margin-left: 4px; }
+.ev-hint { margin: 8px 2px 0; text-align: right; font-size: 11px; color: #9a927e; }
+.ev-choices { margin-top: 14px; gap: 8px; }
+.ev-choice { font-size: 15px; padding: 11px 12px 11px 30px; line-height: 1.45; background: rgba(255,255,255,.05); border-color: rgba(233,217,168,.35); }
+.ev-choice small { font-size: 12px; color: #c4bba6; }
+.ev-choice::before { top: 17px; }
+.ev-text { font-size: 15px; line-height: 1.75; }
+.ev-text.narr { font-style: normal; color: #ddd5c3; }
+.ev-por { z-index: 3; }
+.land .ev-name { margin-left: 0; font-size: 15px; }
+.land .ev-card .ev-text { font-size: 18px; }
+.land .ev-box { background: rgba(15, 17, 26, .95); max-height: 360px; }
+.fate .ev-name { margin-left: 124px; }
+.in-flash .ev-card { background: #e2dccf; filter: grayscale(.6); }
+/* 결말 */
+.end-box { width: 100%; max-width: 520px; text-align: left; }
+.ending .ev-name { margin-left: 8px; }
+.ending .ev-card { min-height: 110px; }
+
+/* ══════════════ 협동 채팅 (v1.4) ══════════════ */
+.chat-btn {
+  position: absolute; right: 10px; bottom: 24px; z-index: 86; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; color: #1d1722; background: #f3e3b3; border: 2px solid #fff6d8;
+  box-shadow: 0 3px 0 #a88b4a, 0 6px 14px rgba(0,0,0,.45); transition: transform .15s;
+}
+.chat-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #a88b4a, 0 3px 8px rgba(0,0,0,.45); }
+.chat-btn.on { background: #ffd36b; }
+.chat-btn.ping { animation: chatPing .5s ease; }
+@keyframes chatPing { 0% { transform: scale(1); } 35% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.chat-btn.select { bottom: 78px; }
+.chat-btn.battle { width: 32px; height: 32px; right: 8px; bottom: auto; top: 470px; }
+.chat-btn.battle svg { width: 17px; height: 17px; }
+.chat-badge {
+  position: absolute; right: -5px; top: -5px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px;
+  background: #e5484d; color: #fff; font: 700 11px/18px var(--pixel, monospace); text-align: center; border: 2px solid #fff6d8;
+}
+.chat-panel {
+  position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 92; max-height: 72%; display: flex; flex-direction: column;
+  background: rgba(16, 18, 28, .97); border: 1px solid rgba(233,217,168,.45); border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.6); transform: translateY(calc(100% + 20px)); opacity: 0; pointer-events: none;
+  transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s; contain: layout paint;
+}
+.chat-panel.on { transform: none; opacity: 1; pointer-events: auto; }
+.chat-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px 14px; border-bottom: 1px solid rgba(233,217,168,.18); }
+.chat-head b { font-size: 14px; color: #ffe6a3; letter-spacing: .08em; }
+.chat-head .chat-who { flex: 1; }
+.chat-gear { font-size: 11.5px; color: #e9d9a8; padding: 4px 10px; border: 1px solid rgba(233,217,168,.4); border-radius: 12px; }
+.chat-x { width: 28px; height: 28px; font-size: 14px; color: #e9d9a8; }
+.chat-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.chat-log { height: 210px; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 7px; overscroll-behavior: contain; scrollbar-width: thin; }
+.chat-row { display: flex; gap: 7px; align-items: flex-start; }
+.chat-face { width: 28px; height: 28px; flex: 0 0 28px; image-rendering: pixelated; border-radius: 6px; background: #22263a; border: 1px solid rgba(255,255,255,.15); }
+.chat-msg { min-width: 0; background: #23283d; border-radius: 4px 10px 10px 10px; padding: 5px 9px 6px; }
+.chat-msg b { display: block; font-size: 11px; font-weight: 700; margin-bottom: 1px; }
+.chat-msg span { font-size: 14px; line-height: 1.45; color: #f4efe2; word-break: keep-all; overflow-wrap: anywhere; }
+.chat-row.me { flex-direction: row-reverse; }
+.chat-row.me .chat-msg { background: #3a3220; border-radius: 10px 4px 10px 10px; text-align: right; }
+.chat-row.sys { justify-content: center; font-size: 11.5px; color: #a7a293; text-align: center; padding: 2px 0; }
+.chat-quick { display: flex; gap: 6px; overflow-x: auto; padding: 6px 10px; scrollbar-width: none; border-top: 1px solid rgba(233,217,168,.12); }
+.chat-quick::-webkit-scrollbar { display: none; }
+.chat-q { flex: 0 0 auto; padding: 6px 11px; font-size: 13px; color: #1d1722; background: #f3e3b3; border-radius: 14px; white-space: nowrap; }
+.chat-q:active { background: #ffd36b; }
+.chat-form { display: flex; align-items: center; gap: 6px; padding: 6px 10px 10px; }
+.chat-in {
+  flex: 1; min-width: 0; height: 36px; padding: 0 10px; font-size: 16px; color: #f4efe2; background: #0b0d14;
+  border: 1px solid rgba(233,217,168,.35); border-radius: 8px; outline: none;
+}
+.chat-in:focus { border-color: #ffd36b; }
+.chat-count { font: 10px var(--pixel, monospace); color: #8f8a7c; min-width: 34px; text-align: right; }
+.chat-count.full { color: #ff8a80; }
+.chat-send { height: 36px; padding: 0 12px; font-size: 13px; font-weight: 700; color: #1d1722; background: #ffd36b; border-radius: 8px; }
+.chat-send:disabled { opacity: .45; }
+.chat-note { display: none; margin: -4px 10px 8px; font-size: 11.5px; color: #ffb4a8; }
+.chat-note.on { display: block; }
+.chat-set { display: none; padding: 10px 12px 12px; overflow-y: auto; }
+.chat-set.on { display: block; }
+.chat-srow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(233,217,168,.12); }
+.chat-srow span { display: block; font-size: 13px; color: #f4efe2; }
+.chat-srow small { font-size: 11px; color: #a7a293; }
+.chat-sub { margin: 12px 0 6px; font-size: 12px; color: #e9d9a8; }
+.chat-qgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.chat-qin { height: 32px; padding: 0 8px; font-size: 14px; color: #f4efe2; background: #0b0d14; border: 1px solid rgba(233,217,168,.3); border-radius: 6px; min-width: 0; }
+.chat-reset { margin-top: 10px; width: 100%; height: 32px; font-size: 12px; }
+.chat-pops { position: absolute; left: 10px; right: 60px; top: 10px; z-index: 88; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+.chat-pop {
+  display: none; align-items: center; gap: 7px; max-width: 100%; align-self: flex-start; padding: 5px 10px 5px 5px; pointer-events: auto; cursor: pointer;
+  background: rgba(251, 246, 234, .97); border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.45); color: #2a2128;
+}
+.chat-pop.show { display: flex; animation: chatPop 4s ease forwards; }
+@keyframes chatPop { 0% { opacity: 0; transform: translateY(-6px); } 6%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.chat-pop img { width: 26px; height: 26px; image-rendering: pixelated; border-radius: 5px; }
+.chat-pop b { font-size: 11px; margin-right: 5px; }
+.chat-pop span { font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.cbub.chat { white-space: normal; width: max-content; max-width: 200px; font-size: 12.5px; line-height: 1.4; background: #fbf6ea; color: #2a2128; border-color: #e6d6ab; }
+.cbub.chat::before { background: #fbf6ea; border-color: #e6d6ab; }
+.land .chat-btn { right: 14px; bottom: 26px; }
+.land .chat-btn.battle { top: auto; bottom: 14px; right: auto; left: 14px; }
+.land .chat-panel { left: auto; right: 12px; bottom: 12px; width: 380px; max-height: 86%; }
+.land .chat-log { height: 260px; }
+.chat-btn.out { position: fixed; top: auto; left: auto; width: 44px; height: 44px; z-index: 50; }
+.chat-btn.out svg { width: 21px; height: 21px; }
+/* 협동 닉네임 */
+.nick-sheet { z-index: 96; }
+.nick-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.nick-in { flex: 1; min-width: 0; height: 40px; padding: 0 12px; font-size: 16px; color: #f4efe2; background: #0b0d14; border: 1px solid rgba(233,217,168,.45); border-radius: 8px; outline: none; }
+.nick-in:focus { border-color: #ffd36b; }
+.nick-in.shake { animation: shake .3s; border-color: #ff8a80; }
+.nick-cnt { font: 10px var(--pixel, monospace); color: #8f8a7c; min-width: 36px; text-align: right; }
+.nick-prev { margin-top: 8px; font-size: 12px; color: #a7a293; }
+.nick-prev b { color: #ffd36b; }
+.nick-btns { display: flex; gap: 8px; margin-top: 14px; }
+.nick-btns .btn { flex: 1; }
+.nick-line { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 12px; color: #a7a293; }
+.nick-line b { flex: 1; min-width: 0; color: #ffd36b; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat { position: relative; }
+.seat .seat-me { position: absolute; left: 4px; top: 3px; font-style: normal; font-size: 9px; padding: 0 4px; color: #1d1722; background: #ffd36b; border-radius: 3px; }
+.cpor .cinfo { min-width: 0; }
+.cpor .cinfo b { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nick-warn { margin-top: 6px; font-size: 12px; color: #ff9a8a; min-height: 0; }

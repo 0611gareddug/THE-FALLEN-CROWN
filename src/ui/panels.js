@@ -1,4 +1,5 @@
 // 공용 패널: 설정 · 연대기 · 안내
+import { nickDialog, getNick } from '../net/nick.js';
 import { h } from './dom.js';
 import { store, save, reset } from '../core/storage.js';
 import { audio } from '../core/audio.js';
@@ -58,6 +59,12 @@ export function settingsPanel(root, app) {
     toggleRow('화면 흔들림', 'shake'),
     toggleRow('데미지 숫자', 'dmgNums'),
     toggleRow('저사양 모드', 'low', () => app.applyQuality()),
+    h('div.row', h('span', '협동 닉네임'), h('button.btn', {
+      style: { height: '28px', fontSize: '10px', padding: '0 10px' },
+      onclick: (e) => { const b = e.currentTarget; audio.sfxPlay('click'); nickDialog(root, { first: !getNick(), done: (v) => { b.textContent = v || '정하기'; } }); },
+    }, getNick() || '정하기')),
+    toggleRow('협동 채팅 알림음', 'chatSound'),
+    toggleRow('남의 협동 채팅 끄기', 'chatMute'),
     h('div.row', h('span', '저장 데이터'),
       h('button.btn.danger', {
         style: { height: '28px', fontSize: '10px', padding: '0 10px' },

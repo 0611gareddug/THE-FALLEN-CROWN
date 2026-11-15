@@ -10,6 +10,7 @@ import { finishNode } from '../run/flow.js';
 import { addRelic, addUnit, randomRelic, applyFxAll } from '../run/events.js';
 import { frame, resBar, relicCard, makeShopStock, endingScene } from '../run/nodeScenes.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
+import { VOTE_SEC } from './coop.js';
 import { portraitURL } from '../run/mapScene.js';
 import { battleCard } from '../run/battleStats.js';
 
@@ -18,7 +19,7 @@ const keyOf = (run, tag) => `${tag}:${run.act}:${run.pos || 's'}:${run.stats.bat
 // 선택 블록: 버튼들 + 상대 선택 표시. 모두 10초 투표 (갈리면 무작위, 한 명만 골랐으면 그 선택).
 function voteBlock(coop, root, host, key, items, opts = {}) {
   const label = (v) => { const it = items.find((x) => x.v === v); return it ? it.t : '?'; };
-  coop.openVote(key, { options: items.filter((x) => !x.disabled).map((x) => x.v), extra: opts.extra, timeout: opts.timeout || 10, afterFirst: opts.afterFirst });
+  coop.openVote(key, { options: items.filter((x) => !x.disabled).map((x) => x.v), extra: opts.extra, timeout: opts.timeout || VOTE_SEC, afterFirst: opts.afterFirst });
   const btns = items.map((it) => h('button.ev-choice', {
     'data-v': String(it.v), disabled: !!it.disabled,
     onclick: () => { audio.sfxPlay('click'); coop.vote(key, it.v); mark(); },
@@ -44,7 +45,7 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
 // 계속: 모두 누르면 넘어간다 (10초가 지나면 자동). 상점은 모두 누르거나 누군가 누르고 5초 뒤.
 function continueBlock(coop, root, host, run, tag, after) {
   const shop = tag === 'shop';
-  voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: shop ? '상점 떠나기' : '계속' }], shop ? { timeout: 90, afterFirst: 5, done: after } : { timeout: 10, done: after });
+  voteBlock(coop, root, host, keyOf(run, tag), [{ v: true, t: shop ? '상점 떠나기' : '계속' }], shop ? { timeout: 90, afterFirst: 5, done: after } : { timeout: VOTE_SEC, done: after });
 }
 
 // ───────── 상점: 공용 진열대, 각자 자기 금화로 ─────────

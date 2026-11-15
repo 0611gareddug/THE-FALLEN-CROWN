@@ -119,5 +119,5 @@ export function makeBattle(rng, act, row, kind, boss) {
   }
   if (kind === 'elite') waves[nWaves - 1].push([rng.pick(ELITES[act - 1]), 1]);
   if (kind === 'boss') waves[nWaves - 1].push([boss, 1]);
-  return { L: L0, waves, kind, boss: kind === 'boss' ? boss : null };
+  return { L: L0, act, waves, kind, boss: kind === 'boss' ? boss : null };
 }

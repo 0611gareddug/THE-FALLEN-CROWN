@@ -6,8 +6,11 @@ import { relinkRun } from '../run/run.js';
 import { RNG } from '../core/rng.js';
 import { ROYALS } from '../data/text.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
+import { Chat } from './chat.js';
+import { cleanNick } from './nick.js';
 
 export const PROTO = 2;
+export const VOTE_SEC = 20; // 협동 투표 제한 시간(초)
 const SYNC_SCENES = new Set(['map', 'event', 'shop', 'camp', 'treasure', 'altar', 'minigame', 'reward', 'actIntro', 'ending', 'battle', 'coopSelect']);
 // 참가자가 보낸 메시지 중 다른 참가자도 봐야 하는 것 (방장이 대신 전달)
 const RELAY = new Set(['vote', 'pick', 'sig', 'mgs', 'gsend']);
@@ -38,7 +41,7 @@ export class Coop {
     this.hook('vote', (m) => this.onVote(m));
     this.hook('decided', (m) => this.onDecided(m));
     this.hook('vtime', (m) => this.onVTime(m));
-    this.hook('pick', (m) => { this.picks[m.who !== undefined ? m.who : m.from] = m.p; this.emitLocal('picks'); });
+    this.hook('pick', (m) => { if (m.p && m.p.nick) m.p.nick = cleanNick(m.p.nick); this.picks[m.who !== undefined ? m.who : m.from] = m.p; this.emitLocal('picks'); });
     this.hook('seats', (m) => { if (!this.host) { this.seats = m.seats; this.picks = m.picks || this.picks; this.emitLocal('picks'); } });
     this.hook('_status', (m) => this.onStatus(m));
     this.hook('reseat', (m) => { this.me = m.slot; this.net.slot = m.slot; });
@@ -49,6 +52,7 @@ export class Coop {
     document.getElementById('stage').appendChild(this.chip);
     this.chipTimer = setInterval(() => this.updateChip(), 1000);
     this.updateChip();
+    this.chat = new Chat(this);
   }
 
   hook(t, fn) { this.handlers.push(this.net.on(t, fn)); }
@@ -64,11 +68,13 @@ export class Coop {
   get partner() { return this.others[0]; }
   get partnerAI() { return this.ai.size > 0; }
   get partnerName() { return this.n > 2 ? '동료들' : this.nameOf(this.partner); }
+  // '레오(닉네임)' — 닉네임이 없으면 영웅 이름만
   nameOf(i) {
     const p = this.run && this.run.players ? this.run.players[i] : this.picks[i];
     const r = p && ROYALS.find((x) => x.id === p.royal);
-    if (r) return r.name;
-    return i === 0 ? '방장' : `동료 ${i}`;
+    const nk = p && p.nick ? cleanNick(p.nick) : '';
+    if (r) return nk ? `${r.name}(${nk})` : r.name;
+    return nk || (i === 0 ? '방장' : `동료 ${i}`);
   }
   colorOf(i) {
     const p = this.run && this.run.players ? this.run.players[i] : this.picks[i];
@@ -94,8 +100,10 @@ export class Coop {
       this.lastGo = { name, p };
       this.net.send({ t: 'go', name, p });
       this.origGo(name, params);
+      this.chat.place(name);
     } else if (this.allowLocalGo) {
       this.origGo(name, params);
+      this.chat.place(name);
     }
   }
   onGo(m) {
@@ -105,6 +113,7 @@ export class Coop {
     if (this.run) params.run = this.run;
     this.origGo(m.name, params);
     this.allowLocalGo = false;
+    this.chat.place(m.name);
   }
   sendRun() {
     if (!this.host || !this.run) return;
@@ -129,7 +138,7 @@ export class Coop {
   // owner: 그 자리의 플레이어만 결정 (나머지는 의견)
   openVote(key, opt = {}) {
     if (this.open[key]) return;
-    this.open[key] = { ...opt, start: performance.now(), timeout: (opt.timeout || 10) * 1000 };
+    this.open[key] = { ...opt, start: performance.now(), timeout: (opt.timeout || VOTE_SEC) * 1000 };
     this.votes[key] = this.votes[key] || [];
     if (this.host) {
       clearTimeout(this.open[key].timer);
@@ -266,7 +275,7 @@ export class Coop {
         const ready = done.length + (mine !== undefined ? 1 : 0);
         t = o.afterFirst
           ? (mine === undefined ? `준비 ${ready}/${this.n}` : `준비 ${ready}/${this.n} · 곧 출발`)
-          : `준비 ${ready}/${this.n} · 모두 누르면 넘어갑니다 (10초 뒤 자동)`;
+          : `준비 ${ready}/${this.n} · 모두 누르면 넘어갑니다 (${VOTE_SEC}초 뒤 자동)`;
       } else if (others.length === 1) {
         const other = v[others[0]];
         const pName = nm(others[0]);
@@ -294,12 +303,13 @@ export class Coop {
       else if (m.s === 'connected' && m.msg === 'reconnected') {
         this.ai.delete(slot);
         this.toastAll(`${this.nameOf(slot)}이(가) 돌아왔습니다!`);
+        this.chat.sys(`${this.nameOf(slot)}이(가) 돌아왔습니다.`);
         this.sendRun();
         if (this.lastGo) this.net.sendTo(slot, { t: 'go', name: this.lastGo.name, p: this.lastGo.p });
         this.emitLocal('seats');
       } else if (m.s === 'connected') {
         // 로비: 새 참가자
-        if (!this.seats.includes(slot)) this.seats = [...this.seats, slot].sort();
+        if (!this.seats.includes(slot)) { this.seats = [...this.seats, slot].sort(); this.chat.sys(`동료 ${slot}이(가) 방에 들어왔습니다.`); }
         this.broadcastSeats();
         this.emitLocal('picks');
       }
@@ -318,6 +328,7 @@ export class Coop {
     if (!this.host) { this.showOverlay('방장이 방을 닫았습니다.'); setTimeout(() => { this.hideOverlay(); this.leave(false); this.origGo('lobby'); }, 2000); return; }
     if (!this.run) {
       // 로비에서 나감: 자리 비우기
+      this.chat.sys(`${this.nameOf(slot)}이(가) 방을 나갔습니다.`);
       this.seats = this.seats.filter((x) => x !== slot);
       delete this.picks[slot];
       this.broadcastSeats();
@@ -327,6 +338,7 @@ export class Coop {
     }
     if (slot >= this.n) return;
     this.ai.add(slot);
+    this.chat.sys(clean ? `${this.nameOf(slot)}이(가) 떠났습니다. AI가 대신 맡습니다.` : `${this.nameOf(slot)}와(과) 연결이 끊겼습니다. AI가 대신 맡습니다.`);
     this.toastAll(clean ? `${this.nameOf(slot)}이(가) 떠났습니다. AI가 보드를 맡습니다.` : `${this.nameOf(slot)}와(과) 연결이 끊겼습니다. 돌아올 때까지 AI가 대신합니다.`);
     // 기다리던 투표는 남은 사람 기준으로
     for (const key of Object.keys(this.open)) this.tryResolve(key);
@@ -377,6 +389,7 @@ export class Coop {
     clearInterval(this.chipTimer);
     this.handlers.forEach((off) => off());
     this.chip.remove();
+    this.chat.destroy();
     this.hideOverlay();
     this.app.go = this.origGo;
     this.app.coop = null;

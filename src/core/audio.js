@@ -231,6 +231,7 @@ class Audio {
       case 'timestop': this.tone(t, 1760, 0.6, 'sine', 0.08, d, { slide: 220, echo: true }); break;
       case 'sell': this.tone(t, 988, 0.08, 'square', 0.05, d); this.tone(t + 0.08, 784, 0.12, 'square', 0.05, d); break;
       case 'deny': this.tone(t, 150, 0.12, 'square', 0.06, d); break;
+      case 'chat': this.tone(t, 1319, 0.09, 'sine', 0.05, d); this.tone(t + 0.07, 1760, 0.12, 'sine', 0.045, d); break;
       case 'victory': {
         const m = [67, 72, 76, 79, 84];
         m.forEach((n, i) => this.tone(t + i * 0.12, mtof(n), 0.4, 'pulse', 0.09, d, { echo: true }));

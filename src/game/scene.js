@@ -155,15 +155,15 @@ export function battleScene(app, params) {
     const pEls = partners.map((hi) => {
       const pr = run.players[hi];
       const f = hud.pf[hi] = { img: h('img', { src: portraitURL(pr.royal, 'neutral', 2), alt: '' }), bub: h('div.cbub'), gold: h('span', '0'), stone: h('span', '0'), tag: h('small.ctag') };
-      return h('button.cpor.pt' + (many ? '.mini' : ''), { onclick: () => { giftTo = hi; togglePop('partner'); }, 'aria-label': `${ry(pr.royal).name}에게 금화 · 신호 보내기`, title: `${ry(pr.royal).name} 메뉴 (G)` },
+      return h('button.cpor.pt' + (many ? '.mini' : ''), { onclick: () => { giftTo = hi; togglePop('partner'); }, 'aria-label': `${coop.nameOf(hi)}에게 금화 · 신호 보내기`, title: `${coop.nameOf(hi)} 메뉴 (G)` },
         h('div.cface', f.img, h('i.cdot')),
-        h('div.cinfo', h('b', { style: { color: ry(pr.royal).color } }, ry(pr.royal).name), h('span.cr', h('i.ic.gold'), f.gold, many ? null : h('i.ic.stone'), many ? null : f.stone), f.tag),
+        h('div.cinfo', h('b', { style: { color: ry(pr.royal).color } }, coop.nameOf(hi)), h('span.cr', h('i.ic.gold'), f.gold, many ? null : h('i.ic.stone'), many ? null : f.stone), f.tag),
         f.bub);
     });
     // 2인 호환: 예전 이름
     if (!many) { const f = hud.pf[partners[0]]; hud.pImg = f.img; hud.pBub = f.bub; hud.pGold = f.gold; hud.pStone = f.stone; hud.pTag = f.tag; }
     const meEl = h('div.cpor.me',
-      h('div.cinfo', h('b', { style: { color: ry(my.royal).color } }, '나 · ' + ry(my.royal).name), h('span.cr', h('i.ic.gold'), hud.gold, h('i.ic.stone'), hud.stone)),
+      h('div.cinfo', h('b', { style: { color: ry(my.royal).color } }, (run.players[coop.me].nick ? '' : '나 · ') + coop.nameOf(coop.me)), h('span.cr', h('i.ic.gold'), hud.gold, h('i.ic.stone'), hud.stone)),
       h('div.cface', h('img', { src: portraitURL(my.royal, 'neutral', 2), alt: '' })));
     const mid = h('div.cmid',
       h('div.top-row', hud.wave, hud.timer, h('button.pause', { 'aria-label': '메뉴', onclick: openPause }, svg(ICON.pause))),
@@ -178,13 +178,16 @@ export function battleScene(app, params) {
     clearTimeout(faceTO[hi]);
     faceTO[hi] = setTimeout(() => { pf.img.src = portraitURL(royal, 'neutral', 2); }, 2600);
   }
-  function bubble(text, hi = partners[0]) {
+  function bubble(text, hi = partners[0], ms = 2800, chat = false) {
     const pf = hud.pf && hud.pf[hi];
-    if (!pf) return;
+    if (!pf) return false;
     pf.bub.textContent = text;
+    pf.bub.classList.toggle('chat', chat);
+    pf.bub.style.animationDuration = ms + 'ms';
     pf.bub.classList.remove('show'); void pf.bub.offsetWidth; pf.bub.classList.add('show');
     clearTimeout(bubTO[hi]);
-    bubTO[hi] = setTimeout(() => pf.bub.classList.remove('show'), 2800);
+    bubTO[hi] = setTimeout(() => pf.bub.classList.remove('show'), ms);
+    return true;
   }
   const boardRing = (o, col) => rend.addFx({ k: 'ring', x: L.CX[o * 18 + 8], y: L.CY[o * 18 + 8], r0: 8, r1: 120, t: 0, d: 0.9, col });
   function sendPing(k) {
@@ -326,14 +329,14 @@ export function battleScene(app, params) {
         .concat([['절반', () => Math.floor(battle.gold / 2)], ['전부', () => battle.gold]].map(([t, f]) => h('button.qamt', { disabled: f() < 1, onclick: () => { amtText = amtIn.value = String(f()); label(); } }, t)));
       p.replaceChildren(x, h('h3', '동료에게'),
         partners.length > 1 ? h('div.gift-who', partners.map((hi) => h('button.gw' + (hi === giftTo ? '.on' : ''), { style: { '--rc': ry(hi).color }, onclick: () => { giftTo = hi; renderPop(); } },
-          h('img', { src: portraitURL(run.players[hi].royal, 'neutral', 2), alt: '' }), h('span', ry(hi).name)))) : null,
-        h('div.note', `${ry(giftTo).name} 금화 ${pb.gold} · 행운석 ${pb.stones}${coop.ai.has(giftTo) ? ' · 지금은 AI가 대신 조종 중' : ''}`),
+          h('img', { src: portraitURL(run.players[hi].royal, 'neutral', 2), alt: '' }), h('span', coop.nameOf(hi))))) : null,
+        h('div.note', `${coop.nameOf(giftTo)} 금화 ${pb.gold} · 행운석 ${pb.stones}${coop.ai.has(giftTo) ? ' · 지금은 AI가 대신 조종 중' : ''}`),
         h('div.gold-send', h('div.qrow', quick), h('div.qrow', amtIn, sendBtn)),
         h('div.pings', Object.entries(PINGS).map(([k, [t]]) => h('button.ping', { onclick: () => sendPing(k) }, t))),
         h('div.note', partners.length > 1 ? '내 유닛을 끌어 동료 보드의 빈 칸에 놓으면 선물할 수 있다. 신호는 모두에게 보인다.' : '내 유닛을 끌어 위쪽 동료 보드의 빈 칸에 놓으면 선물할 수 있다.'));
       label();
       const note = p.querySelector('.note');
-      pop.sync = () => { label(); if (note) note.textContent = `${ry(giftTo).name} 금화 ${battle.P[loc(giftTo)].gold} · 행운석 ${battle.P[loc(giftTo)].stones}${coop.ai.has(giftTo) ? ' · 지금은 AI가 대신 조종 중' : ''}`; };
+      pop.sync = () => { label(); if (note) note.textContent = `${coop.nameOf(giftTo)} 금화 ${battle.P[loc(giftTo)].gold} · 행운석 ${battle.P[loc(giftTo)].stones}${coop.ai.has(giftTo) ? ' · 지금은 AI가 대신 조종 중' : ''}`; };
       return;
     }
     if (pop.kind === 'syn') {
@@ -854,6 +857,8 @@ export function battleScene(app, params) {
           offNet.push(coop.net.on('bs', (m) => battle.apply(m.s, performance.now())));
         }
         offNet.push(coop.net.on('sig', (m) => recvPing(m.k, m.from)));
+        // 채팅: 보낸 사람 초상 옆 말풍선
+        if (coop.chat) { coop.chat.bubble = (from, text, ms) => bubble(text, from, ms, true); offNet.push(() => { if (coop.chat) coop.chat.bubble = null; }); }
       } else battle = new Battle({ seed: rng.int(1e9), royal: run.royal, mascot: mascotId, badLuck: data.badLuck, carry: run.carry, node: cfg, mods, mascotLv: mascotLevel(mascotId) });
     } else if (params.tutorial) {
       battle = new Battle({ royal: 'edric', mascot: 'puru', badLuck: 0, node: { L: 1, kind: 'battle', waves: [[['skel', 10]], [['skel', 8], ['rat', 8]], [['bat', 4], ['skel', 10]]] } });

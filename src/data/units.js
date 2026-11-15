@@ -110,15 +110,15 @@ export const UNITS = [
     desc: '광역 빛 공격. 주변 8칸 아군 피해 +18%. 웨이브마다 성벽 +2.', quip: '설교는 짧게. 축복은 길게.' },
 
   // ── 천상 (레시피 전용) ──
-  { id: 'swordking', tier: 5, cls: 'knight', name: '무너진 왕관의 기사왕', dmg: 1680, rate: 1.0, range: 110, dtype: 'p', proj: 'melee', judgment: [9, 3.2, 2.5], every3: 70,
+  { id: 'swordking', tier: 5, cls: 'knight', name: '무너진 왕관의 기사왕', dmg: 950, rate: 1.0, range: 110, dtype: 'p', proj: 'melee', judgment: [9, 3.2, 2.5], every3: 70,
     desc: '9초마다 왕의 심판: 화면 전체에 큰 피해 + 2.5초 기절. 세 번째 공격마다 광역 베기.', quip: '왕관은 무너져도 기사는 안 무너진다. 허리는 무너졌다.' },
-  { id: 'witch', tier: 5, cls: 'mage', name: '시간을 꿰매는 마녀', dmg: 1240, rate: 1.0, range: 160, dtype: 'm', proj: 'clock', splash: 40, globalSlow: 0.4, timeStop: [12, 2.5],
+  { id: 'witch', tier: 5, cls: 'mage', name: '시간을 꿰매는 마녀', dmg: 720, rate: 1.0, range: 160, dtype: 'm', proj: 'clock', splash: 40, globalSlow: 0.4, timeStop: [12, 2.5],
     desc: '모든 적 이동 속도 -40%. 광역 공격. 12초마다 시간 정지 2.5초.', quip: '마감 기한도 꿰매 드립니다.' },
-  { id: 'skybow', tier: 5, cls: 'archer', name: '하늘을 꿰뚫는 활', dmg: 1440, rate: 1.0, range: 999, dtype: 'p', proj: 'beam', beam: 16, bossPct: 0.02,
+  { id: 'skybow', tier: 5, cls: 'archer', name: '하늘을 꿰뚫는 활', dmg: 750, rate: 1.0, range: 999, dtype: 'p', proj: 'beam', beam: 16, bossPct: 0.02,
     desc: '굵은 일직선 관통 광선. 보스에게 최대 체력 2% 추가 피해.', quip: '하늘이 좀 아프다고 한다.' },
-  { id: 'saint', tier: 5, cls: 'priest', name: '새벽의 성녀', dmg: 1040, rate: 1.0, range: 150, dtype: 'm', proj: 'holy', splash: 36, globalDmg: 0.4, waveHeal: 5,
+  { id: 'saint', tier: 5, cls: 'priest', name: '새벽의 성녀', dmg: 620, rate: 1.0, range: 150, dtype: 'm', proj: 'holy', splash: 36, globalDmg: 0.4, waveHeal: 5,
     desc: '아군 전체 피해 +40%. 광역 공격. 웨이브마다 성벽 +5.', quip: '새벽 기도는 5시. 지각 불허.' },
-  { id: 'nameless', tier: 5, cls: 'rogue', name: '이름 없는 왕', dmg: 1240, rate: 1.6, range: 130, dtype: 'p', proj: 'dagger', multi: 2, goldMul: 2, execute: 0.06, shadow: 0.35,
+  { id: 'nameless', tier: 5, cls: 'rogue', name: '이름 없는 왕', dmg: 640, rate: 1.6, range: 130, dtype: 'p', proj: 'dagger', multi: 2, goldMul: 2, execute: 0.06, shadow: 0.35,
     desc: '두 대상 동시 공격. 처치 금화 ×2. 6% 즉사. 처치한 적의 35%가 그림자가 되어 한 번 더 공격.', quip: '이름은 없고 지갑은 두둑하다.' },
 ];
 

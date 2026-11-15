@@ -29,7 +29,8 @@ export function recordBattle(run) {
 function who(run, o) {
   if (!run.players || !run.players[o]) return '';
   const r = ROYALS.find((x) => x.id === run.players[o].royal);
-  return (o === (run.me || 0) ? '나 · ' : '') + (r ? r.name : run.players[o].name);
+  const nk = run.players[o].nick;
+  return (o === (run.me || 0) ? '나 · ' : '') + (r ? r.name : run.players[o].name) + (nk ? `(${nk})` : '');
 }
 function labelOf(run, o, id) {
   if (id === '@m') {

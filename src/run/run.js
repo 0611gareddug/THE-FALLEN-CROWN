@@ -129,7 +129,7 @@ export function newCoopRun(players, seed) {
   const wallMax = Math.round(Math.max(...runs.map((r) => r.carry.wallMax)) * (1 + 0.25 * (n - 1)));
   a.carry.wallMax = a.carry.wall = wallMax;
   a.coop = true;
-  a.players = players.map((p, i) => ({ royal: p.royal, mascot: p.mascot, name: p.name || (i ? `동료 ${i}` : '방장'), carry: runs[i].carry }));
+  a.players = players.map((p, i) => ({ royal: p.royal, mascot: p.mascot, name: p.name || (i ? `동료 ${i}` : '방장'), nick: p.nick || '', carry: runs[i].carry }));
   return a;
 }
 export function hasRoyal(run, r) {

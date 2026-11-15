@@ -18,15 +18,17 @@ export const PITY_MAX = 10;
 // 협동 보정: 적 수 · 보스/정예 체력
 export const COOP_COUNT = 2.2;
 export const COOP_BOSS = 4.2;
-export const COOP_HP = 2.3;
+export const COOP_HP = 2.25;
 // 인원별 [적 수, 일반 체력, 정예·보스 체력] — 인원이 많을수록 조금 더 어렵게
-export const COOP_SCALE = { 2: [COOP_COUNT, COOP_HP, COOP_BOSS], 3: [3.7, 3.05, 6.7], 4: [4.9, 3.3, 8.5] };
+export const COOP_SCALE = { 2: [COOP_COUNT, COOP_HP, COOP_BOSS], 3: [3.7, 2.35, 6.3], 4: [4.9, 3.1, 8.5] };
 // 공용 성벽 배수
 export const coopWall = (n) => (n <= 1 ? 1 : 1 + 0.25 * (n - 1));
 // 난이도: 일반 판 적 체력 배수 · 막이 깊어질수록 방어/저항 강화
 export const DIFF_HP = 0.8;
 // 공명: 소환 · 진화 때 내 보드의 같은 등급 유닛이 다시 나올 확률 (유닛 종류가 늘어도 진화가 너무 어려워지지 않게)
 export const RESONANCE = 0.6;
+// 막별 추가 강화 (1막은 그대로): [일반 체력, 정예 체력, 보스 체력, 방어·저항 추가]
+export const ACT_UP = [[1, 1, 1, 0], [1.25, 1.45, 1.25, 0.04], [1.25, 1.4, 1.12, 0.05], [0.9, 1.1, 0.92, 0.05]];
 const DEF_UP = (L) => Math.max(0, Math.min(0.18, (L - 1.5) * 0.011));
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
 export const OWN = ['gold', 'stones', 'badLuck', 'upg', 'summons', 'celestial', 'maxCelestial', 'skillT', 'skillCd', 'cheerT', 'buff', 'buffT',
@@ -631,7 +633,8 @@ export class Battle {
     let hp;
     if (def.boss) hp = (this.node.trial ? BOSS_HP : hpAt(L) * def.hp) * (1 + (this.R.bossHp || 0)) * (type === 'morven' ? 1 - (this.R.morvenWeak || 0) : 1);
     else hp = hpAt(L) * def.hp * (1 + (this.R.enemyHp || 0));
-    if (!this.node.trial) hp *= DIFF_HP;
+    const AU = this.node.trial ? null : ACT_UP[Math.min(3, Math.max(0, (this.node.act || 1) - 1))];
+    if (!this.node.trial) hp *= DIFF_HP * AU[def.boss ? 2 : def.elite ? 1 : 0];
     if (this.coop) hp *= def.boss || def.elite ? this.sc[2] : this.sc[1];
     e.uid = this.uid++;
     e.type = type; e.def = def; e.boss = !!def.boss;
@@ -642,7 +645,8 @@ export class Battle {
     if (!this.node.trial) {
       // 막이 깊을수록 방어 · 저항이 함께 오른다
       const up = DEF_UP(L) * (def.boss || def.elite ? 1.3 : 1);
-      e.armor = Math.min(0.8, e.armor + up * 0.25); e.mres = Math.min(0.8, e.mres + up * 0.25);
+      const ex = AU[3] * (def.boss || def.elite ? 1.5 : 1);
+      e.armor = Math.min(0.8, e.armor + up * 0.25 + ex); e.mres = Math.min(0.8, e.mres + up * 0.25 + ex);
     }
     e.slowT = 0; e.slowAmt = 0; e.stunT = 0;
     e.burnT = 0; e.burnDps = 0; e.burnSrc = null; e.boomR = 0; e.boomDmg = 0;

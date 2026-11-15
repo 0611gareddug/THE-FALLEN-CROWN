@@ -17,6 +17,7 @@ import { addRelic, addUnit, randomRelic } from './events.js';
 import { relicRow, portraitURL } from './mapScene.js';
 import { unlockAch } from '../meta/achievements.js';
 import { battleCard, runStatsBlock, recordBattle } from './battleStats.js';
+import { expandLines, setTag } from '../ui/story.js';
 import { coopShopScene, coopCampScene, coopTreasureScene, coopAltarScene, coopRewardScene, coopActIntroScene, coopEndingScene } from '../net/coopNodes.js';
 
 export const PRICE = { common: 60, rare: 110, legend: 190, set: 80, curse: 45 };
@@ -300,13 +301,14 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
   function play(id) {
     played.push(id);
     const E = ENDINGS[id];
-    const lines = E.lines.filter((l) => l[0] !== '@q' || run.party.length).map((l) => [l[0] === '@q' ? run.party[0] : l[0], l[1], l[2]]).filter((l) => l[0] === 'narr' || l[0] === run.royal || CAST[l[0]]);
+    const lines = expandLines(E.lines.filter((l) => l[0] !== '@q' || run.party.length).map((l) => [l[0] === '@q' ? run.party[0] : l[0], l[1], l[2]]).filter((l) => l[0] === 'narr' || l[0] === run.royal || CAST[l[0]]));
     let i = 0;
     const por = h('canvas.ev-por.end', { width: 32, height: 32 });
-    const txt = h('div.end-text');
+    const txt = h('div.ev-text');
     const nm = h('div.ev-name');
-    el = h('div.screen.ending',
-      h('div.eyebrow', E.eyebrow), h('h1', `결말 ${E.no} · ${E.title}`), por, h('div.end-box', nm, txt),
+    const card = h('div.ev-card', txt);
+    el = h('div.screen.ending', { onpointerdown: (e) => { if (!e.target.closest('button')) step(); } },
+      h('div.eyebrow', E.eyebrow), h('h1', `결말 ${E.no} · ${E.title}`), por, h('div.end-box', nm, card),
       h('button.btn.primary.end-next', { onclick: step }, '다음'));
     app.ui.appendChild(el);
     step();
@@ -317,7 +319,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       const p = who !== 'narr' ? portrait(who, face || 'neutral') : null;
       const g = por.getContext('2d'); g.clearRect(0, 0, 32, 32); if (p) g.drawImage(p, 0, 0);
       por.style.visibility = p ? 'visible' : 'hidden';
-      nm.textContent = CAST[who] ? CAST[who].name : '';
+      setTag(nm, card, who, run);
       txt.textContent = text;
     }
   }

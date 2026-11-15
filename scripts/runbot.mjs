@@ -57,6 +57,7 @@ function event(run, rng) {
 const reach = [0, 0, 0, 0, 0];
 const deaths = {};
 let wins = 0;
+const cel = [[0, 0], [0, 0]];
 const byR = {}, byM = {};
 const wallAtBoss = [[], [], [], []];
 const t0 = Date.now();
@@ -95,6 +96,8 @@ for (let r = 0; r < RUNS; r++) {
       run.carry.wall = Math.min(run.carry.wallMax, run.carry.wall + Math.round(run.carry.wallMax * 0.3));
     }
   }
+  const hasCel = (run.coop ? run.players.flatMap((p) => p.carry.units) : run.carry.units).some((u) => u && UNIT[u.id].tier === 5);
+  cel[hasCel ? 1 : 0][0]++; if (alive && run.act === LAST_ACT) cel[hasCel ? 1 : 0][1]++;
   if (r < 8) {
     const tiers = [0, 0, 0, 0, 0, 0]; for (const u of run.carry.units) if (u) tiers[UNIT[u.id].tier]++;
     console.log(`#${r} ${royal} ${alive ? '클리어' : '패배'} ${run.act}막 성벽 ${run.carry.wall}/${run.carry.wallMax} 유물 ${run.relics.length} 조각 ${run.shards} 유닛 ${tiers.join('/')} 강화 ${run.carry.upg.join('/')} 사건 ${run.stats.events}`);
@@ -103,5 +106,6 @@ for (let r = 0; r < RUNS; r++) {
 const avg = (a) => (a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(0) : '-');
 console.log(`\n${RUNS}판: 1막 ${reach[1]} · 2막 ${reach[2]} · 3막 ${reach[3]} · 최종 클리어 ${wins} (${((wins / RUNS) * 100).toFixed(0)}%)`);
 console.log('패배 지점:', deaths);
+console.log(`천상 없음 ${cel[0][1]}/${cel[0][0]} · 천상 있음 ${cel[1][1]}/${cel[1][0]}`);
 console.log('용사별 클리어:', byR, '· 마스코트별:', byM);
 console.log(`보스 직전 평균 성벽: 1막 ${avg(wallAtBoss[0])} · 2막 ${avg(wallAtBoss[1])} · 3막 ${avg(wallAtBoss[2])} · 4막 ${avg(wallAtBoss[3])}  (${((Date.now() - t0) / 1000).toFixed(0)}초)`);

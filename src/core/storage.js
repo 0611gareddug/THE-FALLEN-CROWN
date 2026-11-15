@@ -1,7 +1,7 @@
 // 브라우저 저장 (실패해도 게임은 정상 동작)
 const KEY = 'tfc_save_v1';
 const DEFAULT = () => ({
-  settings: { music: 0.5, sfx: 0.7, shake: true, dmgNums: true, low: false, speed: 1 },
+  settings: { music: 0.5, sfx: 0.7, shake: true, dmgNums: true, low: false, speed: 1, chatSound: true, chatMute: false },
   seen: [],
   ash: 0,
   badLuck: 0,

@@ -10,6 +10,8 @@ import { place, portrait, CAST, PLACES } from '../gfx/art2.js';
 import { COMPANIONS } from '../data/companions.js';
 import { unlockAch } from '../meta/achievements.js';
 import { ROYALS } from '../data/text.js';
+import { VOTE_SEC } from '../net/coop.js';
+import { expandLines, setTag } from '../ui/story.js';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
@@ -21,7 +23,7 @@ function pickSpeaker(run, who) {
 
 export function eventScene(app, { run, eventId }) {
   const ev = EVENTS[eventId] || EVENTS.pebble;
-  let el, bgCv, por, nameEl, textEl, choicesEl, typing = null, queue = [], onDone = null, meta = {}, changes = [];
+  let el, bgCv, por, nameEl, textEl, cardEl, choicesEl, typing = null, queue = [], onDone = null, meta = {}, changes = [];
   const coop = run.coop && app.coop ? app.coop : null;
   const base = `ev:${eventId}:${run.stats.events}:${run.stats.battles}`;
   const offs = [];
@@ -54,8 +56,9 @@ export function eventScene(app, { run, eventId }) {
     por = h('canvas.ev-por', { width: 32, height: 32 });
     nameEl = h('div.ev-name');
     textEl = h('div.ev-text');
+    cardEl = h('div.ev-card', textEl);
     choicesEl = h('div.ev-choices');
-    const box = h('div.ev-box', nameEl, textEl, choicesEl);
+    const box = h('div.ev-box', nameEl, cardEl, choicesEl);
     const eyebrow = PLACES[ev.bg] || '';
     el.append(
       bgCv,
@@ -76,7 +79,7 @@ export function eventScene(app, { run, eventId }) {
 
   // ── 대사 재생 ──
   function play(lines, done) {
-    queue = lines.filter((l) => pickSpeaker(run, l[0]) !== null).map((l) => [pickSpeaker(run, l[0]), l[1], l[2]]);
+    queue = expandLines(lines.filter((l) => pickSpeaker(run, l[0]) !== null).map((l) => [pickSpeaker(run, l[0]), l[1], l[2]]));
     onDone = done;
     choicesEl.replaceChildren();
     next();
@@ -90,7 +93,7 @@ export function eventScene(app, { run, eventId }) {
       el.classList.add('in-flash');
       drawBg(face || ev.bg);
       setSpeaker(null, null);
-      nameEl.textContent = '― 회상 ―';
+      setTag(nameEl, cardEl, null, run, '회상');
       typeText(text);
       return;
     }
@@ -105,9 +108,7 @@ export function eventScene(app, { run, eventId }) {
     por.style.visibility = img ? 'visible' : 'hidden';
     if (img) g.drawImage(img, 0, 0);
     const c = CAST[who];
-    nameEl.textContent = c ? c.name : '';
-    nameEl.style.color = COMPANIONS[who] ? COMPANIONS[who].color : who === run.royal ? 'var(--gold2)' : '';
-    textEl.classList.toggle('narr', !c);
+    setTag(nameEl, cardEl, who, run);
     por.classList.remove('bump');
     void por.offsetWidth;
     if (img) por.classList.add('bump');
@@ -134,7 +135,7 @@ export function eventScene(app, { run, eventId }) {
     textEl.textContent = typing.full;
     typing.doneAt = performance.now();
     typing.done = true;
-    textEl.appendChild(h('span.ev-more', queue.length || onDone ? '▼' : ''));
+    if (queue.length || onDone) textEl.appendChild(h('span.ev-more', '▼'));
   }
   function advance() {
     if (!typing) return;
@@ -156,7 +157,7 @@ export function eventScene(app, { run, eventId }) {
       coop.whenDecided(key, (idx, out) => { if (coop.host) coop.sendRun(); present(ev.choices[idx], out); });
       if (owner !== null && owner !== coop.me) {
         // 선택은 그 왕족 플레이어가 한다. 나는 의견만 보낼 수 있다.
-        const who = royalInfo ? royalInfo.name : run.players[owner].name;
+        const who = coop.nameOf(owner);
         choicesEl.replaceChildren(
           h('div.note.opinion', `${who}의 용사 사건입니다. 선택은 ${who}이(가) 합니다 — 눌러서 의견을 보내세요.`),
           ...list.filter((c) => condOk(run, c.cond)).map((c) => h('button.ev-choice.opine' + (c.side ? '.side-' + c.side : ''), {
@@ -242,7 +243,7 @@ export function eventScene(app, { run, eventId }) {
   }
   function coopContinue() {
     const key = `${base}:done`;
-    coop.openVote(key, { options: [true], timeout: 10 });
+    coop.openVote(key, { options: [true], timeout: VOTE_SEC });
     const btn = h('button.ev-choice.go', { onclick: () => { btn.disabled = true; audio.sfxPlay('click'); coop.vote(key, true); } }, h('span.t', '계속'));
     choicesEl.append(btn, coop.voteBar(key, () => '계속'));
     coop.whenDecided(key, () => done());
