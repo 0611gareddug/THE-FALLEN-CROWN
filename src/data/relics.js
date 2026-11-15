@@ -54,13 +54,13 @@ export const SETS = {
 };
 
 export const GRADE = {
-  common: { name: '흔함', color: '#8a7458' },
-  rare: { name: '희귀', color: '#2f6fc8' },
-  legend: { name: '전설', color: '#c27510' },
-  set: { name: '세트', color: '#2e8b3e' },
-  curse: { name: '저주', color: '#c0392b' },
-  light: { name: '용사 · 빛', color: '#d0a010' },
-  dark: { name: '용사 · 어둠', color: '#8a52d0' },
+  common: { name: '흔함', color: '#a8a294' },
+  rare: { name: '희귀', color: '#6ba4ff' },
+  legend: { name: '전설', color: '#e8c25a' },
+  set: { name: '세트', color: '#7fe08a' },
+  curse: { name: '저주', color: '#ff6b6b' },
+  light: { name: '용사 · 빛', color: '#fff2a8' },
+  dark: { name: '용사 · 어둠', color: '#b98aff' },
 };
 
 // 보정 객체 합치기
