@@ -22,7 +22,7 @@ export const FACTIONS = {
   tribe: { name: '숲 동물 마을', color: '#7fbf6a' },
   guild: { name: '항구 상인회', color: '#e8c25a' },
 };
-const TYPE_COL = { battle: '#d9d4c7', elite: '#ff8a7a', event: '#9fc8ff', shop: '#e8c25a', camp: '#ff9a5a', treasure: '#ffe36b', altar: '#c99bff', boss: '#ff6b6b', dragon: '#a8e4ff', fate: '#ffd98a' };
+const TYPE_COL = { battle: '#d9d4c7', elite: '#ff8a7a', event: '#9fc8ff', shop: '#e8c25a', camp: '#ff9a5a', treasure: '#ffe36b', altar: '#c99bff', minigame: '#7fe0c0', boss: '#ff6b6b', dragon: '#a8e4ff', fate: '#ffd98a' };
 
 export function mapScene(app, { run }) {
   let el, info, sel = null;

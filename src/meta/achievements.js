@@ -10,6 +10,7 @@ export const ACHS = [
   { id: 'edricWin', cat: '진행', name: '방패는 거들 뿐', desc: '레오로 결말 보기', ash: 10 },
   { id: 'serenWin', cat: '진행', name: '반납 기한은 지킵시다', desc: '미나로 결말 보기', ash: 10 },
   { id: 'kyleWin', cat: '진행', name: '전설의 빵집', desc: '피크로 결말 보기', ash: 10 },
+  { id: 'nixWin', cat: '진행', name: '점 하나 차이', desc: '닉스로 결말 보기', ash: 10 },
   { id: 'runs10', cat: '진행', name: '모험 단골', desc: '여정을 10번 끝내기', ash: 20 },
   // 수집 (8)
   { id: 'cel1', cat: '수집', name: '하늘이 열렸다', desc: '천상 유닛 처음 만들기', ash: 10 },
@@ -40,7 +41,7 @@ export const ACHS = [
   { id: 'allEndings', cat: '스토리', name: '모든 길의 끝', desc: '결말 8개 보기', ash: 100 },
   { id: 'fateLight', cat: '스토리', name: '빛의 계승자', desc: '용사 결말을 빛으로 보기', ash: 30 },
   { id: 'fateDark', cat: '스토리', name: '어둠의 계승자', desc: '용사 결말을 어둠으로 보기', ash: 30 },
-  { id: 'fateAll', cat: '스토리', name: '세 용사의 연대기', desc: '세 용사의 결말을 모두 보기', ash: 60 },
+  { id: 'fateAll', cat: '스토리', name: '네 용사의 연대기', desc: '네 용사의 결말을 모두 보기', ash: 60 },
   { id: 'collector', cat: '스토리', name: '세리 기절시키기', desc: '용의 영수증으로 세금 꽃게를 쓰러뜨리기', ash: 10 },
   { id: 'allowance', cat: '스토리', name: '천 년 만의 용돈', desc: '전설의 용사 유령에게 용돈 받기', ash: 10 },
   // 병맛 · 숨김 (6)
@@ -70,6 +71,7 @@ export function unlockAch(id) {
   save();
   if (notify) notify(a);
   if (d.ach.length >= 10) { d.mascots = d.mascots || ['puru']; if (!d.mascots.includes('potato')) { d.mascots.push('potato'); save(); } }
+  if (d.ach.length >= 20) { d.mascots = d.mascots || ['puru']; if (!d.mascots.includes('fox')) { d.mascots.push('fox'); save(); } }
   return true;
 }
 

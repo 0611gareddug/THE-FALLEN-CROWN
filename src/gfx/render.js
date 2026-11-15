@@ -346,6 +346,8 @@ export class Renderer {
         if (ev.targets) for (const [x, y] of ev.targets) this.addFx({ k: 'slash', x, y, t: 0, d: 0.3, big: true, col: '#ffb070', a: 0 });
         if (ev.eaten !== undefined) { this.burst(ev.x, ev.y, 24, ['#8a5a2a', '#e8c25a', '#ffffff'], 120, 0.6); this.doShake(4); }
         if (ev.awake) this.doShake(12);
+        if (ev.n !== undefined) { this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 8, r1: 90, t: 0, d: 0.6, col: '#c99bff' }); this.burst(ev.x, ev.y, 26, ['#ffd0e8', '#c99bff', '#ffffff'], 70, 1.1, 2, -20); }
+        if (ev.v !== undefined) { this.flash = { col: '#ffe36b', t: 0, d: 0.5, a: 0.35 }; this.doShake(6); this.burst(180, 196, 40, ['#ffe36b', '#e8c25a', '#ffffff'], 220, 0.9, 3, 60); }
         break;
       }
       case 'corrupt': this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 16, ['#c99bff', '#5a2a6a'], 70, 0.6); break;
@@ -420,6 +422,15 @@ export class Renderer {
       ctx.globalAlpha = 1;
       if (Math.random() < 0.8) this.part(Math.random() * W, this.fieldY0() + 2, (Math.random() - 0.5) * 20, 60 + Math.random() * 40, 2.5, Math.random() < 0.2 ? '#ff8a3a' : '#8a8490', 2);
     }
+    if (battle.cloudT > 0) {
+      // 구름양의 뭉게 방패
+      const a = Math.min(1, battle.cloudT / 0.6);
+      ctx.globalAlpha = 0.13 * a;
+      ctx.fillStyle = '#e8f4ff';
+      ctx.fillRect(0, this.fieldY0(), W, this.fieldH());
+      ctx.globalAlpha = 1;
+      if (!this.settings.low && Math.random() < 0.5) this.part(Math.random() * W, this.fieldY0() + this.fieldH() - 4, (Math.random() - 0.5) * 16, -14 - Math.random() * 10, 1.4, '#ffffff', 3);
+    }
     if (battle.timeStopT > 0) {
       ctx.globalAlpha = 0.18;
       ctx.fillStyle = '#7a5ad0';
@@ -470,9 +481,9 @@ export class Renderer {
         if (this.mirror) TMP.y = this.L.mirrorY - TMP.y;
         const f = ((this.t * 12 + s) | 0) % 3;
         ctx.globalAlpha = a * 0.9;
-        ctx.fillStyle = f ? '#ff8a3a' : '#ffe36b';
+        ctx.fillStyle = z.fox ? (f ? '#5ab8ff' : '#d8f4ff') : f ? '#ff8a3a' : '#ffe36b';
         ctx.fillRect(TMP.x - 3, TMP.y - 2 - f * 2, 6, 6 + f * 2);
-        ctx.fillStyle = '#e0463a';
+        ctx.fillStyle = z.fox ? '#3a6ad0' : '#e0463a';
         ctx.fillRect(TMP.x - 4, TMP.y + 3, 8, 2);
       }
     }

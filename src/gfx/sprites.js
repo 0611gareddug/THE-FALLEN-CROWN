@@ -325,6 +325,7 @@ const ROYAL_P = {
   edric: { t: 'knight', a: '#c9a85c', A: '#8a7030', c: '#3a5fb0', w: '#e8ecf4', W: '#9aa2b4', crown: 0 },
   seren: { t: 'mage', a: '#6a4ab0', A: '#46307a', h: '#f0d0ff', c: '#c99bff', crown: 2 },
   kyle: { t: 'rogue', a: '#3a5a3a', A: '#263e26', c: '#5a7a5a', h: '#b06a2a', crown: 0 },
+  nix: { t: 'rogue', a: '#5a3a7a', A: '#3a2452', c: '#e8892b', h: '#3a2a4a', crown: 0 },
 };
 
 function makeCanvas(w, h) {

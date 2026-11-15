@@ -41,6 +41,7 @@ export function resumeNode(app, run) {
     case 'camp': app.go('camp', { run }); break;
     case 'treasure': app.go('treasure', { run }); break;
     case 'altar': app.go('altar', { run }); break;
+    case 'minigame': app.go('minigame', { run }); break;
     default: finishNode(app, run);
   }
 }

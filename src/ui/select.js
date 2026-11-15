@@ -2,13 +2,13 @@
 import { h } from './dom.js';
 import { audio } from '../core/audio.js';
 import { ROYALS } from '../data/text.js';
-import { MASCOT_DEFS, MASCOT_ORDER } from '../data/mascots.js';
 import { store } from '../core/storage.js';
-import { newRun, saveRun, mascotLevel } from '../run/run.js';
+import { newRun, saveRun } from '../run/run.js';
 import { RELICS, RELIC, GRADE } from '../data/relics.js';
 import { addRelic } from '../run/events.js';
 import { RNG } from '../core/rng.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
+import { mascotChip, openMascotPicker } from './mascotPick.js';
 
 export function selectScene(app) {
   let el;
@@ -38,42 +38,26 @@ export function selectScene(app) {
 
     const owned = store().mascots || ['puru'];
     if (!owned.includes(mascot)) mascot = 'puru';
-    const info = h('div.mascot-info');
-    const showInfo = () => {
-      const m = MASCOT_DEFS[mascot];
-      info.replaceChildren(h('b', { style: { color: 'var(--gold2)', fontWeight: 600 } }, `${m.name} Lv.${mascotLevel(mascot)}`), ` · ${m.kind} — 스킬 '${m.skill}' (${m.cd}초): ${m.skillDesc} 패시브: ${m.passive}`);
-    };
-    const mBtns = MASCOT_ORDER.map((id) => {
-      const has = owned.includes(id);
-      const b = h('button.mascot' + (id === mascot ? '.sel' : ''), {
-        title: has ? MASCOT_DEFS[id].name : `잠김 · ${MASCOT_DEFS[id].unlock}`,
-        onclick: () => {
-          if (!has) { audio.sfxPlay('deny'); info.replaceChildren(h('b', '???'), ` — 해금 조건: ${MASCOT_DEFS[id].unlock}`); return; }
-          audio.sfxPlay('hover'); mascot = id; mBtns.forEach((x, j) => x.classList.toggle('sel', MASCOT_ORDER[j] === id)); showInfo();
-        },
-      }, has ? h('img', { src: spriteURL(SPR.mascots[id].r, 3), alt: '' }) : h('span.q', '?'));
-      return b;
+    const chipWrap = h('div');
+    const pick = (confirm) => openMascotPicker(app.ui, {
+      current: mascot, owned,
+      onPick: (id) => { mascot = id; drawChip(); },
+      confirm: confirm ? '여정 시작' : null,
+      onConfirm: (id) => { mascot = id; app.lastRoyal = royal; app.lastMascot = mascot; start(); },
     });
-    showInfo();
-    el = h('div.screen',
+    const drawChip = () => chipWrap.replaceChildren(mascotChip(mascot, () => { audio.sfxPlay('click'); pick(false); }, { rise: true }));
+    drawChip();
+    el = h('div.screen.select-screen',
       h('div.select-head.rise',
         h('div.eyebrow', 'CHOOSE YOUR HERO'),
         h('h2', '용사를 선택하라')),
       h('div.royals', cards),
-      h('div.mascot-row.rise', { style: { animationDelay: '.5s' } },
-        h('div.lbl', '반려 마스코트'),
-        h('div.mascots', mBtns),
-        info),
+      chipWrap,
       h('div.select-go.rise', { style: { animationDelay: '.6s' } },
         h('button.btn', { onclick: () => { audio.sfxPlay('click'); app.go('lobby'); } }, '돌아가기'),
         h('button.btn.primary', {
-          onclick: () => {
-            audio.sfxPlay('click');
-            app.lastRoyal = royal;
-            app.lastMascot = mascot;
-            start();
-          },
-        }, '여정 시작')),
+          onclick: () => { audio.sfxPlay('click'); app.lastRoyal = royal; pick(true); },
+        }, '다음 · 마스코트')),
     );
     app.ui.appendChild(el);
   }

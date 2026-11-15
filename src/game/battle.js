@@ -20,11 +20,11 @@ export const COOP_COUNT = 2;
 export const COOP_BOSS = 4;
 export const COOP_HP = 2.4;
 // 난이도: 일반 판 적 체력 배수 · 막이 깊어질수록 방어/저항 강화
-export const DIFF_HP = 1.15;
+export const DIFF_HP = 1.05;
 const DEF_UP = (L) => Math.max(0, Math.min(0.18, (L - 1.5) * 0.011));
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
 export const OWN = ['gold', 'stones', 'badLuck', 'upg', 'summons', 'celestial', 'maxCelestial', 'skillT', 'skillCd', 'cheerT', 'buff', 'buffT',
-  'mascot', 'mdef', 'mlv', 'mboost', 'freeSummon', 'syn', 'mods', 'royal', 'deliver', 'eggKills', 'goldFrac', 'stoneWave', 'stats', 'metT'];
+  'mascot', 'mdef', 'mlv', 'mboost', 'cheek', 'freeSummon', 'syn', 'mods', 'royal', 'deliver', 'eggKills', 'goldFrac', 'stoneWave', 'stats', 'metT'];
 const newStats = () => ({ kills: 0, summons: 0, merges: 0, fails: 0, gambles: 0, best: null, celestials: 0, maxField: 0, wallLost: 0, gifts: 0, sent: 0 });
 
 export class Battle {
@@ -77,6 +77,7 @@ export class Battle {
       this.buffT = 0;
       this.buff = null;
       this.eggKills = p.eggKills || 0;
+      this.cheek = 0;
       this.deliver = 0;
       this.cheerT = 0;
       this.metT = 0;
@@ -104,6 +105,10 @@ export class Battle {
     this.ashT = 0;
     this.freezeRow = -1;
     this.freezeT = 0;
+    this.cloudT = 0;
+    // 전투 기록: 주인별 유닛 피해량 · 적 종류별 처치 수
+    this.dmgBy = [{}, {}];
+    this.killT = {};
     this.wallSaves = this.R.bossGuard || 0;
     this.timeStopT = 0;
     this.overflow = false;
@@ -124,6 +129,20 @@ export class Battle {
       units: this.units.slice(o * 18, o * 18 + 18).map((u) => (u ? { id: u.def.id, spent: u.spent } : null)),
       gold: P.gold, stones: P.stones, wall: Math.max(0, Math.ceil(this.wall)), wallMax: this.wallMax,
       upg: P.upg.slice(), summons: P.summons, celestial: P.celestial,
+    };
+  }
+
+  // 전투가 끝난 뒤 보여 줄 요약: 주인별 [유닛 id, 피해] 상위 · 처치 수
+  summary() {
+    const top = [];
+    this.dmgBy.slice(0, this.nP).forEach((m, o) => { for (const [id, v] of Object.entries(m)) top.push([o, id, Math.round(v)]); });
+    top.sort((a, b) => b[2] - a[2]);
+    return {
+      top: top.slice(0, 8),
+      tot: this.dmgBy.slice(0, this.nP).map((m) => Math.round(Object.values(m).reduce((s, v) => s + v, 0))),
+      kills: this.P.map((P) => P.stats.kills),
+      killT: { ...this.killT },
+      t: Math.round(this.time),
     };
   }
 
@@ -200,12 +219,13 @@ export class Battle {
       const same = pool.filter((u) => u.cls === prefCls);
       if (same.length) return this.rng.pick(same);
     }
-    if (this.royal === 'edric') {
-      // 기사 계열 확률 +15%
+    // 레오: 기사 · 닉스: 도적 계열 확률 +15%
+    const fav = this.royal === 'edric' ? 'knight' : this.royal === 'nix' ? 'rogue' : null;
+    if (fav) {
       let tot = 0;
-      for (const u of pool) tot += u.cls === 'knight' ? 1.15 : 1;
+      for (const u of pool) tot += u.cls === fav ? 1.15 : 1;
       let r = this.rng.next() * tot;
-      for (const u of pool) { r -= u.cls === 'knight' ? 1.15 : 1; if (r <= 0) return u; }
+      for (const u of pool) { r -= u.cls === fav ? 1.15 : 1; if (r <= 0) return u; }
     }
     return this.rng.pick(pool);
   }
@@ -407,6 +427,39 @@ export class Battle {
         extra.stage = stage;
         break;
       }
+      case 'shroom': {
+        // 꾸벅 포자: 길 한 구간의 적을 재운다
+        const t = this.randomEnemy();
+        const s0 = t ? t.s - 90 : 0, PM = this.L.PERIM;
+        let n = 0;
+        for (const e of this.enemies) {
+          if (!e.alive) continue;
+          let rel = (e.s - s0) % PM; if (rel < 0) rel += PM;
+          if (rel > 300) continue;
+          e.stunT = Math.max(e.stunT, e.boss ? 0.8 : e.elite ? 1.5 : 3 * B);
+          n++;
+        }
+        extra = { n, x: t ? t.x : 180, y: t ? t.y : 196 };
+        break;
+      }
+      case 'fox': {
+        // 여우불 길: 6초 동안 불타는 구간 (마법 피해)
+        const t = this.randomEnemy();
+        if (t) this.zones.push({ s0: t.s - 220, s1: t.s + 20, t: 6, dur: 6, dps: this.powerUnit() * 2.4 * B, src: null, def: null, o: this.cur, dt: 'm', fox: true });
+        extra = { x: t ? t.x : 180, y: t ? t.y : 196 };
+        break;
+      }
+      case 'squirrel': {
+        // 볼주머니 대폭발: 모아 둔 금화만큼 강해지고, 금화도 돌려받는다
+        const v = Math.floor(this.cheek);
+        const dmg = this.powerUnit() * (1.2 + v / 30) * B;
+        for (const e of this.enemies) if (e.alive) this.damage(e, e.boss ? dmg * 0.4 : dmg, 't', null, true);
+        this.gold += v;
+        this.cheek = 0;
+        extra = { v };
+        break;
+      }
+      case 'sheep': this.cloudT = Math.max(this.cloudT || 0, 7 * B); break;
       case 'snail': this.deliver = 5; break;
       case 'potato': this.wall = Math.min(this.wallMax, this.wall + 8 * B); break;
       default: this.cheerT = 10;
@@ -462,7 +515,7 @@ export class Battle {
       magicMul: (s.mage >= 3 ? 1.1 : 1) * (this.buff === 'owl' ? 1.2 : 1),
       meteor: s.mage >= 4,
       goldMul: (s.priest >= 3 ? 1.1 : 1) * (nameless ? 2 : 1) * (1 + (this.R.goldMul || 0)),
-      killGold: (s.rogue >= 2 ? 1 : 0) + (this.R.goldKill || 0),
+      killGold: (s.rogue >= 2 ? 1 : 0) + (this.R.goldKill || 0) + (this.royal === 'nix' ? 1 : 0),
       stoneMul: (s.rogue >= 3 ? 1.5 : 1) * (1 + (this.R.stoneMul || 0)),
       rogueExec: s.rogue >= 4 ? 0.05 : 0,
       globalSlow: Math.min(0.6, witch + (this.R.slow || 0)),
@@ -490,7 +543,7 @@ export class Battle {
       }
       if (d.cls === 'mage') {
         if (s.mage >= 2) splash = 1.15;
-        if (this.royal === 'seren') spd += 0.1;
+        if (this.royal === 'seren') spd += 0.15;
       }
       const R = this.R;
       dmg += (R.dmg || 0) + ((R.cls && R.cls[d.cls]) || 0) + ((R.grp && R.grp[upgGroup(d.tier)]) || 0);
@@ -538,17 +591,18 @@ export class Battle {
     const g0 = Math.round((this.node.trial ? 20 + w * 6 : 16 + L * 4) + (this.R.waveGold || 0));
     const stone = (this.node.trial ? w % 3 === 0 : w === this.nWaves - 1 && this.rng.chance(0.5)) ? 1 : 0;
     const prev = this.cur;
-    let g = g0;
+    let g = g0, sheep = 0;
     for (let o = 0; o < this.nP; o++) {
       this.cur = o;
       let go = g0;
       if (this.mascot === 'snail') go = Math.round(g0 * (1 + 0.05 * this.mboost));
+      if (this.mascot === 'sheep') sheep++;
       this.gold += go;
       this.stones += stone;
       if (o === prev) g = go;
     }
     this.cur = prev;
-    let heal = this.R.waveHeal || 0;
+    let heal = (this.R.waveHeal || 0) + sheep * 2;
     for (const u of this.units) if (u && u.def.waveHeal) heal += u.def.waveHeal;
     if (heal) this.wall = Math.min(this.wallMax, this.wall + heal);
     this.emit('waveClear', { wave: w, gold: g, stone, heal });
@@ -570,9 +624,9 @@ export class Battle {
     e.spd = def.spd * (0.94 + this.rng.next() * 0.12);
     e.armor = def.armor; e.mres = def.mres;
     if (!this.node.trial) {
-      // 원래 강한 쪽을 더 강하게: 한 계열만으로는 막히도록
+      // 막이 깊을수록 방어 · 저항이 함께 오른다
       const up = DEF_UP(L) * (def.boss || def.elite ? 1.3 : 1);
-      if (def.armor >= def.mres) e.armor = Math.min(0.8, e.armor + up); else e.mres = Math.min(0.8, e.mres + up);
+      e.armor = Math.min(0.8, e.armor + up * 0.25); e.mres = Math.min(0.8, e.mres + up * 0.25);
     }
     e.slowT = 0; e.slowAmt = 0; e.stunT = 0;
     e.burnT = 0; e.burnDps = 0; e.burnSrc = null; e.boomR = 0; e.boomDmg = 0;
@@ -648,6 +702,7 @@ export class Battle {
     this.cur = prev;
     if (this.freezeT > 0) { this.freezeT -= dt; if (this.freezeT <= 0) this.freezeRow = -1; }
     if (this.ashT > 0) this.ashT -= dt;
+    if (this.cloudT > 0) this.cloudT -= dt;
     if (this.timeStopT > 0) this.timeStopT -= dt;
 
     if (this.boss && this.boss.alive) {
@@ -702,6 +757,8 @@ export class Battle {
   }
 
   hurtWall(v, why) {
+    // 구름양의 뭉게 방패: 저주를 뺀 모든 성벽 피해를 막는다
+    if (this.cloudT > 0 && why !== 'curse') { if (why) this.emit('cloudBlock', {}); return; }
     if ((why === 'bossLap' || why === 'timeout') && this.wallSaves > 0) {
       this.wallSaves--;
       v *= 0.5;
@@ -771,7 +828,7 @@ export class Battle {
       if (e.burnT > 0) {
         e.burnT -= dt;
         this.cur = e.burnO || 0;
-        this.damage(e, e.burnDps * dt, 'm', e.burnSrc, true);
+        this.damage(e, e.burnDps * dt * (this.mascot === 'fox' ? 1 + 0.25 * this.mboost : 1), 'm', e.burnSrc, true);
         if (!e.alive) continue;
       }
       if (e.def.phase) {
@@ -1075,8 +1132,10 @@ export class Battle {
     if (dtype === 'p') d *= 1 - e.armor;
     else if (dtype === 'm') d *= (1 - e.mres) * this.mods.magicMul;
     if (d <= 0) return 0;
+    if (e.stunT > 0 && this.mascot === 'shroom') d *= 1 + 0.15 * this.mboost;
     e.hp -= d;
-    if (u) u.dealt += d;
+    if (u) { u.dealt += d; const m = this.dmgBy[u.o || 0]; m[u.def.id] = (m[u.def.id] || 0) + d; }
+    else { const m = this.dmgBy[this.cur]; m['@m'] = (m['@m'] || 0) + d; }
     if (!quiet) {
       e.flash = 0.08;
       // 숫자는 큰 피해·치명타만, 같은 적에게는 0.25초마다 한 번만 표시
@@ -1090,6 +1149,7 @@ export class Battle {
   }
 
   kill(e, u, eaten) {
+    this.killT[e.type] = (this.killT[e.type] || 0) + 1;
     e.alive = false;
     e.hp = 0;
     this.stats.kills++;
@@ -1119,6 +1179,7 @@ export class Battle {
     if (e.elite && !e.clone) { this.stones += 1; this.gold += 30; this.emit('eliteDown', { x: e.x, y: e.y }); }
     let g = 2 + this.mods.killGold + (def && def.killGold ? def.killGold : 0);
     if (this.mascot === 'mimic' && this.rng.chance(0.05 * this.mboost)) g *= 2;
+    if (this.mascot === 'squirrel') this.cheek = Math.min(300, this.cheek + 0.6 * this.mboost);
     this.goldFrac += g * this.mods.goldMul;
     const whole = Math.floor(this.goldFrac);
     this.gold += whole; this.goldFrac -= whole;
@@ -1241,7 +1302,7 @@ export class Battle {
         // 순환 경로: 구간 시작점 기준 상대 위치
         let rel = (e.s - zn.s0) % PM;
         if (rel < 0) rel += PM;
-        if (rel <= span) this.damage(e, zn.dps * dt, 'p', zn.src, true);
+        if (rel <= span) this.damage(e, zn.dps * dt, zn.dt || 'p', zn.src, true);
       }
     }
   }

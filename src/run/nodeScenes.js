@@ -17,6 +17,7 @@ import { finishNode, endRun } from './flow.js';
 import { addRelic, addUnit, randomRelic } from './events.js';
 import { relicRow, portraitURL } from './mapScene.js';
 import { unlockAch } from '../meta/achievements.js';
+import { battleCard, runStatsBlock, recordBattle } from './battleStats.js';
 import { coopShopScene, coopCampScene, coopTreasureScene, coopAltarScene, coopRewardScene, coopActIntroScene, coopEndingScene } from '../net/coopNodes.js';
 
 export const PRICE = { common: 60, rare: 110, legend: 190, set: 80, curse: 45 };
@@ -226,6 +227,7 @@ export function rewardScene(app, { run, kind, gold, escaped }) {
     const title = kind === 'boss' ? '보스 격파' : kind === 'elite' ? '정예 격파' : kind === 'dragon' ? '용의 둥지' : '전투 승리';
     const body = [];
     body.push(resBar(run));
+    if (!done || !picks.length) { const bc = battleCard(run); if (bc) body.push(bc); }
     if (escaped) body.push(h('div.note', `도망친 적 ${escaped}마리가 성벽을 할퀴고 갔다.`));
     if (kind === 'boss' || kind === 'dragon') body.push(h('div.note', { style: { color: 'var(--gold2)' } }, '무지개 조각을 손에 넣었다!'));
     if (picks.length && !done) {
@@ -322,6 +324,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     }
   }
   function summary(id) {
+    recordBattle(run);
     const xp = endRun(run, played[0] || id);
     // 여러 결말(협동)도 모두 기록
     { const dd = store(); dd.endings = dd.endings || []; for (const x of played) if (!dd.endings.includes(x)) dd.endings.push(x); save(); }
@@ -329,12 +332,12 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       if (!ENDINGS[x].royal) continue;
       unlockAch(x.endsWith('light') ? 'fateLight' : 'fateDark');
     }
-    { const got = store().endings || []; if (['edric', 'seren', 'kyle'].every((r) => got.some((x) => x.startsWith(r + '_')))) unlockAch('fateAll'); }
+    { const got = store().endings || []; if (['edric', 'seren', 'kyle', 'nix'].every((r) => got.some((x) => x.startsWith(r + '_')))) unlockAch('fateAll'); }
     const ash = Math.round(run.act * 20 + run.stats.kills / 30 + (id === 'defeat' ? 0 : 60) + run.shards * 5);
     const d = store(); d.ash += ash; save();
     if (id !== 'defeat') {
       unlockAch('finish');
-      unlockAch({ edric: 'edricWin', seren: 'serenWin', kyle: 'kyleWin' }[run.royal]);
+      unlockAch({ edric: 'edricWin', seren: 'serenWin', kyle: 'kyleWin', nix: 'nixWin' }[run.royal]);
       if (id === 'dawn') { unlockAch('trueEnd'); if (run.mascot === 'rock') unlockAch('rockEnd'); }
       if (id === 'ash') unlockAch('darkEnd');
       if (id === 'brother') unlockAch('brotherEnd');
@@ -353,6 +356,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
         h('div', h('span', '유물 · 무지개 조각'), h('span', `${run.relics.length} · ${run.shards}/5`)),
         h('div', h('span', '마스코트 친밀도'), h('span', `+${xp}`)),
         h('div', h('span', '별가루'), h('span', { style: { color: 'var(--gold2)' } }, `+${ash}`))),
+      runStatsBlock(run),
       h('div.btns', h('button.btn.primary', { onclick: () => { audio.sfxPlay('click'); app.go('lobby'); } }, '로비로')));
     app.ui.appendChild(el);
   }

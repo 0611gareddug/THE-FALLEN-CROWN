@@ -11,6 +11,7 @@ import { battleScene } from './game/scene.js';
 import { mapScene } from './run/mapScene.js';
 import { eventScene } from './run/eventScene.js';
 import { shopScene, campScene, treasureScene, altarScene, rewardScene, actIntroScene, endingScene } from './run/nodeScenes.js';
+import { minigameScene } from './run/minigame.js';
 import { prologueScene } from './run/prologue.js';
 import { coopLobbyScene, coopSelectScene } from './net/coopUI.js';
 import { onAchievement, unlockAch } from './meta/achievements.js';
@@ -39,7 +40,7 @@ const app = {
     app.ui.replaceChildren();
     const make = {
       lobby: lobbyScene, select: selectScene, battle: battleScene, map: mapScene, event: eventScene,
-      shop: shopScene, camp: campScene, treasure: treasureScene, altar: altarScene, reward: rewardScene,
+      shop: shopScene, camp: campScene, treasure: treasureScene, altar: altarScene, minigame: minigameScene, reward: rewardScene,
       actIntro: actIntroScene, ending: endingScene, prologue: prologueScene,
       coopLobby: coopLobbyScene, coopSelect: coopSelectScene,
     }[name];

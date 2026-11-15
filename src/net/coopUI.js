@@ -5,7 +5,8 @@ import { store } from '../core/storage.js';
 import { net } from './net.js';
 import { Coop, PROTO } from './coop.js';
 import { ROYALS } from '../data/text.js';
-import { MASCOT_DEFS, MASCOT_ORDER } from '../data/mascots.js';
+import { mascotChip, openMascotPicker } from '../ui/mascotPick.js';
+import { MASCOT_DEFS } from '../data/mascots.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { newCoopRun, mascotLevel } from '../run/run.js';
 
@@ -111,22 +112,16 @@ export function coopSelectScene(app) {
         r.perks.map((p) => h('div.perk', p)),
         isMe ? h('div.tag.me', '나') : null, isThem ? h('div.tag.them', coop.partnerName) : null));
     });
-    const mBtns = MASCOT_ORDER.map((id) => {
-      const has = owned.includes(id);
-      return h('button.mascot' + (id === me.mascot ? '.sel' : ''), {
-        disabled: me.ready,
-        title: has ? MASCOT_DEFS[id].name : `잠김 · ${MASCOT_DEFS[id].unlock}`,
-        onclick: () => { if (!has) { audio.sfxPlay('deny'); return; } audio.sfxPlay('hover'); me.mascot = id; send(); },
-      }, has ? h('img', { src: spriteURL(SPR.mascots[id].r, 3), alt: '' }) : h('span.q', '?'));
-    });
+    const chip = mascotChip(me.mascot, () => {
+      audio.sfxPlay('click');
+      openMascotPicker(app.ui, { current: me.mascot, owned, onPick: (id) => { me.mascot = id; send(); },
+        note: `${coop.partnerName}의 마스코트: ${them.mascot ? MASCOT_DEFS[them.mascot].name : '고르는 중'} · 같은 마스코트도 함께 데려갈 수 있어요.` });
+    }, { disabled: me.ready, label: `내 마스코트 · ${coop.partnerName}: ${them.mascot ? MASCOT_DEFS[them.mascot].name : '고르는 중'}` });
     const both = me.ready && them.ready && me.royal !== them.royal;
     el.replaceChildren(
       h('div.select-head', h('div.eyebrow', 'CHOOSE YOUR HEROES'), h('h2', '함께 떠날 용사')),
       h('div.royals', cards),
-      h('div.mascot-row',
-        h('div.lbl', `내 마스코트 · ${coop.partnerName}: ${them.mascot ? MASCOT_DEFS[them.mascot].name : '고르는 중'}`),
-        h('div.mascots', mBtns),
-        h('div.mascot-info', h('b', { style: { color: 'var(--gold2)' } }, MASCOT_DEFS[me.mascot].name), ` — ${MASCOT_DEFS[me.mascot].skill}: ${MASCOT_DEFS[me.mascot].skillDesc}`)),
+      chip,
       h('div.select-go',
         h('button.btn', { onclick: () => { audio.sfxPlay('click'); coop.leave(true); app.go('lobby'); } }, '나가기'),
         h('button.btn' + (me.ready ? '' : '.primary'), { onclick: () => { audio.sfxPlay('click'); me.ready = !me.ready; send(); } }, me.ready ? '준비 취소' : '준비 완료'),

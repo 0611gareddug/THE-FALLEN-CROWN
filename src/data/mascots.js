@@ -1,4 +1,4 @@
-// 반려 마스코트 8마리: 패시브 + 액티브 스킬(시간 쿨타임) + 해금 조건
+// 반려 마스코트 12마리: 패시브 + 액티브 스킬(시간 쿨타임) + 해금 조건
 export const MASCOT_DEFS = {
   puru: {
     name: '뿌루', kind: '솜털 병아리', cd: 60, skill: '삐약 응원',
@@ -48,7 +48,31 @@ export const MASCOT_DEFS = {
     passive: '성벽 최대 체력 +10.',
     unlock: '업적 10개 달성', lines: ['(감자)', '(싹)', '(쿨쿨)'],
   },
+  shroom: {
+    name: '숙방울', kind: '졸린 방울버섯', cd: 55, skill: '꾸벅 포자',
+    skillDesc: '길 한 구간에 포자를 뿌려 일반 적을 3초 재운다 (정예 1.5초 · 보스 0.8초).',
+    passive: '잠들거나 기절한 적이 받는 피해 +15%.',
+    unlock: '용사단 보물창고', cost: 90, lines: ['쿨…', '(포자 재채기)', '…5분만 더…'],
+  },
+  fox: {
+    name: '꼬리불', kind: '푸른 여우불', cd: 50, skill: '여우불 길',
+    skillDesc: '적이 몰린 길 위에 6초 동안 푸른 불길을 깔아 마법 피해를 준다.',
+    passive: '아군의 화상 피해 +25%.',
+    unlock: '업적 20개 달성', lines: ['콩!', '(꼬리를 쫓아 빙글빙글)', '캥캥—'],
+  },
+  squirrel: {
+    name: '동전다람쥐', kind: '볼주머니 저금왕', cd: 70, skill: '볼주머니 대폭발',
+    skillDesc: '모아 둔 금화를 한꺼번에 뱉어 모든 적에게 피해 (많이 모을수록 강함) + 그 금화를 돌려받는다.',
+    passive: '적을 처치할 때마다 볼주머니에 금화가 조금씩 쌓인다 (최대 300).',
+    unlock: "사건 '도토리 저금통'", lines: ['뿌우!', '(볼이 빵빵하다)', '저금은 미래를 위한 것!'],
+  },
+  sheep: {
+    name: '구름양', kind: '뭉게구름 양', cd: 80, skill: '뭉게 방패',
+    skillDesc: '7초 동안 성벽이 받는 모든 피해를 막는다 (저주 피해 제외).',
+    passive: '웨이브를 막을 때마다 성벽 +2.',
+    unlock: '용사단 보물창고', cost: 120, lines: ['메에—', '(폭신)', '(구름에 파묻혀 잠듦)'],
+  },
 };
-export const MASCOT_ORDER = ['puru', 'cat', 'mimic', 'rock', 'owl', 'egg', 'snail', 'potato'];
+export const MASCOT_ORDER = ['puru', 'cat', 'mimic', 'rock', 'owl', 'egg', 'snail', 'potato', 'shroom', 'fox', 'squirrel', 'sheep'];
 // 친밀도: 판을 끝낼 때마다 경험치, 레벨당 필요량
 export const MASCOT_XP = [0, 3, 8, 15, 25];

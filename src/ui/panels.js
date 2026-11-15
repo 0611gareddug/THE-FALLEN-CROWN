@@ -2,7 +2,8 @@
 import { h } from './dom.js';
 import { store, save, reset } from '../core/storage.js';
 import { audio } from '../core/audio.js';
-import { UNITS, TIERS, CLASSES } from '../data/units.js';
+import { UNITS, TIERS, CLASSES, RECIPES, UNIT } from '../data/units.js';
+import { ENEMIES, BOSS_GIMMICK_TEXT } from '../data/enemies.js';
 import { SPR, spriteURL, silhouetteURL } from '../gfx/sprites.js';
 import { RELICS, ROYAL_RELICS, GRADE, SETS } from '../data/relics.js';
 import { EVENT_DATA } from '../data/events.js';
@@ -81,13 +82,13 @@ export function chroniclePanel(root) {
   const d = store();
   const seen = new Set(d.seen);
   const body = h('div');
-  const tabs = [['유닛', unitsTab], ['유물', relicsTab], ['사건', eventsTab], ['결말', endingsTab], ['업적', achTab]];
+  const tabs = [['유닛', unitsTab], ['적', enemiesTab], ['유물', relicsTab], ['사건', eventsTab], ['결말', endingsTab], ['업적', achTab]];
   const bar = h('div.tabs', tabs.map(([n, fn], i) => h('button.tab' + (i ? '' : '.on'), {
     onclick: (e) => { audio.sfxPlay('hover'); bar.querySelectorAll('.tab').forEach((t) => t.classList.remove('on')); e.currentTarget.classList.add('on'); body.replaceChildren(fn()); },
   }, n)));
   body.appendChild(unitsTab());
   const unitPct = Math.round((UNITS.filter((u) => seen.has(u.id)).length / UNITS.length) * 100);
-  return sheet(root, h('h2', 'CHRONICLE'), h('div.sub', `연대기 · 유닛 ${unitPct}% · 결말 ${(d.endings || []).length}/8 · 업적 ${(d.ach || []).length}/${ACHS.length}`), bar, body);
+  return sheet(root, h('h2', 'CHRONICLE'), h('div.sub', `연대기 · 유닛 ${unitPct}% · 결말 ${(d.endings || []).length}/${ENDING_ORDER.length} · 업적 ${(d.ach || []).length}/${ACHS.length}`), bar, body);
 
   function unitsTab() {
     const detail = h('div.chron-detail', h('span', { style: { color: 'var(--dim)' } }, '유닛을 눌러 기록을 확인하세요.'));
@@ -106,7 +107,9 @@ export function chroniclePanel(root) {
               cell.classList.add('sel');
               selCell = cell;
               detail.replaceChildren(known
-                ? h('div', h('div', { style: { fontSize: '13px', fontWeight: 600, color: tier === 5 ? '#ff9ad9' : t.color } }, u.name), h('div', { style: { color: 'var(--dim)', fontSize: '10.5px' } }, `${t.name} · ${CLASSES[u.cls].name}`), h('div', u.desc), h('div.q', `“${u.quip}”`))
+                ? h('div', h('div', { style: { fontSize: '13px', fontWeight: 600, color: tier === 5 ? '#ff9ad9' : t.color } }, u.name), h('div', { style: { color: 'var(--dim)', fontSize: '10.5px' } }, `${t.name} · ${CLASSES[u.cls].name}`),
+                  h('div.cx-stats', h('span', `공격 ${u.dmg}`), h('span', `속도 ${u.rate}/초`), h('span', `사거리 ${u.range >= 999 ? '전체' : u.range}`), h('span', u.dtype === 'm' ? '마법' : '물리')),
+                  h('div', u.desc), unitPath(u), h('div.q', `“${u.quip}”`))
                 : h('div', { style: { color: 'var(--dim)' } }, '아직 만나지 못한 유닛입니다. 들판 어딘가에 있을지도.'));
             },
           }, h('img', { src: known ? spriteURL(SPR.units[u.id].r, 3) : silhouetteURL(SPR.units[u.id].r, 3), alt: '' }));
@@ -116,12 +119,60 @@ export function chroniclePanel(root) {
     });
     return h('div', ...sections.flat(), detail);
   }
+  // 합성 경로: 같은 유닛 3마리 → 다음 등급 / 천상은 재료 3종
+  function unitPath(u) {
+    const nm = (id) => (seen.has(id) ? UNIT[id].name : '???');
+    if (u.tier === 5) { const r = RECIPES.find((x) => x.result === u.id); return r ? h('div.cx-path', h('span', '천상 합성'), ` ${r.mats.map(nm).join(' + ')}`) : null; }
+    const uses = RECIPES.filter((r) => r.mats.includes(u.id)).map((r) => nm(r.result));
+    return h('div.cx-path', h('span', '진화'), u.tier < 4 ? ` 같은 유닛 3마리 → ${TIERS[u.tier + 1].name} 무작위` : ' 전설은 더 이상 진화하지 않는다', uses.length ? h('div', h('span', '재료'), ` 천상 ${uses.join(', ')}`) : null);
+  }
+  function enemiesTab() {
+    const B = d.bestiary || {};
+    const detail = h('div.chron-detail', h('span', { style: { color: 'var(--dim)' } }, '적을 눌러 기록을 확인하세요.'));
+    let selCell = null;
+    const groups = [['일반', (e) => !e.elite && !e.boss], ['정예', (e) => e.elite], ['보스', (e) => e.boss]];
+    const ids = Object.keys(ENEMIES).filter((id) => SPR.enemies[id] && id !== 'mini');
+    const known = ids.filter((id) => B[id]).length;
+    return h('div', h('div.note', `만난 적 ${known}/${ids.length} · 처치 ${Object.values(B).reduce((a, b) => a + b, 0)}`),
+      ...groups.map(([gn, f]) => {
+        const list = ids.filter((id) => f(ENEMIES[id]));
+        return [h('div.chron-tier', { style: { color: gn === '보스' ? '#ff6b6b' : gn === '정예' ? '#ff8a7a' : 'var(--gold2)' } }, `${gn}  ·  ${list.filter((id) => B[id]).length}/${list.length}`),
+          h('div.chron-grid', list.map((id) => {
+            const e = ENEMIES[id], k = B[id] || 0;
+            const cell = h('button.chron-cell', {
+              'aria-label': k ? e.name : '미발견',
+              onclick: () => {
+                audio.sfxPlay('hover');
+                if (selCell) selCell.classList.remove('sel');
+                cell.classList.add('sel'); selCell = cell;
+                const tags = [];
+                if (e.armor >= 0.3) tags.push('단단함 (물리 방어 높음)');
+                if (e.mres >= 0.3) tags.push('마법 저항 높음');
+                if (e.spd >= 55) tags.push('빠름');
+                if (e.group) tags.push('떼로 몰려온다');
+                if (e.split) tags.push('쓰러지면 분열');
+                if (e.phase) tags.push('가끔 투명해진다');
+                if (e.heal) tags.push('주변 적 치유');
+                if (e.summon) tags.push('졸개 소환');
+                if (e.enrage) tags.push('체력이 줄면 분노');
+                detail.replaceChildren(k
+                  ? h('div', h('div', { style: { fontSize: '13px', fontWeight: 600, color: e.boss ? '#ff6b6b' : e.elite ? '#ff8a7a' : '#f0ebdf' } }, e.name), e.title ? h('div', { style: { color: 'var(--dim)', fontSize: '10.5px' } }, e.title) : null,
+                    h('div.cx-stats', h('span', `체력 ×${e.hp}`), h('span', `속도 ${e.spd}`), h('span', `방어 ${Math.round(e.armor * 100)}%`), h('span', `저항 ${Math.round(e.mres * 100)}%`)),
+                    e.gimmick ? h('div', BOSS_GIMMICK_TEXT[e.gimmick]) : tags.length ? h('div', tags.join(' · ')) : null,
+                    h('div.q', `처치 ${k}마리`))
+                  : h('div', { style: { color: 'var(--dim)' } }, '아직 쓰러뜨리지 못한 적입니다.'));
+              },
+            }, h('img', { src: k ? spriteURL(SPR.enemies[id].r, 2) : silhouetteURL(SPR.enemies[id].r, 2), alt: '' }));
+            return cell;
+          }))];
+      }).flat(), detail);
+  }
   function relicsTab() {
     const got = new Set(d.relicsSeen || []);
     const row = (r) => (got.has(r.id)
       ? h('div.relic-row', { style: { '--gc': GRADE[r.g].color } }, h('b', r.name), h('span.gr', GRADE[r.g].name + (r.set ? ` · ${SETS[r.set].name}` : '')), h('div', r.desc), h('div.fl', `“${r.flavor}”`))
       : h('div.relic-row.unk', h('b', '???'), h('span.gr', GRADE[r.g].name)));
-    const ROY = { edric: '레오', seren: '미나', kyle: '피크' };
+    const ROY = { edric: '레오', seren: '미나', kyle: '피크', nix: '닉스' };
     return h('div', h('div.note', `만난 유물 ${RELICS.filter((r) => got.has(r.id)).length}/${RELICS.length}`),
       ...RELICS.map(row),
       ...Object.entries(ROY).map(([k, nm]) => {

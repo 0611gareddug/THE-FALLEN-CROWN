@@ -26,7 +26,7 @@ export function h(sel, props, ...kids) {
 }
 
 // 선택지 보호: 새로 나타난 선택지 버튼은 2초 뒤에 누를 수 있다 (대사를 넘기다 실수로 고르지 않게)
-const LOCK_SEL = '.ev-choice, .pick';
+const LOCK_SEL = '.ev-choice, .pick, .mg-lock';
 export const CHOICE_LOCK_MS = 2000;
 function lockBtn(b) {
   if (b.dataset.nolock !== undefined || b._locked) return;

@@ -7,7 +7,7 @@ import { ROYALS } from '../data/text.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 
 export const PROTO = 1;
-const SYNC_SCENES = new Set(['map', 'event', 'shop', 'camp', 'treasure', 'altar', 'reward', 'actIntro', 'ending', 'battle', 'coopSelect']);
+const SYNC_SCENES = new Set(['map', 'event', 'shop', 'camp', 'treasure', 'altar', 'minigame', 'reward', 'actIntro', 'ending', 'battle', 'coopSelect']);
 
 export class Coop {
   constructor(app, net) {

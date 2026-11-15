@@ -780,3 +780,120 @@ button:disabled { cursor: default; }
 /* 선택지 잠금 (대사 넘기다 실수 방지): 2초 동안 흐리게, 아래쪽 금빛 줄이 차오른다 */
 .wait-btn { pointer-events: none; opacity: .5; background-image: linear-gradient(var(--gold2), var(--gold2)); background-repeat: no-repeat; background-position: left bottom; background-size: 0 2px; animation: waitFill 2s linear forwards; }
 @keyframes waitFill { to { background-size: 100% 2px; } }
+
+/* ── 마스코트 선택창 (카드형) ── */
+.mchip { position: absolute; bottom: 72px; left: 18px; right: 18px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--line2); background: rgba(12, 14, 20, .7); text-align: left; transition: border-color .2s; }
+.mchip:hover:not(:disabled) { border-color: var(--gold); }
+.mchip img { width: 40px; height: 40px; image-rendering: pixelated; flex: none; }
+.mchip-t { flex: 1; min-width: 0; font-size: 11px; color: #b8b09c; }
+.mchip-t b { color: var(--gold2); font-weight: 600; font-size: 13px; }
+.mchip-l { font-size: 9.5px; letter-spacing: .25em; color: var(--dim); margin-bottom: 2px; }
+.mchip-go { font-size: 11px; color: var(--gold); flex: none; }
+.land .mchip { top: 404px; bottom: auto; left: 330px; right: 330px; }
+.mpick-sheet { z-index: 40; }
+.panel.mpick { width: 340px; max-height: 600px; padding: 18px 14px 14px; }
+.mpick .eyebrow { margin-bottom: 4px; }
+.mgrid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.mcard { display: block; width: 100%; text-align: left; padding: 9px 10px; border: 1px solid var(--line2); background: rgba(12, 14, 20, .75); transition: border-color .2s, background .2s; }
+.mcard:hover { border-color: rgba(232, 194, 90, .45); }
+.mcard.sel { border-color: var(--gold); background: rgba(40, 34, 20, .6); box-shadow: inset 0 0 0 1px rgba(232, 194, 90, .25); }
+.mcard.locked { opacity: .6; }
+.mcard.locked img { filter: brightness(0); opacity: .55; }
+.mcard.shake { animation: mshake .3s; }
+@keyframes mshake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.mc-top { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.mc-img { width: 52px; height: 52px; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .03); border: 1px solid var(--line2); }
+.mc-img img { width: 48px; height: 48px; image-rendering: pixelated; }
+.mc-name b { font-size: 14px; color: #ece6d8; font-weight: 600; letter-spacing: .05em; }
+.mcard.sel .mc-name b { color: var(--gold2); }
+.mc-kind { font-size: 10px; color: var(--dim); margin-top: 1px; }
+.mc-lv { font-size: 10px; color: #e07a8a; margin-top: 2px; letter-spacing: .05em; }
+.mc-lv span { color: var(--dim); }
+.mc-skill { display: flex; justify-content: space-between; align-items: baseline; font-size: 11.5px; color: var(--gold2); margin-bottom: 2px; }
+.mc-skill b { font-weight: 600; }
+.mc-cd { font-size: 10px; color: var(--dim); border: 1px solid var(--line2); padding: 0 5px; }
+.mc-desc { font-size: 10.5px; color: var(--text); line-height: 1.5; margin-bottom: 3px; }
+.mc-pas { font-size: 10px; color: #b8b09c; line-height: 1.5; }
+.mc-pas span, .mc-lock span { color: var(--dim); border: 1px solid var(--line2); padding: 0 4px; font-size: 9px; letter-spacing: .1em; }
+.mc-lock { font-size: 10.5px; color: #b8b09c; line-height: 1.5; }
+.mpick-go { display: flex; gap: 8px; margin-top: 10px; position: sticky; bottom: -14px; background: var(--panel); padding: 8px 0 2px; }
+.mpick-go .btn { flex: 1; }
+.land .panel.mpick { width: 900px; max-height: 510px; padding: 18px 18px 14px; }
+.land .mgrid { grid-template-columns: repeat(4, 1fr); }
+/* 세로 화면: 용사 4명이 한 화면에 들어가도록 카드를 조금 줄인다 */
+body:not(.land) .select-screen .royals { gap: 6px; top: 84px; }
+body:not(.land) .select-screen .royal { padding: 7px 10px; gap: 10px; }
+body:not(.land) .select-screen .royal img { width: 40px; height: 50px; }
+body:not(.land) .select-screen .royal .rname { font-size: 14px; }
+body:not(.land) .select-screen .royal .rlore { font-size: 10px; line-height: 1.35; margin: 2px 0 3px; }
+body:not(.land) .select-screen .royal .perk { font-size: 10.5px; line-height: 1.4; }
+.land .mcard { padding: 8px 9px; }
+
+/* ── 놀이 천막 ── */
+.mg-board { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.mg-msg { font-size: 12.5px; color: #f0ebdf; line-height: 1.6; text-align: center; min-height: 20px; }
+.mg-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.mg-btns .btn { flex: 1; min-width: 90px; padding: 9px 6px; font-size: 12px; }
+.mg-partner { font-size: 11px; color: #9fc8ff; border: 1px dashed rgba(159, 200, 255, .35); padding: 5px 8px; }
+.mg-partner.done { color: #7fe0c0; border-color: rgba(127, 224, 192, .45); }
+.mg-wheel-wrap { display: flex; justify-content: center; padding: 6px 0 2px; }
+.wheel { position: relative; width: 168px; height: 168px; }
+.wheel-disc { position: absolute; inset: 0; border-radius: 50%; border: 3px solid #e8c25a; box-shadow: 0 0 0 2px #1a1018, 0 0 18px rgba(232, 194, 90, .25); transition: transform 2.5s cubic-bezier(.15, .8, .2, 1); will-change: transform; }
+.wheel-lbl { position: absolute; left: 50%; top: 50%; width: 44px; margin: -7px 0 0 -22px; text-align: center; font-size: 10px; font-weight: 600; color: #fff6dc; text-shadow: 0 1px 0 #000; transform-origin: 50% 50%; }
+.wheel-pin { position: absolute; left: 50%; top: -8px; margin-left: -7px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 14px solid #ffe36b; filter: drop-shadow(0 1px 0 #000); z-index: 2; }
+.wheel-hub { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #1a1018; border: 2px solid #e8c25a; }
+.mg-tries { font-size: 11px; color: var(--dim); text-align: center; }
+.mg-tries b { color: var(--gold2); letter-spacing: .15em; font-weight: 400; }
+.mem-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; perspective: 600px; }
+.mcard2 { height: 58px; padding: 0; background: none; border: 0; }
+.mc2-in { position: relative; width: 100%; height: 100%; transition: transform .3s; transform-style: preserve-3d; }
+.mcard2.up .mc2-in { transform: rotateY(180deg); }
+.mc2-back, .mc2-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; backface-visibility: hidden; border: 1px solid var(--line2); }
+.mc2-back { background: repeating-linear-gradient(45deg, #1c1a26 0 6px, #22202e 6px 12px); color: #6a6478; font-size: 16px; font-family: var(--serif-en); }
+.mc2-face { transform: rotateY(180deg); background: #14161e; border-color: var(--cc); }
+.mc2-face i { font-style: normal; font-size: 20px; color: var(--cc); line-height: 1; }
+.mc2-face small { font-size: 9.5px; color: #d4cebf; margin-top: 3px; }
+.mcard2.got .mc2-face { background: rgba(232, 194, 90, .12); box-shadow: 0 0 10px rgba(232, 194, 90, .25); }
+.hl-row { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 6px 0; }
+.hl-die { font-size: 64px; line-height: 1; color: #f0ebdf; text-shadow: 0 2px 0 #000; }
+.hl-die.roll { animation: hlroll .14s linear infinite; }
+@keyframes hlroll { 50% { transform: rotate(12deg) translateY(-3px); } }
+.hl-pot { font-size: 12px; color: var(--dim); }
+.hl-pot b { font-family: var(--pixel); font-size: 16px; color: var(--gold2); font-weight: 400; }
+.hl-pot small { display: block; font-size: 10px; margin-top: 2px; }
+.land .mem-grid { grid-template-columns: repeat(6, 1fr); }
+.land .wheel { width: 190px; height: 190px; }
+
+/* ── 전투 기록 ── */
+.bstat { border: 1px solid var(--line2); background: rgba(255, 255, 255, .02); }
+.bstat-head { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 6px 10px; font-size: 10.5px; letter-spacing: .2em; color: var(--dim); text-align: left; }
+.bstat-head.static { cursor: default; }
+.bstat-head i { font-style: normal; color: var(--gold); }
+.bstat-body { padding: 0 10px 8px; }
+.bstat-sub { font-size: 10.5px; color: #b8b09c; margin-bottom: 6px; padding: 0 10px; }
+.bstat-body .bstat-sub { padding: 0; }
+.bstat-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; padding: 0 10px; }
+.bstat-body .bstat-vs { padding: 0; }
+.bstat-vs > div { border: 1px solid var(--line2); padding: 4px 7px; font-size: 10px; color: #b8b09c; display: flex; flex-direction: column; }
+.bstat-vs > div b { font-size: 11.5px; font-weight: 600; }
+.bstat-vs .mine b { color: #8fd4ff; } .bstat-vs .theirs b { color: #ffb38a; }
+.bstat-bars { display: flex; flex-direction: column; gap: 4px; }
+.bstat.run .bstat-bars { padding: 0 10px 8px; }
+.bstat-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 7px; align-items: center; }
+.bstat-row img, .bstat-noimg { width: 26px; height: 26px; image-rendering: pixelated; }
+.bstat-mid { min-width: 0; }
+.bstat-name { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.bstat-name small { color: var(--dim); font-size: 9.5px; }
+.bstat-mvp { font-family: var(--pixel); font-weight: 400; font-size: 9px; color: #1b1622; background: var(--gold2); padding: 0 4px; margin-left: 5px; }
+.bstat-track { height: 5px; background: rgba(255, 255, 255, .06); margin-top: 2px; }
+.bstat-fill { height: 100%; background: linear-gradient(90deg, #8a6a2a, var(--gold2)); transform-origin: left; animation: bgrow .8s cubic-bezier(.2, .8, .2, 1); }
+.bstat-row.theirs .bstat-fill { background: linear-gradient(90deg, #8a4a2a, #ffb38a); }
+.bstat-row.mine .bstat-fill { background: linear-gradient(90deg, #2a5a8a, #8fd4ff); }
+.bstat-row.mvp .bstat-fill { box-shadow: 0 0 6px rgba(232, 194, 90, .5); }
+@keyframes bgrow { from { transform: scaleX(0); } }
+.bstat-v { font-family: var(--pixel); font-size: 11px; color: #f0ebdf; min-width: 38px; text-align: right; }
+.result .bstat.run { width: 100%; max-width: 420px; margin: -10px 0 18px; text-align: left; }
+.cx-stats { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.cx-stats span { font-size: 10px; border: 1px solid var(--line2); padding: 0 5px; color: #d4cebf; font-family: var(--pixel); }
+.cx-path { font-size: 10.5px; color: #b8b09c; margin-top: 4px; line-height: 1.5; }
+.cx-path span { font-size: 9px; color: var(--dim); border: 1px solid var(--line2); padding: 0 4px; letter-spacing: .1em; }

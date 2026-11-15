@@ -24,12 +24,13 @@ export const NODE_TYPES = {
   camp: { name: '야영', desc: '회복 · 대화 · 무료 강화' },
   treasure: { name: '보물', desc: '유물 또는 행운석' },
   altar: { name: '운명의 제단', desc: '행운석을 걸고 주사위를 굴린다' },
+  minigame: { name: '놀이 천막', desc: '룰렛 · 카드 짝 맞추기 · 주사위 하이로우 중 하나' },
   boss: { name: '보스', desc: '막 보스' },
   dragon: { name: '용의 둥지', desc: '얼어붙은 용 실바나' },
   fate: { name: '운명의 장', desc: '용사의 이야기 · 모든 길이 이곳을 지난다' },
 };
 
-const W_TYPES = [['battle', 38], ['event', 32], ['elite', 10], ['shop', 7], ['camp', 5], ['treasure', 4], ['altar', 4]];
+const W_TYPES = [['battle', 38], ['event', 32], ['elite', 10], ['shop', 7], ['camp', 5], ['treasure', 4], ['altar', 4], ['minigame', 3]];
 
 function weighted(rng, list, allow) {
   const f = list.filter(([t]) => allow(t));
@@ -82,7 +83,7 @@ export function genMap(seed, act) {
       else if (r === ROWS - 2) nd.type = 'camp';
       else if (act === LAST_ACT && r === 6) nd.type = 'dragon';
       else if (FATE_ROWS[act - 1].includes(r)) { nd.type = 'fate'; nd.fateN = (act - 1) * 2 + FATE_ROWS[act - 1].indexOf(r) + 1; }
-      else nd.type = weighted(rng, W_TYPES, (t) => (t !== 'elite' || r >= 4) && (t !== 'shop' || r >= 3) && (t !== 'camp' || (r >= 5 && r <= 8)) && (t !== 'altar' || r >= 2));
+      else nd.type = weighted(rng, W_TYPES, (t) => (t !== 'elite' || r >= 4) && (t !== 'shop' || r >= 3) && (t !== 'camp' || (r >= 5 && r <= 8)) && (t !== 'altar' || r >= 2) && (t !== 'minigame' || r >= 2));
     }
   }
   const force = (rowsRange, type) => {
@@ -93,6 +94,7 @@ export function genMap(seed, act) {
   force([5, 9], 'elite');
   force([1, 3], 'event');
   force([5, 8], 'event');
+  force([2, 9], 'minigame');
   const nodes = {};
   rows.flat().forEach((n) => (nodes[n.id] = n));
   return { act, rows: rows.map((r) => r.map((n) => n.id)), nodes };

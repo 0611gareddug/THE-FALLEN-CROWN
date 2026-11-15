@@ -58,13 +58,18 @@ const fateSides = { light: 0, dark: 0 };
 const fateDone = [];
 const deaths = {};
 let wins = 0;
+const byR = {}, byM = {};
 const wallAtBoss = [[], [], [], []];
 const t0 = Date.now();
 for (let r = 0; r < RUNS; r++) {
-  const royal = ['edric', 'seren', 'kyle'][r % 3];
+  const ROY = (process.env.ROYAL || 'edric,seren,kyle,nix').split(',');
+  const royal = ROY[r % ROY.length];
+  const M = (process.env.MASCOT || 'puru').split(',');
+  const mascot = M[r % M.length];
   const run = IS_COOP
-    ? newCoopRun([{ royal, mascot: 'puru' }, { royal: ['seren', 'kyle', 'edric'][r % 3], mascot: 'cat' }], 5000 + r)
-    : newRun({ royal, mascot: 'puru', seed: 5000 + r });
+    ? newCoopRun([{ royal, mascot }, { royal: ['seren', 'kyle', 'nix', 'edric'][r % 4] === royal ? 'edric' : ['seren', 'kyle', 'nix', 'edric'][r % 4], mascot: 'cat' }], 5000 + r)
+    : newRun({ royal, mascot, seed: 5000 + r });
+  run._bm = mascot;
   const rng = new RNG(9000 + r);
   let alive = true;
   while (alive) {
@@ -87,7 +92,7 @@ for (let r = 0; r < RUNS; r++) {
     if (!alive) break;
     if (nd.type === 'boss') {
       reach[run.act]++;
-      if (run.act === LAST_ACT) { wins++; fateDone.push((run.fate[run.royal] || []).length); break; }
+      if (run.act === LAST_ACT) { wins++; byR[royal] = (byR[royal] || 0) + 1; byM[mascot] = (byM[mascot] || 0) + 1; fateDone.push((run.fate[run.royal] || []).length); break; }
       run.act++; run.pos = null; run.map = genMap(run.seed, run.act);
       run.carry.wall = Math.min(run.carry.wallMax, run.carry.wall + Math.round(run.carry.wallMax * 0.3));
     }
@@ -100,5 +105,6 @@ for (let r = 0; r < RUNS; r++) {
 const avg = (a) => (a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(0) : '-');
 console.log(`\n${RUNS}판: 1막 ${reach[1]} · 2막 ${reach[2]} · 3막 ${reach[3]} · 최종 클리어 ${wins} (${((wins / RUNS) * 100).toFixed(0)}%)`);
 console.log('패배 지점:', deaths);
+console.log('용사별 클리어:', byR, '· 마스코트별:', byM);
 console.log('운명의 장 선택:', fateSides, '· 클리어 시 본 장 수:', fateDone.join(','));
 console.log(`보스 직전 평균 성벽: 1막 ${avg(wallAtBoss[0])} · 2막 ${avg(wallAtBoss[1])} · 3막 ${avg(wallAtBoss[2])} · 4막 ${avg(wallAtBoss[3])}  (${((Date.now() - t0) / 1000).toFixed(0)}초)`);

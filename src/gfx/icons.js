@@ -10,6 +10,7 @@ const ICONS = {
   boss: ['o..o.o..o', 'oo.ooo.oo', 'ooooooooo', 'ooooooooo', '.ooooooo.', '.o.o.o.o.', '.ooooooo.', '.........', '.........'],
   dragon: ['o.......o', 'oo.....oo', '.ooooooo.', '.o.ooo.o.', '.ooooooo.', '..ooooo..', '...o.o...', '..o...o..', '.........'],
   fate: ['.o..o..o.', '.oo.o.oo.', '.ooooooo.', '.o.ooo.o.', '..ooooo..', '....o....', '...ooo...', '..o.o.o..', '.........'],
+  minigame: ['....o....', '...ooo...', '..ooooo..', '.o.o.o.o.', 'ooooooooo', '.o.....o.', '.o.ooo.o.', '.o.o.o.o.', '.........'],
   shard: ['....o....', '...ooo...', '..ooooo..', '.ooo.ooo.', '..ooooo..', '...ooo...', '....o....', '.........', '.........'],
 };
 

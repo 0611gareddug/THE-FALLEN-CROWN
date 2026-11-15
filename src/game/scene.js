@@ -1,4 +1,5 @@
 // 전투 장면: 시뮬레이션 + 렌더러 + HUD + 입력
+import { recordBattle } from '../run/battleStats.js';
 import { Battle, PITY_MAX } from './battle.js';
 import { Renderer } from '../gfx/render.js';
 import { h, svg, ICON } from '../ui/dom.js';
@@ -25,7 +26,7 @@ import { SOLO, COOP, W, H } from './layout.js';
 const TICK = 1 / 60;
 const SPEEDS = [1, 1.5, 2];
 // 협동에서 동료 보드 것이어도 내 화면에 그대로 보여줄 공용 이벤트
-const SHARED_EV = new Set(['wave', 'waveClear', 'wallHit', 'guarded', 'freeze', 'steal', 'ashrain', 'split', 'heal', 'raise', 'enrage', 'victory', 'defeat', 'combo', 'roar', 'corrupt', 'cleanse', 'icebreak']);
+const SHARED_EV = new Set(['wave', 'waveClear', 'wallHit', 'guarded', 'freeze', 'steal', 'ashrain', 'split', 'heal', 'raise', 'enrage', 'victory', 'defeat', 'combo', 'roar', 'corrupt', 'cleanse', 'icebreak', 'cloudBlock']);
 const tierCol = (t) => (t === 5 ? '#ff9ad9' : TIERS[t].color);
 const unitImg = (id, s = 3) => spriteURL(SPR.units[id].r, s);
 // 협동 신호: [말, 표정]
@@ -430,6 +431,10 @@ export function battleScene(app, params) {
         if (mascotId === 'rock') line = ev.awake ? '돌쇠: "……!" 돌의 각성!!!' : '돌쇠: "......"';
         if (mascotId === 'mimic') line = `덥석이: "덥석!" ${ev.eaten}마리 꿀꺽, 금화 +${ev.eaten * 3}`;
         if (mascotId === 'snail') line = '느릿: "빠른 등기 접수… 했…습…니…다…" (5초 후 도착)';
+        if (mascotId === 'shroom') line = `숙방울: "쿨…" 꾸벅 포자! 적 ${ev.n}마리가 잠들었다`;
+        if (mascotId === 'fox') line = '꼬리불: "콩!" 여우불 길이 6초 동안 타오른다';
+        if (mascotId === 'squirrel') line = `동전다람쥐: "뿌우!" 볼주머니 대폭발! 금화 +${ev.v}`;
+        if (mascotId === 'sheep') line = '구름양: "메에—" 뭉게 방패! 잠시 성벽 피해를 막는다';
         toast(line, 'good');
         if (ev.awake) { slowmo = 0.8; announce('AWAKENING', '돌의 각성'); }
         break;
@@ -444,6 +449,7 @@ export function battleScene(app, params) {
         if (ev.why === 'curse') toast('짝퉁 마왕 왕관이 성벽을 갉아먹는다… 성벽 -1');
         break;
       }
+      case 'cloudBlock': if (!battle._cloudMsg || battle.time - battle._cloudMsg > 2) { battle._cloudMsg = battle.time; toast('뭉게 방패가 성벽 피해를 막았다!', 'good'); } break;
       case 'guarded': toast('바르톨: "이 늙은 몸이 막겠네!" 피해 절반', 'good'); break;
       case 'corrupt': audio.sfxPlay('fail'); toast(`먹물수염이 ${battle.units[ev.cell] ? battle.units[ev.cell].def.name : '유닛'}에게 먹물을 뿌렸다! 여러 번 눌러 닦아 주자!`); break;
       case 'cleanse': audio.sfxPlay(ev.done ? 'win' : 'hover'); break;
@@ -703,6 +709,13 @@ export function battleScene(app, params) {
     const s = run.stats;
     const tot = (k) => (coop ? b.totalStat(k) : b.stats[k]);
     s.kills += tot('kills'); s.merges += tot('merges'); s.celestials += tot('celestials'); s.fails += tot('fails'); s.gambles += tot('gambles');
+    // 전투 기록 (보상 화면 · 결말 통계 · 도감)
+    const sum = b.summary();
+    run.lastBattle = { ...sum, n: s.battles + 1, act: run.act, kind: node.type };
+    s.dmg = s.dmg || [{}, {}]; s.killsO = s.killsO || [0, 0];
+    b.dmgBy.slice(0, b.nP).forEach((m, o) => { for (const [id, v] of Object.entries(m)) s.dmg[o][id] = Math.round((s.dmg[o][id] || 0) + v); });
+    sum.kills.forEach((k, o) => (s.killsO[o] += k));
+    recordBattle(run);
     if (!win) { audio.stop(); app.go('ending', { run, defeat: true }); return; }
     if (!coop) run.carry = b.exportCarry();
     s.battles++;
@@ -818,7 +831,7 @@ export function battleScene(app, params) {
     app.gameCv.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey);
     const royal = run ? (run.players ? run.players[me].royal : run.royal) : params.royal || 'edric';
-    toast(royal === 'kyle' ? '피크: "싸우기 전에 간식부터 확인하자."' : royal === 'seren' ? '미나: "주문서 챙겼어! 아, 이건 요리책이다."' : '레오: "바, 방패 준비 완료! 아마도!"');
+    toast(royal === 'nix' ? '닉스: "훔칠 거… 아니, 지킬 거 확인 완료."' : royal === 'kyle' ? '피크: "싸우기 전에 간식부터 확인하자."' : royal === 'seren' ? '미나: "주문서 챙겼어! 아, 이건 요리책이다."' : '레오: "바, 방패 준비 완료! 아마도!"');
   }
   function exit() {
     app.gameCv.removeEventListener('pointerdown', onDown);

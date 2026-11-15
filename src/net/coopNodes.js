@@ -12,6 +12,7 @@ import { frame, resBar, relicCard, makeShopStock, endingScene } from '../run/nod
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { portraitURL } from '../run/mapScene.js';
 import { royalEnding } from '../data/fate.js';
+import { battleCard } from '../run/battleStats.js';
 
 const keyOf = (run, tag) => `${tag}:${run.act}:${run.pos || 's'}:${run.stats.battles}:${run.stats.events}`;
 
@@ -231,7 +232,7 @@ export function coopRewardScene(app, { run, kind, escaped }) {
     if (el) el.remove();
     const box = h('div.ev-choices');
     const title = kind === 'boss' ? '보스 격파' : kind === 'elite' ? '정예 격파' : kind === 'dragon' ? '용의 둥지' : '전투 승리';
-    el = frame(app, kind === 'boss' ? 'hall' : 'road', 'VICTORY', title, resBar(coop.run || run),
+    el = frame(app, kind === 'boss' ? 'hall' : 'road', 'VICTORY', title, resBar(coop.run || run), done ? null : battleCard(coop.run || run),
       escaped ? h('div.note', `도망친 적 ${escaped}마리가 성벽을 할퀴고 갔다.`) : null,
       (kind === 'boss' || kind === 'dragon') ? h('div.note', { style: { color: 'var(--gold2)' } }, '무지개 조각을 손에 넣었다!') : null,
       box);

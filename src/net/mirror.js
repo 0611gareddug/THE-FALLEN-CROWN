@@ -16,7 +16,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
 
 // ── 방장: 필드 전체 압축 (좌표 · 칸 · 주인은 방장 기준 그대로) ──
 export function packField(b, evs) {
-  const h = [b.wave, b.nWaves, PHASES.indexOf(b.phase), r1(b.timer), r1(b.waveT), r1(b.bossT), r1(b.leftT), r1(b.timeStopT), r1(b.ashT), b.overflow ? 1 : 0, b.freezeRow, r1(b.wall), b.wallMax];
+  const h = [b.wave, b.nWaves, PHASES.indexOf(b.phase), r1(b.timer), r1(b.waveT), r1(b.bossT), r1(b.leftT), r1(b.timeStopT), r1(b.ashT), b.overflow ? 1 : 0, b.freezeRow, r1(b.wall), b.wallMax, r1(b.cloudT || 0)];
   const pp = [0, 1].map((o) => b.as(o, () => [
     b.gold, b.stones, b.badLuck, r1(b.skillT), r1(b.skillCd), b.celestial, b.maxCelestial, b.summonCost(), r1(b.cheerT),
     b.upg[0], b.upg[1], b.upg[2], b.upgradeCost(0), b.upgradeCost(1), b.upgradeCost(2), b.hasEmpty() ? 1 : 0, b.stats.kills, b.freeSummon,
@@ -39,7 +39,7 @@ export function packField(b, evs) {
   const ev = evs.filter((x) => x.type !== 'hit' && (x.type !== 'dmg' || dmg++ < 16));
   return {
     h, pp, u: units, m: b.mergeable.map((x) => (x ? 1 : 0)).join(''),
-    e: e.buffer, p: pr.buffer, z: b.zones.map((z) => [Math.round(z.s0), Math.round(z.s1), r1(z.t)]), boss, ev, res: b.result || null,
+    e: e.buffer, p: pr.buffer, z: b.zones.map((z) => [Math.round(z.s0), Math.round(z.s1), r1(z.t), z.fox ? 1 : 0]), boss, ev, res: b.result || null,
   };
 }
 
@@ -98,7 +98,7 @@ export class MirrorBattle {
     const H = s.h;
     this.wave = H[0]; this.nWaves = H[1]; this.phase = PHASES[H[2]] || 'wave';
     [this.timer, this.waveT, this.bossT, this.leftT, this.timeStopT, this.ashT] = H.slice(3, 9);
-    this.overflow = !!H[9]; this.freezeRow = H[10] < 0 ? -1 : 2 - H[10]; this.wall = H[11]; this.wallMax = H[12];
+    this.overflow = !!H[9]; this.freezeRow = H[10] < 0 ? -1 : 2 - H[10]; this.wall = H[11]; this.wallMax = H[12]; this.cloudT = H[13] || 0;
     for (let ho = 0; ho < 2; ho++) {
       const P = this.P[1 - ho], a = s.pp[ho];
       [P.gold, P.stones, P.badLuck, P.skillT, P.skillCd, P.celestial, P.maxCelestial, P.sc, P.cheerT] = a;
@@ -144,7 +144,7 @@ export class MirrorBattle {
       const ang = -p[o + 3] / 1000, px = p[o + 1] / 8, py = M - p[o + 2] / 8;
       this.projs.push({ kind: PROJ[p[o]], x: px, y: py, ang, tx: px + Math.cos(ang) * 10, ty: py + Math.sin(ang) * 10 });
     }
-    this.zones = s.z.map(([s0, s1, t]) => ({ s0, s1, t, dur: 3 }));
+    this.zones = s.z.map(([s0, s1, t, fox]) => ({ s0, s1, t, dur: 3, fox: !!fox }));
     this.boss = s.boss ? { alive: true, type: ENEMY_IDS[s.boss[0]], def: ENEMIES[ENEMY_IDS[s.boss[0]]], hp: s.boss[1], maxHp: s.boss[2], shield: !!s.boss[3] } : null;
     for (const ev of s.ev) this.events.push(mirrorEv(ev, M));
     if (s.res) this.result = s.res;
