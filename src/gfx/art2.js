@@ -418,6 +418,9 @@ export const CAST = {
   box: { name: '상자', box: true, voice: [150, 'square'] },
   dragon: { name: '실바나', dragon: true, voice: [120, 'sawtooth'] },
   morven: { name: '모르벤', skin: '#d8b8a0', hair: '#c8c8d0', style: 'short', beard: '#c8c8d0', cloth: '#3a2a4a', cloth2: '#e8c25a', crownSmall: true, voice: [240, 'sawtooth'] },
+  librarian: { name: '사서 오르웬', skin: '#d8e8f0', hair: '#c8d0e0', style: 'bald', beard: '#d8e0f0', cloth: '#5a6a8a', cloth2: '#c8b070', ghost: true, voice: [300, 'sine'] },
+  forger: { name: '위조범 핀', skin: '#e8c0a0', hair: '#5a4030', style: 'cap', mustache: true, cloth: '#6a5a3a', cloth2: '#c8c0a0', voice: [560, 'square'] },
+  cousin: { name: '테오도르', skin: '#f4e0d4', hair: '#d8c08a', style: 'short', cloth: '#5a6a9a', cloth2: '#e8c25a', crownSmall: true, cold: true, voice: [600, 'triangle'] },
   ghost: { name: '선왕의 망령', skin: '#c8e8f8', hair: '#e8f4ff', style: 'bald', beard: '#e8f4ff', cloth: '#8ab0d0', cloth2: '#e8c25a', crown: true, ghost: true, voice: [200, 'sine'] },
 };
 

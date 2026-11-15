@@ -1,3 +1,4 @@
+import { FATE } from './fate.js';
 // 사건 40개 (1차) + 특수 사건
 // 대사: [누가, 표정, 문장]  누가: narr(해설) · CAST id · '@q'(동료 중 한 명이 있으면 그 동료가 말함)
 // 선택지: t(문구) · sub(설명) · cond(조건) · hide(조건 불충족 시 숨김) · fx(효과) · r(결과 대사)
@@ -559,5 +560,8 @@ ev('dragon_talk', {
     { t: '싸워서 재를 털어낸다', fx: { flag: 'dragonTalked' }, r: [['narr', '', '실바나가 날개를 펼쳤다. 냉기가 몰아친다!']] },
   ],
 });
+
+// 왕족 메인 스토리(운명의 장)도 같은 사건 엔진으로 재생한다
+Object.assign(E, FATE);
 
 export const EVENT_DATA = E;

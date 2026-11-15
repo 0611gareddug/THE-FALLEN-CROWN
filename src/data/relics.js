@@ -1,5 +1,6 @@
 // 유물 1차 30종: 흔함 8 · 희귀 4 · 전설 2 · 세트 12 (4세트) · 저주 4
 // fx: 전투 보정(R)에 더해지는 값. onGet: 얻는 순간 런 상태에 적용.
+import { ROYAL_RELICS } from './fate.js';
 
 export const RELICS = [
   // ── 흔함 ──
@@ -41,7 +42,9 @@ export const RELICS = [
   { id: 'scepter', g: 'curse', name: '투덜대는 왕홀', fx: { dmg: 0.3, summonCost: -3 }, desc: '모든 피해 +30% · 대가: 소환 비용 +3', flavor: '"또 나야? 왜 맨날 나야?"' },
   { id: 'fakecrown', g: 'curse', name: '짝퉁 무너진 왕관', fx: { celestialMax: 1, wallDrain: 1 }, desc: '천상 유닛 한도 +1 · 대가: 웨이브마다 성벽 -1', flavor: '가짜인데 저주는 진짜다.' },
 ];
-export const RELIC = Object.fromEntries(RELICS.map((r) => [r.id, r]));
+// 왕족 전용 유물은 무작위 보상 · 상점에는 나오지 않는다 (운명의 장에서만)
+export { ROYAL_RELICS };
+export const RELIC = Object.fromEntries([...RELICS, ...ROYAL_RELICS].map((r) => [r.id, r]));
 
 export const SETS = {
   forge: { name: '잿불 대장간', n2: { fx: { cls: { knight: 0.1 } }, text: '기사 피해 +10%' }, n3: { fx: { upgCost: 0.3 }, text: '강화 비용 -30%' } },
@@ -56,6 +59,8 @@ export const GRADE = {
   legend: { name: '전설', color: '#e8c25a' },
   set: { name: '세트', color: '#7fe08a' },
   curse: { name: '저주', color: '#ff6b6b' },
+  light: { name: '왕족 · 빛', color: '#fff2a8' },
+  dark: { name: '왕족 · 어둠', color: '#b98aff' },
 };
 
 // 보정 객체 합치기

@@ -363,6 +363,18 @@ button:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) { .rise, .fade { animation-duration: .01s; } }
 
 /* ══════════════ 2단계: 지도 ══════════════ */
+.fate-scales { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; margin-top: 7px; }
+.fscale { display: flex; align-items: center; gap: 5px; font-size: 9.5px; min-width: 0; }
+.fs-nm { flex: none; letter-spacing: .04em; }
+.fs-bar { flex: 1; display: flex; align-items: center; gap: 3px; min-width: 0; }
+.fs-side { display: flex; gap: 2px; flex: 1; }
+.fs-side.l { flex-direction: row-reverse; justify-content: flex-start; }
+.fs-side i { width: 6px; height: 6px; background: #24252e; flex: none; }
+.fs-side.l i.on { background: #fff2a8; box-shadow: 0 0 4px rgba(255,242,168,.5); }
+.fs-side.d i.on { background: #b98aff; box-shadow: 0 0 4px rgba(185,138,255,.5); }
+.fs-crown { width: 11px; height: 11px; image-rendering: pixelated; transition: transform .5s; flex: none; }
+.fs-n { font-family: var(--pixel); font-size: 9.5px; color: var(--dim); flex: none; }
+.node.fate { border-color: rgba(255, 217, 138, .55); box-shadow: 0 0 10px rgba(255, 217, 138, .22); }
 .map-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .map-lines .march { animation: march 1s linear infinite; }
 @keyframes march { to { stroke-dashoffset: -14; } }
@@ -420,6 +432,7 @@ button:disabled { cursor: default; }
 .relic-row.unk { opacity: .45; }
 
 .land .map-head { left: 26px; right: auto; width: 240px; top: 26px; }
+.land .fate-scales { grid-auto-flow: row; gap: 6px; margin-top: 12px; }
 .land .map-title { font-size: 19px; }
 .land .reps { grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-top: 14px; }
 .land .party { position: static; margin-top: 16px; }
@@ -480,6 +493,46 @@ button:disabled { cursor: default; }
 .land .ev-name { margin-left: 0; font-size: 14px; }
 .land .ev-text { font-size: 15px; min-height: 52px; }
 .land .ev-choice { font-size: 14px; }
+
+/* ══════════════ 운명의 장 ══════════════ */
+.fate .ev-bg { filter: saturate(.75) brightness(.85); transition: filter .6s; }
+.fate-vig { position: absolute; left: 0; top: 0; width: 360px; height: 203px; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(5,5,9,.75) 100%), linear-gradient(180deg, rgba(0,0,0,.35), transparent 30%, transparent 70%, rgba(11,13,18,.9)); }
+.fate .ev-head { z-index: 2; }
+.fate .ev-title { font-size: 19px; letter-spacing: .18em; }
+.fate .ev-box { border-top-color: rgba(255, 217, 138, .45); box-shadow: 0 -1px 18px rgba(255, 217, 138, .08); }
+.fate .ev-por { width: 128px; height: 128px; top: 90px; left: 6px; }
+.fate .ev-name { margin-left: 124px; }
+.fate.in-flash .ev-bg { filter: grayscale(1) sepia(.3) contrast(1.15) brightness(.9); }
+.fate.in-flash .fate-vig { background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(20,16,10,.85) 100%); }
+.fate.in-flash .ev-bg { animation: flicker .18s steps(2) 3; }
+@keyframes flicker { 50% { opacity: .85; } }
+.fate.in-flash .ev-name { color: #b8ad94; letter-spacing: .3em; font-weight: 400; font-size: 11.5px; }
+.fate.in-flash .ev-text { color: #d6ccb4; font-style: italic; }
+.fate-card {
+  position: absolute; inset: 0; z-index: 30; background: #07080c; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 10px; animation: fade .6s ease forwards; transition: opacity .7s;
+}
+.fate-card.out { opacity: 0; }
+.fc-eye { font-family: var(--serif-en); font-size: 10.5px; letter-spacing: .5em; color: var(--dim); }
+.fc-royal { font-size: 12px; letter-spacing: .2em; opacity: 0; animation: rise 1s .3s ease forwards; }
+.fc-title { font-size: 26px; font-weight: 600; letter-spacing: .2em; color: #f3ead2; opacity: 0; animation: rise 1.2s .55s ease forwards; text-shadow: 0 0 22px rgba(255,217,138,.35); }
+.fc-rule { width: 0; height: 1px; background: linear-gradient(90deg, transparent, #ffd98a, transparent); animation: grow 1.2s .8s ease forwards; }
+@keyframes grow { to { width: 180px; } }
+.side-tag { position: absolute; right: 8px; top: 8px; font-style: normal; font-size: 9.5px; padding: 1px 6px; letter-spacing: .1em; }
+.ev-choice.side-light .side-tag { color: #1b1622; background: #fff2a8; }
+.ev-choice.side-dark .side-tag { color: #f0e6ff; background: #5a3a8a; }
+.ev-choice.side-light { border-color: rgba(255, 242, 168, .35); }
+.ev-choice.side-dark { border-color: rgba(185, 138, 255, .35); }
+.ev-choice.side-light:hover:not(:disabled) { border-color: #fff2a8; background: rgba(255, 242, 168, .07); }
+.ev-choice.side-dark:hover:not(:disabled) { border-color: #b98aff; background: rgba(185, 138, 255, .08); }
+.ev-choice.side-light .t, .ev-choice.side-dark .t { padding-right: 34px; }
+.note.opinion { color: #9fc8ff; font-size: 11px; }
+.ev-choice.opine { opacity: .85; }
+.land .fate-vig { width: 960px; height: 540px; }
+.land .fate .ev-por { left: 30px; top: auto; bottom: 30px; width: 208px; height: 208px; }
+.land .fate .ev-name { margin-left: 0; }
+.land .fc-title { font-size: 34px; }
 
 /* ══════════════ 상인 · 야영 · 보물 · 보상 ══════════════ */
 .node-panel { position: absolute; left: 0; right: 0; top: 203px; bottom: 0; padding: 12px 14px; background: linear-gradient(180deg, #0e1017, #0b0d12); border-top: 1px solid var(--line); overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 8px; }

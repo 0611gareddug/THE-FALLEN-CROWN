@@ -182,6 +182,12 @@ export function applyFx(run, fx, meta) {
   if (fx.mascot) { meta && (meta.unlockMascot = fx.mascot); }
   if (fx.ach) { meta && (meta.ach = (meta.ach || []).concat(fx.ach)); }
   if (fx.skipBattle) meta && (meta.skipBattle = true);
+  if (fx.fate) {
+    const [royal, side] = fx.fate.split(':');
+    run.fate = run.fate || {};
+    (run.fate[royal] = run.fate[royal] || []).push(side);
+    out.push(`운명의 저울: ${side === 'light' ? '빛' : '어둠'} 쪽으로 기울었다`);
+  }
   return out;
 }
 

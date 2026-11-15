@@ -1,3 +1,4 @@
+import { ROYAL_ENDINGS, ROYAL_ENDING_ORDER } from './fate.js';
 // 결말 8개
 export const ENDINGS = {
   rebuild: {
@@ -66,4 +67,5 @@ export const ENDINGS = {
     lines: [['narr', '', '성벽이 무너졌다. 재 위에 재가 쌓였다.']],
   },
 };
-export const ENDING_ORDER = ['rebuild', 'saint', 'ash', 'forest', 'republic', 'brother', 'dawn', 'defeat'];
+Object.assign(ENDINGS, ROYAL_ENDINGS);
+export const ENDING_ORDER = ['rebuild', 'saint', 'ash', 'forest', 'republic', 'brother', 'dawn', 'defeat', ...ROYAL_ENDING_ORDER];

@@ -259,7 +259,22 @@ const BOSS_MEL = N('74 . 74 77 . 74 . 72 74 . . . 69 . 70 . 72 . 72 74 . 72 . 70
 
 const MAP_CH = [[50, 57, 62, 65], [48, 55, 60, 64], [46, 53, 58, 62], [45, 52, 57, 61]];
 const EVENT_MEL = N('76 . 79 . 81 . 79 76 . . 74 . 76 . . . 72 . 74 . 76 . 74 72 . . 69 . . . . . 76 . 79 . 84 . 83 81 . . 79 . 81 . . . 79 . 76 . 74 . 72 . 74 . . . . . . .');
+// 운명의 장: 느리고 장엄한 단조 (Cm · Ab · Eb · G) — 종소리 아르페지오 + 낮은 합창
+const FATE_CH = [[48, 55, 60, 63], [44, 51, 56, 60], [51, 58, 63, 67], [43, 50, 55, 59]];
+const FATE_MEL = N('72 . . . . . 75 . 74 . . . 72 . . . 68 . . . . . 70 . 72 . . . . . . . 75 . . . 77 . 79 . 80 . . . 79 . 75 . 74 . . . . . 71 . 74 . . . . . . .');
 const TRACKS = {
+  fate: {
+    bpm: 58,
+    fn(a, step, t, sp) {
+      const bar = ((step / 16) | 0) % 4, s = step % 16;
+      const ch = FATE_CH[bar];
+      if (s === 0) { a.tone(t, mtof(ch[0] - 12), sp * 15, 'triangle', 0.09, a.mus, { attack: 0.4 }); a.tone(t, mtof(ch[2]), sp * 15, 'sine', 0.035, a.mus, { attack: 0.6 }); }
+      if (s === 8) a.tone(t, mtof(ch[1]), sp * 7, 'sine', 0.03, a.mus, { attack: 0.4 });
+      if (s % 4 === 2) a.tone(t, mtof(ch[(s >> 2) % 4] + 24), sp * 3, 'sine', 0.035, a.mus, { echo: true });
+      const m = FATE_MEL[step % 64];
+      if (m > 0) a.tone(t, mtof(m), sp * 5, 'pulse', 0.028, a.mus, { echo: true, vib: true, attack: 0.05 });
+    },
+  },
   map: {
     bpm: 84,
     fn(a, step, t, sp) {

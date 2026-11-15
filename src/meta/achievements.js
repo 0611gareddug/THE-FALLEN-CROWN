@@ -1,4 +1,4 @@
-// 업적 40개 · 달성 시 잿빛 조각 + 알림
+// 업적 43개 · 달성 시 잿빛 조각 + 알림
 import { store, save } from '../core/storage.js';
 
 export const ACHS = [
@@ -37,7 +37,10 @@ export const ACHS = [
   { id: 'dragon', cat: '스토리', name: '용 기수의 귀환', desc: '실바나를 싸우지 않고 되찾기', ash: 20 },
   { id: 'darkEnd', cat: '스토리', name: '재의 군주', desc: '왕관을 쓰는 결말 보기', ash: 15 },
   { id: 'brotherEnd', cat: '스토리', name: '형제의 화해', desc: '그림자가 된 형제를 구하기', ash: 25 },
-  { id: 'allEndings', cat: '스토리', name: '모든 길의 끝', desc: '결말 8개 모두 보기', ash: 100 },
+  { id: 'allEndings', cat: '스토리', name: '모든 길의 끝', desc: '결말 8개 보기', ash: 100 },
+  { id: 'fateLight', cat: '스토리', name: '빛의 계승자', desc: '왕족 결말을 빛으로 보기', ash: 30 },
+  { id: 'fateDark', cat: '스토리', name: '어둠의 계승자', desc: '왕족 결말을 어둠으로 보기', ash: 30 },
+  { id: 'fateAll', cat: '스토리', name: '세 왕족의 연대기', desc: '세 왕족의 결말을 모두 보기', ash: 60 },
   { id: 'collector', cat: '스토리', name: '세리 기절시키기', desc: '용의 영수증으로 세리를 쓰러뜨리기', ash: 10 },
   { id: 'allowance', cat: '스토리', name: '300년 만의 용돈', desc: '선왕의 망령에게 용돈 받기', ash: 10 },
   // 병맛 · 숨김 (6)

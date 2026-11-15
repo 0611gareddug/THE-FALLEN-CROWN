@@ -53,6 +53,8 @@ function event(run, rng) {
 }
 
 const reach = [0, 0, 0, 0];
+const fateSides = { light: 0, dark: 0 };
+const fateDone = [];
 const deaths = {};
 let wins = 0;
 const wallAtBoss = [[], [], []];
@@ -75,6 +77,7 @@ for (let r = 0; r < RUNS; r++) {
     switch (nd.type) {
       case 'battle': case 'elite': case 'boss': case 'dragon': alive = fight(run, nd, rng); break;
       case 'event': event(run, rng); break;
+      case 'fate': for (const r of run.players ? run.players.map((p) => p.royal) : [run.royal]) { const ev = EVENTS[`fate_${r}_${nd.fateN}`]; const c = rng.pick(ev.choices); applyFx(run, c.fx, {}); fateSides[c.side]++; } break;
       case 'shop': if (run.carry.gold >= 100 && run.carry.units.includes(null)) { run.carry.gold -= 100; addUnit(run, 'random:2', []); } break;
       case 'camp': if (run.carry.wall < run.carry.wallMax * 0.6) run.carry.wall = Math.min(run.carry.wallMax, run.carry.wall + Math.round(run.carry.wallMax * 0.3)); else run.carry.upg[0]++; break;
       case 'treasure': addRelic(run, randomRelic(run, null), []); break;
@@ -83,7 +86,7 @@ for (let r = 0; r < RUNS; r++) {
     if (!alive) break;
     if (nd.type === 'boss') {
       reach[run.act]++;
-      if (run.act === 3) { wins++; break; }
+      if (run.act === 3) { wins++; fateDone.push((run.fate[run.royal] || []).length); break; }
       run.act++; run.pos = null; run.map = genMap(run.seed, run.act);
       run.carry.wall = Math.min(run.carry.wallMax, run.carry.wall + Math.round(run.carry.wallMax * 0.3));
     }
@@ -96,4 +99,5 @@ for (let r = 0; r < RUNS; r++) {
 const avg = (a) => (a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(0) : '-');
 console.log(`\n${RUNS}판: 1막 클리어 ${reach[1]} · 2막 클리어 ${reach[2]} · 최종 클리어 ${wins} (${((wins / RUNS) * 100).toFixed(0)}%)`);
 console.log('패배 지점:', deaths);
+console.log('운명의 장 선택:', fateSides, '· 클리어 시 본 장 수:', fateDone.join(','));
 console.log(`보스 직전 평균 성벽: 1막 ${avg(wallAtBoss[0])} · 2막 ${avg(wallAtBoss[1])} · 3막 ${avg(wallAtBoss[2])}  (${((Date.now() - t0) / 1000).toFixed(0)}초)`);

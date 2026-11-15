@@ -9,6 +9,7 @@ const ICONS = {
   altar: ['ooooooooo', 'o.......o', 'o.oo.oo.o', 'o.oo.oo.o', 'o.......o', 'o.oo.oo.o', 'o.oo.oo.o', 'ooooooooo', '.........'],
   boss: ['o..o.o..o', 'oo.ooo.oo', 'ooooooooo', 'ooooooooo', '.ooooooo.', '.o.o.o.o.', '.ooooooo.', '.........', '.........'],
   dragon: ['o.......o', 'oo.....oo', '.ooooooo.', '.o.ooo.o.', '.ooooooo.', '..ooooo..', '...o.o...', '..o...o..', '.........'],
+  fate: ['.o..o..o.', '.oo.o.oo.', '.ooooooo.', '.o.ooo.o.', '..ooooo..', '....o....', '...ooo...', '..o.o.o..', '.........'],
   shard: ['....o....', '...ooo...', '..ooooo..', '.ooo.ooo.', '..ooooo..', '...ooo...', '....o....', '.........', '.........'],
 };
 

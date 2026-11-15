@@ -11,6 +11,7 @@ import { addRelic, addUnit, randomRelic, applyFxAll } from '../run/events.js';
 import { frame, resBar, relicCard, makeShopStock, endingScene } from '../run/nodeScenes.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { portraitURL } from '../run/mapScene.js';
+import { royalEnding } from '../data/fate.js';
 
 const keyOf = (run, tag) => `${tag}:${run.act}:${run.pos || 's'}:${run.stats.battles}:${run.stats.events}`;
 
@@ -298,6 +299,9 @@ export function coopEndingScene(app, params) {
       app.bg.setMode('lobby');
       audio.play('lobby');
       if (defeat) { inner = endingScene(app, { ...params, noCoop: true }); inner.enter(); return; }
+      // 두 왕족 모두 운명의 장 6개를 봤으면 각자의 왕족 결말이 우선 (방장 → 참가자 순서)
+      const royalIds = run.players.map((p) => royalEnding(run, p.royal)).filter(Boolean);
+      if (royalIds.length) { inner = endingScene(app, { ...params, forced: royalIds, noCoop: true }); inner.enter(); return; }
       audio.sfxPlay('victory');
       const box = h('div.ev-choices', { style: { width: '100%', maxWidth: '440px' } });
       el = h('div.screen.act-intro',

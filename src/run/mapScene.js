@@ -12,6 +12,7 @@ import { UNIT, TIERS, UPG_NAMES } from '../data/units.js';
 import { sheet, settingsPanel } from '../ui/panels.js';
 import { pickEvent, EVENTS } from './events.js';
 import { ROYALS } from '../data/text.js';
+import { FATE, FATE_TITLES, fateId, fateTally } from '../data/fate.js';
 
 const ROMAN = ['I', 'II', 'III'];
 export const FACTIONS = {
@@ -20,7 +21,7 @@ export const FACTIONS = {
   tribe: { name: '숲의 부족', color: '#7fbf6a' },
   guild: { name: '떠돌이 길드', color: '#e8c25a' },
 };
-const TYPE_COL = { battle: '#d9d4c7', elite: '#ff8a7a', event: '#9fc8ff', shop: '#e8c25a', camp: '#ff9a5a', treasure: '#ffe36b', altar: '#c99bff', boss: '#ff6b6b', dragon: '#a8e4ff' };
+const TYPE_COL = { battle: '#d9d4c7', elite: '#ff8a7a', event: '#9fc8ff', shop: '#e8c25a', camp: '#ff9a5a', treasure: '#ffe36b', altar: '#c99bff', boss: '#ff6b6b', dragon: '#a8e4ff', fate: '#ffd98a' };
 
 export function mapScene(app, { run }) {
   let el, info, sel = null;
@@ -29,7 +30,7 @@ export function mapScene(app, { run }) {
   const offs = [];
 
   function geom() {
-    return app.land ? { x0: 290, x1: 670, y0: 488, y1: 64 } : { x0: 26, x1: 334, y0: 530, y1: 120 };
+    return app.land ? { x0: 290, x1: 670, y0: 488, y1: 64 } : { x0: 26, x1: 334, y0: 532, y1: 138 };
   }
   function pos(nd) {
     const g = geom();
@@ -89,7 +90,7 @@ export function mapScene(app, { run }) {
       const [x, y] = pos(nd);
       const isAvail = avail.has(nd.id);
       const cur = nd.id === run.pos;
-      const cls = ['node', nd.type, nd.done ? 'done' : '', isAvail ? 'avail' : '', cur ? 'cur' : '', nd.type === 'boss' || nd.type === 'dragon' ? 'big' : ''].filter(Boolean).join('.');
+      const cls = ['node', nd.type, nd.done ? 'done' : '', isAvail ? 'avail' : '', cur ? 'cur' : '', nd.type === 'boss' || nd.type === 'dragon' || nd.type === 'fate' ? 'big' : ''].filter(Boolean).join('.');
       const b = h('button.' + cls, {
         'data-id': nd.id,
         style: { left: x + 'px', top: y + 'px' },
@@ -115,6 +116,7 @@ export function mapScene(app, { run }) {
         h('span', h('i.ic.stone'), c.stones),
         h('span.wallv', '성벽 ', h('b', `${c.wall}/${c.wallMax}`)),
         h('span.shard', h('img', { src: iconURL('shard', '#e8c25a', 1), alt: '' }), `${run.shards}/5`)),
+      fateScales(),
       h('div.reps', Object.entries(FACTIONS).map(([k, f]) => {
         const v = run.rep[k] || 0;
         return h('div.rep', { title: `${f.name} 평판 ${v}`, style: { '--fc': f.color } },
@@ -138,6 +140,23 @@ export function mapScene(app, { run }) {
     else showInfo(null, '다음으로 갈 별을 고르세요.');
   }
 
+  // 운명의 저울: 왕족마다 빛 ←→ 어둠
+  function fateScales() {
+    const royals = run.players ? run.players.map((p) => p.royal) : [run.royal];
+    return h('div.fate-scales', royals.map((r) => {
+      const t = fateTally(run, r);
+      const R = ROYALS.find((x) => x.id === r);
+      const tilt = t.light - t.dark;
+      return h('div.fscale', { title: `${R.name} · ${FATE_TITLES[r]} — 빛 ${t.light} · 어둠 ${t.dark} (${t.n}/6장)` },
+        h('span.fs-nm', { style: { color: R.color } }, R.name),
+        h('div.fs-bar',
+          h('div.fs-side.l', [0, 1, 2, 3, 4, 5].map((i) => h('i' + (i < t.light ? '.on' : '')))),
+          h('img.fs-crown', { src: iconURL('fate', tilt > 0 ? '#fff2a8' : tilt < 0 ? '#b98aff' : '#c9a85c', 1), alt: '', style: { transform: `translateX(${Math.max(-3, Math.min(3, tilt)) * 3}px) rotate(${Math.max(-3, Math.min(3, -tilt)) * 6}deg)` } }),
+          h('div.fs-side.d', [0, 1, 2, 3, 4, 5].map((i) => h('i' + (i < t.dark ? '.on' : ''))))),
+        h('span.fs-n', `${t.n}/6`));
+    }));
+  }
+
   function showInfo(nd, text) {
     if (!nd) { info.replaceChildren(h('div.hint', text)); return; }
     const t = NODE_TYPES[nd.type];
@@ -145,6 +164,11 @@ export function mapScene(app, { run }) {
     if (nd.type === 'boss') {
       const bossId = run.act < 3 ? ACTS[run.act - 1].boss : null;
       title = bossId === 'ogran' ? '보스 · 잿불 거인 오그란' : bossId === 'morven' ? '보스 · 배신의 재상 모르벤' : '최종 보스 · ???';
+    }
+    if (nd.type === 'fate') {
+      const royals = run.players ? run.players.map((p) => p.royal) : [run.royal];
+      title = `운명의 장 ${nd.fateN}/6`;
+      desc = royals.map((r) => `${ROYALS.find((x) => x.id === r).name} 「${FATE[fateId(r, nd.fateN)].title}」`).join(' · ') + ' — 모든 길이 이곳을 지난다';
     }
     info.replaceChildren(
       h('img', { src: iconURL(nd.type, TYPE_COL[nd.type], 3), alt: '' }),

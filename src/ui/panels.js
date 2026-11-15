@@ -4,7 +4,7 @@ import { store, save, reset } from '../core/storage.js';
 import { audio } from '../core/audio.js';
 import { UNITS, TIERS, CLASSES } from '../data/units.js';
 import { SPR, spriteURL, silhouetteURL } from '../gfx/sprites.js';
-import { RELICS, GRADE, SETS } from '../data/relics.js';
+import { RELICS, ROYAL_RELICS, GRADE, SETS } from '../data/relics.js';
 import { EVENT_DATA } from '../data/events.js';
 import { ENDINGS, ENDING_ORDER } from '../data/endings.js';
 import { ACHS, PERKS } from '../meta/achievements.js';
@@ -118,10 +118,16 @@ export function chroniclePanel(root) {
   }
   function relicsTab() {
     const got = new Set(d.relicsSeen || []);
+    const row = (r) => (got.has(r.id)
+      ? h('div.relic-row', { style: { '--gc': GRADE[r.g].color } }, h('b', r.name), h('span.gr', GRADE[r.g].name + (r.set ? ` · ${SETS[r.set].name}` : '')), h('div', r.desc), h('div.fl', `“${r.flavor}”`))
+      : h('div.relic-row.unk', h('b', '???'), h('span.gr', GRADE[r.g].name)));
+    const ROY = { edric: '에드릭', seren: '세렌', kyle: '카일' };
     return h('div', h('div.note', `만난 유물 ${RELICS.filter((r) => got.has(r.id)).length}/${RELICS.length}`),
-      ...RELICS.map((r) => got.has(r.id)
-        ? h('div.relic-row', { style: { '--gc': GRADE[r.g].color } }, h('b', r.name), h('span.gr', GRADE[r.g].name + (r.set ? ` · ${SETS[r.set].name}` : '')), h('div', r.desc), h('div.fl', `“${r.flavor}”`))
-        : h('div.relic-row.unk', h('b', '???'), h('span.gr', GRADE[r.g].name))));
+      ...RELICS.map(row),
+      ...Object.entries(ROY).map(([k, nm]) => {
+        const list = ROYAL_RELICS.filter((r) => r.royal === k);
+        return h('div', h('div.chron-tier', { style: { color: 'var(--gold2)' } }, `${nm} · 운명의 장 유물 ${list.filter((r) => got.has(r.id)).length}/${list.length}`), ...list.map(row));
+      }));
   }
   function eventsTab() {
     const got = new Set(d.eventsSeen || []);

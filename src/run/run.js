@@ -11,6 +11,8 @@ export const ACTS = [
   { name: '왕관의 심장', sub: '얼어붙은 산을 넘어 왕관이 잠든 곳으로', boss: null },
 ];
 export const ROWS = 12;
+// 운명의 장: 막마다 모든 길이 모이는 두 줄
+export const FATE_ROWS = [[3, 7], [3, 7], [3, 8]];
 
 export const NODE_TYPES = {
   battle: { name: '전투', desc: '3~4웨이브 전투' },
@@ -22,6 +24,7 @@ export const NODE_TYPES = {
   altar: { name: '운명의 제단', desc: '행운석을 걸고 주사위를 굴린다' },
   boss: { name: '보스', desc: '막 보스' },
   dragon: { name: '용의 둥지', desc: '얼어붙은 용 실바나' },
+  fate: { name: '운명의 장', desc: '왕족의 이야기 · 모든 길이 이곳을 지난다' },
 };
 
 const W_TYPES = [['battle', 38], ['event', 32], ['elite', 10], ['shop', 7], ['camp', 5], ['treasure', 4], ['altar', 4]];
@@ -41,6 +44,7 @@ export function genMap(seed, act) {
     let n;
     if (r === ROWS - 1) n = 1;
     else if (act === 3 && r === 6) n = 1;
+    else if (FATE_ROWS[act - 1].includes(r)) n = 1;
     else if (r === 0) n = 2 + rng.int(2);
     else if (r === ROWS - 2) n = 2;
     else n = 2 + rng.int(3);
@@ -75,6 +79,7 @@ export function genMap(seed, act) {
       else if (r === ROWS - 1) nd.type = 'boss';
       else if (r === ROWS - 2) nd.type = 'camp';
       else if (act === 3 && r === 6) nd.type = 'dragon';
+      else if (FATE_ROWS[act - 1].includes(r)) { nd.type = 'fate'; nd.fateN = (act - 1) * 2 + FATE_ROWS[act - 1].indexOf(r) + 1; }
       else nd.type = weighted(rng, W_TYPES, (t) => (t !== 'elite' || r >= 4) && (t !== 'shop' || r >= 3) && (t !== 'camp' || (r >= 5 && r <= 8)) && (t !== 'altar' || r >= 2));
     }
   }
@@ -106,7 +111,7 @@ export function newRun({ royal, mascot, seed }) {
       wall: wallMax, wallMax, upg: [0, 0, 0], summons: 0, celestial: 0,
     },
     relics: [], rep: { church: 0, cult: 0, tribe: 0, guild: 0 }, bonds: {}, party: [],
-    flags: {}, shards: 0, seen: [], log: [], mods: [], autoDiceUsed: 0, eggKills: 0,
+    flags: {}, fate: {}, shards: 0, seen: [], log: [], mods: [], autoDiceUsed: 0, eggKills: 0,
     stats: { battles: 0, kills: 0, merges: 0, celestials: 0, fails: 0, gambles: 0, events: 0, rolls: 0, rollWins: 0, lowRollWins: 0 },
     firstFree: perks.free ? 1 : 0,
   };

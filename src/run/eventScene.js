@@ -9,6 +9,10 @@ import { RNG } from '../core/rng.js';
 import { place, portrait, CAST, PLACES } from '../gfx/art2.js';
 import { COMPANIONS } from '../data/companions.js';
 import { unlockAch } from '../meta/achievements.js';
+import { FATE_TITLES } from '../data/fate.js';
+import { ROYALS } from '../data/text.js';
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
 function pickSpeaker(run, who) {
   if (who !== '@q') return who;
@@ -39,26 +43,42 @@ export function eventScene(app, { run, eventId }) {
     return { r, win, changes: ch, needLeave: m.needLeave || null, unlockMascot: m.unlockMascot || null, ach: m.ach || null, skipBattle: !!m.skipBattle };
   }
 
+  const fate = ev.kind === 'fate';
+  const royalInfo = ev.royal ? ROYALS.find((r) => r.id === ev.royal) : null;
+  function drawBg(key) { const g = bgCv.getContext('2d'); g.clearRect(0, 0, 240, 135); g.drawImage(place(key), 0, 0); }
+
   function enter() {
     app.bg.setMode('game');
-    audio.play('event');
-    el = h('div.screen.event');
+    audio.play(fate ? 'fate' : 'event');
+    el = h('div.screen.event' + (fate ? '.fate' : ''));
     bgCv = h('canvas.ev-bg', { width: 240, height: 135 });
-    bgCv.getContext('2d').drawImage(place(ev.bg), 0, 0);
+    drawBg(ev.bg);
     por = h('canvas.ev-por', { width: 32, height: 32 });
     nameEl = h('div.ev-name');
     textEl = h('div.ev-text');
     choicesEl = h('div.ev-choices');
     const box = h('div.ev-box', nameEl, textEl, choicesEl);
+    const eyebrow = fate ? `운명의 장 ${ROMAN[ev.ch - 1]} · ${royalInfo.name} · ${FATE_TITLES[ev.royal]}` : PLACES[ev.bg] || '';
     el.append(
       bgCv,
-      h('div.ev-head', h('div.eyebrow', PLACES[ev.bg] || ''), h('div.ev-title', ev.title)),
+      fate ? h('div.fate-vig') : null,
+      h('div.ev-head', h('div.eyebrow', { style: fate ? { color: royalInfo.color } : null }, eyebrow), h('div.ev-title', ev.title)),
       por, box,
     );
     el.addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) advance(); });
     app.ui.appendChild(el);
     window.addEventListener('keydown', onKey);
-    play(ev.intro, showChoices);
+    if (fate) {
+      // 장 제목 카드
+      const card = h('div.fate-card',
+        h('div.fc-eye', `CHAPTER ${ROMAN[ev.ch - 1]} OF VI`),
+        h('div.fc-royal', { style: { color: royalInfo.color } }, `${royalInfo.name} · ${FATE_TITLES[ev.royal]}`),
+        h('div.fc-title', ev.title),
+        h('div.fc-rule'));
+      el.appendChild(card);
+      audio.sfxPlay('boss');
+      setTimeout(() => { card.classList.add('out'); setTimeout(() => card.remove(), 700); play(ev.intro, showChoices); }, 2100);
+    } else play(ev.intro, showChoices);
   }
 
   function onKey(e) {
@@ -77,6 +97,17 @@ export function eventScene(app, { run, eventId }) {
   function next() {
     if (!queue.length) { const d = onDone; onDone = null; d && d(); return; }
     const [who, face, text] = queue.shift();
+    // 회상: 흑백 픽셀 컷
+    if (who === 'flash') {
+      if (!el.classList.contains('in-flash')) audio.sfxPlay('timestop');
+      el.classList.add('in-flash');
+      drawBg(face || ev.bg);
+      setSpeaker(null, null);
+      nameEl.textContent = '― 회상 ―';
+      typeText(text);
+      return;
+    }
+    if (el.classList.contains('in-flash')) { el.classList.remove('in-flash'); drawBg(ev.bg); }
     setSpeaker(who, face);
     typeText(text);
   }
@@ -137,19 +168,28 @@ export function eventScene(app, { run, eventId }) {
       offs.push(coop.onLocal('vote', (m) => { if (m.key === key) markVotes(key); }));
       coop.whenDecided(key, (idx, out) => { if (coop.host) coop.sendRun(); present(ev.choices[idx], out); });
       if (owner !== null && owner !== coop.me) {
-        choicesEl.replaceChildren(h('div.note', `${run.players[owner].name}의 왕족 사건입니다. 선택을 기다리는 중…`), coop.voteBar(key, (i) => ev.choices[i].t));
+        // 선택은 그 왕족 플레이어가 한다. 나는 의견만 보낼 수 있다.
+        const who = royalInfo ? royalInfo.name : run.players[owner].name;
+        choicesEl.replaceChildren(
+          h('div.note.opinion', `${who}의 ${fate ? '운명의 장' : '왕족 사건'}입니다. 선택은 ${who}이(가) 합니다 — 눌러서 의견을 보내세요.`),
+          ...list.filter((c) => condOk(run, c.cond)).map((c) => h('button.ev-choice.opine' + (c.side ? '.side-' + c.side : ''), {
+            'data-i': ev.choices.indexOf(c),
+            onclick: () => { audio.sfxPlay('click'); coop.vote(key, ev.choices.indexOf(c)); markVotes(key); },
+          }, c.side ? h('i.side-tag', c.side === 'light' ? '빛' : '어둠') : null, h('span.t', c.t))),
+          coop.voteBar(key, (i) => ev.choices[i].t));
         return;
       }
     }
     choicesEl.replaceChildren(...list.map((c, i) => {
       const ok = condOk(run, c.cond);
       const p = c.roll ? rollChance(run, c) : null;
-      return h('button.ev-choice' + (ok ? '' : '.locked'), {
+      return h('button.ev-choice' + (ok ? '' : '.locked') + (c.side ? '.side-' + c.side : ''), {
         disabled: !ok,
         onmouseenter: () => ok && audio.sfxPlay('hover'),
         'data-i': ev.choices.indexOf(c),
         onclick: () => { audio.sfxPlay('click'); choose(c); },
       },
+      c.side ? h('i.side-tag', c.side === 'light' ? '빛' : '어둠') : null,
       h('span.t', c.t, p !== null ? h('em.pct', ` (성공 ${Math.round(p * 100)}%)`) : null),
       c.sub || !ok ? h('small', ok ? c.sub.replace(/성공 \d+%(\s*\([^)]*\))?\s*·?\s*/g, '') : condText(c.cond)) : null);
     }));
@@ -309,6 +349,10 @@ export function eventScene(app, { run, eventId }) {
     if (coop && !coop.host) { recordMeta(); return; }
     if (!ev.special) { run.seen.push(ev.id); run.stats.events++; }
     recordMeta();
+    if (fate && run.inNode && run.inNode.queue) {
+      run.inNode.queue.shift();
+      if (run.inNode.queue.length) { if (!run.coop) saveRun(run); app.go('event', { run, eventId: run.inNode.queue[0] }); return; }
+    }
     if (ev.id === 'dragon_talk') {
       run.inNode.talked = true;
       if (meta.skipBattle) { finishNode(app, run); return; }

@@ -8,6 +8,7 @@ import { UNIT, BY_TIER, TIERS, UPG_NAMES } from '../data/units.js';
 import { COMPANIONS } from '../data/companions.js';
 import { ROYALS } from '../data/text.js';
 import { ENDINGS } from '../data/endings.js';
+import { royalEnding } from '../data/fate.js';
 import { place, portrait, CAST } from '../gfx/art2.js';
 import { SPR, spriteURL } from '../gfx/sprites.js';
 import { iconURL } from '../gfx/icons.js';
@@ -293,7 +294,11 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       h('div.end-opts.rise', { style: { animationDelay: '.4s' } }, options().map((o) => h('button.ev-choice' + (o.ok ? '' : '.locked'), { disabled: !o.ok, onclick: () => { audio.sfxPlay('click'); el.remove(); play(o.id); } }, h('span.t', o.t), o.ok ? null : h('small', o.need)))));
     app.ui.appendChild(el);
   }
+  // forced가 배열이면 차례로 재생 (협동: 두 왕족의 결말)
+  const queue = Array.isArray(forced) ? forced.slice() : null;
+  const played = [];
   function play(id) {
+    played.push(id);
     const E = ENDINGS[id];
     const lines = E.lines.filter((l) => l[0] !== '@q' || run.party.length).map((l) => [l[0] === '@q' ? run.party[0] : l[0], l[1], l[2]]).filter((l) => l[0] === 'narr' || l[0] === run.royal || CAST[l[0]]);
     let i = 0;
@@ -307,7 +312,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     step();
     function step() {
       audio.sfxPlay('page');
-      if (i >= lines.length) { el.remove(); summary(id); return; }
+      if (i >= lines.length) { el.remove(); if (queue && queue.length) { play(queue.shift()); return; } summary(id); return; }
       const [who, face, text] = lines[i++];
       const p = who !== 'narr' ? portrait(who, face || 'neutral') : null;
       const g = por.getContext('2d'); g.clearRect(0, 0, 32, 32); if (p) g.drawImage(p, 0, 0);
@@ -317,7 +322,14 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     }
   }
   function summary(id) {
-    const xp = endRun(run, id);
+    const xp = endRun(run, played[0] || id);
+    // 여러 결말(협동)도 모두 기록
+    { const dd = store(); dd.endings = dd.endings || []; for (const x of played) if (!dd.endings.includes(x)) dd.endings.push(x); save(); }
+    for (const x of played) {
+      if (!ENDINGS[x].royal) continue;
+      unlockAch(x.endsWith('light') ? 'fateLight' : 'fateDark');
+    }
+    { const got = store().endings || []; if (['edric', 'seren', 'kyle'].every((r) => got.some((x) => x.startsWith(r + '_')))) unlockAch('fateAll'); }
     const ash = Math.round(run.act * 20 + run.stats.kills / 30 + (id === 'defeat' ? 0 : 60) + run.shards * 5);
     const d = store(); d.ash += ash; save();
     if (id !== 'defeat') {
@@ -333,7 +345,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     el = h('div.result' + (id === 'defeat' ? '' : '.win'),
       h('div.eyebrow', ENDINGS[id].eyebrow),
       h('h1', id === 'defeat' ? 'DEFEAT' : 'THE END'),
-      h('div.line', `결말 ${ENDINGS[id].no} · ${ENDINGS[id].title}`),
+      h('div.line', played.map((x) => `결말 ${ENDINGS[x].no} · ${ENDINGS[x].title}`).join('  ·  ')),
       h('div.stats',
         h('div', h('span', '왕족'), h('span', { style: { fontFamily: 'var(--serif)' } }, royal.name)),
         h('div', h('span', '도달'), h('span', `${run.act}막`)),
@@ -348,7 +360,12 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
     enter() {
       app.bg.setMode('lobby');
       audio.play('lobby');
-      if (defeat) { audio.sfxPlay('defeat'); play('defeat'); } else if (forced) { audio.sfxPlay('victory'); play(forced); } else { audio.sfxPlay('victory'); choose(); }
+      const royalId = !defeat && !forced ? royalEnding(run, run.royal) : null;
+      if (defeat) { audio.sfxPlay('defeat'); play('defeat'); }
+      else if (queue) { audio.sfxPlay('victory'); audio.play('fate'); play(queue.shift()); }
+      else if (forced) { audio.sfxPlay('victory'); play(forced); }
+      else if (royalId) { audio.sfxPlay('victory'); audio.play('fate'); play(royalId); } // 6장을 모두 봤으면 왕족 결말이 우선
+      else { audio.sfxPlay('victory'); choose(); }
     },
     exit: () => { app.ui.querySelectorAll('.result').forEach((x) => x.remove()); if (el) el.remove(); },
   };

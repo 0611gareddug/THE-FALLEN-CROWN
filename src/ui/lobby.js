@@ -77,7 +77,7 @@ export function lobbyScene(app) {
             }, label, sub ? h('span.soon', sub) : null)))),
       ),
       h('div.sparkle.fade', { style: { animationDelay: `${delay + 1.6}s` } }, svg(ICON.star)),
-      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v0.4 · 한 필드 협동'),
+      h('div.lobby-foot.fade', { style: { animationDelay: `${delay + 1.8}s` } }, 'v0.5 · 운명의 장'),
     );
     app.ui.appendChild(el);
     firstVisit = false;
