@@ -25,14 +25,23 @@ export function h(sel, props, ...kids) {
   return el;
 }
 
-// 선택지 보호: 대사를 넘기다 실수로 고르지 않게 ms 동안 잠근다
-export function armChoices(box, ms = 2000) {
-  if (!box) return;
-  box.classList.remove('wait'); void box.offsetWidth;
-  box.style.setProperty('--wait', ms + 'ms');
-  box.classList.add('wait');
-  clearTimeout(box._armT);
-  box._armT = setTimeout(() => box.classList.remove('wait'), ms);
+// 선택지 보호: 새로 나타난 선택지 버튼은 2초 뒤에 누를 수 있다 (대사를 넘기다 실수로 고르지 않게)
+const LOCK_SEL = '.ev-choice, .pick';
+export const CHOICE_LOCK_MS = 2000;
+function lockBtn(b) {
+  if (b.dataset.nolock !== undefined || b._locked) return;
+  b._locked = true;
+  b.classList.add('wait-btn');
+  setTimeout(() => b.classList.remove('wait-btn'), CHOICE_LOCK_MS);
+}
+export function watchChoices(root) {
+  new MutationObserver((muts) => {
+    for (const m of muts) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      if (n.matches(LOCK_SEL)) lockBtn(n);
+      if (n.firstElementChild) n.querySelectorAll(LOCK_SEL).forEach(lockBtn);
+    }
+  }).observe(root, { childList: true, subtree: true });
 }
 export const svg = (inner, vb = '0 0 16 16') => {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

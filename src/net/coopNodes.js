@@ -1,5 +1,5 @@
 // 협동용 비전투 칸: 상점(각자 구매) · 야영 · 보물 · 제단 · 보상 · 막 전환 · 결말 (투표)
-import { h, armChoices } from '../ui/dom.js';
+import { h } from '../ui/dom.js';
 import { audio } from '../core/audio.js';
 import { RNG } from '../core/rng.js';
 import { RELIC, RELICS } from '../data/relics.js';
@@ -28,7 +28,6 @@ function voteBlock(coop, root, host, key, items, opts = {}) {
     btns.forEach((b, i) => { b.classList.toggle('v-me', items[i].v === v[coop.me]); b.classList.toggle('v-them', items[i].v === v[1 - coop.me]); });
   };
   host.append(...btns, coop.voteBar(key, label));
-  if (opts.vote) armChoices(host);
   const offs = [coop.onLocal('vote', (m) => { if (m.key === key) mark(); })];
   coop.whenDecided(key, (v, extra) => { offs.forEach((f) => f()); if (coop.host) coop.sendRun(); opts.done && opts.done(v, extra); });
   mark();

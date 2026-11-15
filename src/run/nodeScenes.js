@@ -1,5 +1,5 @@
 // 비전투 칸 화면: 상인 · 야영 · 보물 · 운명의 제단 · 전투 보상 · 막 전환 · 결말
-import { h, armChoices } from '../ui/dom.js';
+import { h } from '../ui/dom.js';
 import { audio } from '../core/audio.js';
 import { store, save } from '../core/storage.js';
 import { RNG } from '../core/rng.js';
@@ -293,7 +293,6 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       h('div.sub.rise', '쓰러진 적 뒤로 무너진 왕관이 떠 있다. 이제 정해야 한다.'),
       h('div.end-opts.rise', { style: { animationDelay: '.4s' } }, options().map((o) => h('button.ev-choice' + (o.ok ? '' : '.locked'), { disabled: !o.ok, onclick: () => { audio.sfxPlay('click'); el.remove(); play(o.id); } }, h('span.t', o.t), o.ok ? null : h('small', o.need)))));
     app.ui.appendChild(el);
-    armChoices(el.querySelector('.end-opts'));
   }
   // forced가 배열이면 차례로 재생 (협동: 두 왕족의 결말)
   const queue = Array.isArray(forced) ? forced.slice() : null;

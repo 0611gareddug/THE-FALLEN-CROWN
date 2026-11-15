@@ -56,7 +56,7 @@ export function prologueScene(app, params) {
         bg,
         h('div.ev-head', h('div.eyebrow', part === 1 ? 'PROLOGUE' : 'THE JOURNEY BEGINS'), h('div.ev-title', part === 1 ? '왕국이 무너진 밤' : '잿더미 위에서')),
         por,
-        h('div.ev-box', nm, txt, h('div.ev-choices', h('button.ev-choice.go', { onclick: step }, h('span.t', '계속')), part === 1 ? h('button.ev-choice', { onclick: () => { store().prologue = true; save(); app.go('select'); } }, h('span.t', '프롤로그 건너뛰기')) : null)));
+        h('div.ev-box', nm, txt, h('div.ev-choices', h('button.ev-choice.go', { onclick: step, 'data-nolock': '' }, h('span.t', '계속')), part === 1 ? h('button.ev-choice', { onclick: () => { store().prologue = true; save(); app.go('select'); } }, h('span.t', '프롤로그 건너뛰기')) : null)));
       app.ui.appendChild(el);
       step();
     },

@@ -776,8 +776,6 @@ button:disabled { cursor: default; }
 
 .card .acts .btn kbd { font-family: var(--pixel); font-size: 9.5px; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; opacity: .7; }
 
-/* 선택지 잠금 (대사 넘기다 실수 방지) */
-.wait .ev-choice, .wait .opt { pointer-events: none; opacity: .5; }
-.wait { position: relative; }
-.wait::after { content: ''; position: absolute; left: 0; top: -4px; height: 2px; background: var(--gold2); width: 0; animation: waitBar var(--wait, 2000ms) linear forwards; }
-@keyframes waitBar { to { width: 100%; } }
+/* 선택지 잠금 (대사 넘기다 실수 방지): 2초 동안 흐리게, 아래쪽 금빛 줄이 차오른다 */
+.wait-btn { pointer-events: none; opacity: .5; background-image: linear-gradient(var(--gold2), var(--gold2)); background-repeat: no-repeat; background-position: left bottom; background-size: 0 2px; animation: waitFill 2s linear forwards; }
+@keyframes waitFill { to { background-size: 100% 2px; } }

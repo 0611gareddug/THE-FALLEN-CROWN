@@ -15,6 +15,7 @@ import { prologueScene } from './run/prologue.js';
 import { coopLobbyScene, coopSelectScene } from './net/coopUI.js';
 import { onAchievement, unlockAch } from './meta/achievements.js';
 import { achQueue } from './run/events.js';
+import { watchChoices } from './ui/dom.js';
 
 const RAINBOW = ['#ff6b6b', '#ffb36b', '#ffe36b', '#7fe08a', '#6bc8ff', '#c99bff'];
 
@@ -24,6 +25,7 @@ audio.setVol(st.music, st.sfx);
 buildSprites([...TIERS.slice(0, 5).map((t) => t.color), ...RAINBOW]);
 
 const stage = document.getElementById('stage');
+watchChoices(document.getElementById('ui'));
 const app = {
   ui: document.getElementById('ui'),
   gameCv: document.getElementById('game'),
