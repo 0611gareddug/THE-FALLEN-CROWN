@@ -158,7 +158,7 @@ export function chroniclePanel(root) {
                 detail.replaceChildren(k
                   ? h('div', h('div', { style: { fontSize: '13px', fontWeight: 600, color: e.boss ? '#ff6b6b' : e.elite ? '#ff8a7a' : '#f0ebdf' } }, e.name), e.title ? h('div', { style: { color: 'var(--dim)', fontSize: '10.5px' } }, e.title) : null,
                     h('div.cx-stats', h('span', `체력 ×${e.hp}`), h('span', `속도 ${e.spd}`), h('span', `방어 ${Math.round(e.armor * 100)}%`), h('span', `저항 ${Math.round(e.mres * 100)}%`)),
-                    e.gimmick ? h('div', BOSS_GIMMICK_TEXT[e.gimmick]) : tags.length ? h('div', tags.join(' · ')) : null,
+                    e.gimmick ? h('div', BOSS_GIMMICK_TEXT[e.gimmick]) : e.desc ? h('div', e.desc) : tags.length ? h('div', tags.join(' · ')) : null,
                     h('div.q', `처치 ${k}마리`))
                   : h('div', { style: { color: 'var(--dim)' } }, '아직 쓰러뜨리지 못한 적입니다.'));
               },

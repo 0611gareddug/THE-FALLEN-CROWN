@@ -372,6 +372,9 @@ export class Renderer {
       case 'split': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 90, t: 0, d: 0.6, col: '#c99bff' }); this.doShake(5); break;
       case 'heal': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: ev.r, t: 0, d: 0.5, col: '#9be08a' }); break;
       case 'raise': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 40, t: 0, d: 0.5, col: '#c99bff' }); break;
+      case 'charge': this.burst(ev.x, ev.y, 14, ['#c8a070', '#8a6a4a', '#ffffff'], 90, 0.5); this.doShake(3); break;
+      case 'haste': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: ev.r, t: 0, d: 0.5, col: '#7ad0ff' }); break;
+      case 'ward': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: ev.r, t: 0, d: 0.6, col: '#c99bff' }); this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 2, r1: ev.r * 0.6, t: -0.1, d: 0.5, col: '#ffffff' }); break;
       case 'enrage': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 50, t: 0, d: 0.5, col: '#ff6b6b' }); this.doShake(3); break;
       case 'eliteDown': this.burst(ev.x, ev.y, 30, ['#ffe36b', '#c99bff', '#ffffff'], 120, 0.8, 2, 20); break;
       case 'eat': this.burst(ev.x, ev.y, 4, ['#8a5a2a'], 40, 0.3); break;

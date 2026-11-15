@@ -58,6 +58,8 @@ export const UNITS = [
     desc: '작은 범위 화염.', quip: '불은 붙이는데 끄는 법은 아직 안 배움.' },
   { id: 'nun', tier: 0, cls: 'priest', name: '수련 수녀', dmg: 5, rate: 1.0, range: 110, dtype: 'm', proj: 'holy', auraSpd: 0.03,
     desc: '주변 8칸 아군 공격 속도 +3%.', quip: '기도는 무료, 축복은 유료.' },
+  { id: 'urchin', tier: 0, cls: 'rogue', name: '꼬마 좀도둑', dmg: 7, rate: 1.6, range: 95, dtype: 'p', proj: 'dagger', killGold: 1,
+    desc: '빠른 단검. 처치 시 금화 +1.', quip: '주머니가 많을수록 강해진다고 믿는다.' },
 
   // ── 숙련 ──
   { id: 'shield', tier: 1, cls: 'knight', name: '방패 경비병', dmg: 32, rate: 0.85, range: 72, dtype: 'p', proj: 'melee', stun: [0.1, 0.5],
@@ -68,6 +70,8 @@ export const UNITS = [
     desc: '맞은 적 이동 속도 -20% (2초).', quip: '말투도 차갑다.' },
   { id: 'pick', tier: 1, cls: 'rogue', name: '소매치기', dmg: 15, rate: 1.5, range: 100, dtype: 'p', proj: 'dagger', killGold: 2,
     desc: '처치 시 금화 +2.', quip: '적의 지갑도 전리품으로 칩니다.' },
+  { id: 'bell', tier: 1, cls: 'priest', name: '종지기 수도사', dmg: 14, rate: 1.0, range: 115, dtype: 'm', proj: 'holy', auraSpd: 0.04, waveHeal: 1,
+    desc: '주변 8칸 아군 공격 속도 +4%. 웨이브마다 성벽 +1.', quip: '종은 정시에 친다. 낮잠도 정시에 잔다.' },
 
   // ── 정예 ──
   { id: 'ashguard', tier: 2, cls: 'knight', name: '잿빛 근위기사', dmg: 58, rate: 0.9, range: 76, dtype: 'p', proj: 'melee', every3: 42,
@@ -78,6 +82,8 @@ export const UNITS = [
     desc: '연쇄 번개. 최대 4마리.', quip: '머리카락이 항상 서 있다.' },
   { id: 'shade', tier: 2, cls: 'rogue', name: '그림자 단검수', dmg: 40, rate: 1.4, range: 90, dtype: 'p', proj: 'dagger', backstab: 2,
     desc: '멀어지는 적의 뒤를 치면 피해 ×2.', quip: '뒤에서만 말 걸어주세요.' },
+  { id: 'pilgrim', tier: 2, cls: 'priest', name: '빛의 순례자', dmg: 34, rate: 1.0, range: 125, dtype: 'm', proj: 'holy', splash: 24, auraSpd: 0.06,
+    desc: '작은 범위 빛 공격. 주변 8칸 아군 공격 속도 +6%.', quip: '길을 잃은 게 아니라 순례 중이다.' },
 
   // ── 영웅 ──
   { id: 'paladin', tier: 3, cls: 'priest', name: '서약의 성기사', dmg: 75, rate: 1.0, range: 115, dtype: 'm', proj: 'holy', auraDmg: 0.12,
@@ -88,6 +94,8 @@ export const UNITS = [
     desc: '화상을 입힌다. 화상 중 죽은 적은 폭발.', quip: '폭발은 예술, 화상은 덤.' },
   { id: 'duel', tier: 3, cls: 'knight', name: '은빛 결투가', dmg: 95, rate: 1.2, range: 80, dtype: 'p', proj: 'melee', duel: [0.08, 10],
     desc: '같은 적을 계속 치면 피해 +8%씩 (최대 10중첩).', quip: '한 놈만 팬다.' },
+  { id: 'viper', tier: 3, cls: 'rogue', name: '독침 암살자', dmg: 66, rate: 1.5, range: 105, dtype: 'p', proj: 'dagger', burn: [3, 0.3], execute: 0.02,
+    desc: '독 바른 단검: 맞은 적이 3초 동안 중독된다. 2% 즉사.', quip: '독은 유기농이다.' },
 
   // ── 전설 ──
   { id: 'phoenix', tier: 4, cls: 'knight', name: '불사조 기수', dmg: 425, rate: 1.0, range: 95, dtype: 'p', proj: 'melee', dash: [5, 190, 3.5, 1.1],
@@ -98,6 +106,8 @@ export const UNITS = [
     desc: '체력이 가장 많은 적을 관통 저격. 보스 피해 +50%.', quip: '퇴근 시간에만 진심.' },
   { id: 'mask', tier: 4, cls: 'rogue', name: '가면 쓴 군주', dmg: 365, rate: 1.6, range: 120, dtype: 'p', proj: 'dagger', stoneOnKill: 0.015, execute: 0.03, multi: 2,
     desc: '두 대상 동시 공격. 3% 즉사. 처치 시 1.5% 확률로 행운석 (웨이브당 1개).', quip: '가면 속에도 가면이 있다.' },
+  { id: 'bishop', tier: 4, cls: 'priest', name: '구름 대주교', dmg: 330, rate: 0.9, range: 150, dtype: 'm', proj: 'holy', splash: 32, auraDmg: 0.18, waveHeal: 2,
+    desc: '광역 빛 공격. 주변 8칸 아군 피해 +18%. 웨이브마다 성벽 +2.', quip: '설교는 짧게. 축복은 길게.' },
 
   // ── 천상 (레시피 전용) ──
   { id: 'swordking', tier: 5, cls: 'knight', name: '무너진 왕관의 기사왕', dmg: 1680, rate: 1.0, range: 110, dtype: 'p', proj: 'melee', judgment: [9, 3.2, 2.5], every3: 70,

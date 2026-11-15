@@ -11,12 +11,25 @@ export const ENEMIES = {
   slime: { name: '분열 슬라임', hp: 1.1, spd: 35, armor: 0, mres: 0, split: 2 },
   mini: { name: '아기 슬라임', hp: 0.35, spd: 48, armor: 0, mres: 0 },
   cultist: { name: '마왕군 꼬마 마법사', hp: 1.2, spd: 42, armor: 0.1, mres: 0.3 },
+  // ── 새 일반 적 (막마다 2종) ──
+  shellsnail: { name: '껍데기 달팽이', hp: 1.5, spd: 22, armor: 0.55, mres: 0, desc: '껍데기가 단단하다. 마법으로 녹이자.' },
+  bunny: { name: '깡충 토끼 졸개', hp: 0.55, spd: 78, armor: 0, mres: 0, desc: '아주 빠르다. 사거리 긴 유닛으로 잡자.' },
+  crab: { name: '집게 꽃게', hp: 1.4, spd: 32, armor: 0.4, mres: 0.1, desc: '단단한 등딱지.' },
+  jelly: { name: '말랑 해파리', hp: 1.0, spd: 38, armor: 0, mres: 0.4, regen: 0.04, desc: '체력이 계속 차오른다. 한 번에 몰아치자.' },
+  cloudling: { name: '먹구름 꼬마', hp: 0.85, spd: 50, armor: 0, mres: 0.25, phase: [4, 1.3], desc: '가끔 구름 속에 숨어 보이지 않는다.' },
+  golem: { name: '이끼 돌골렘', hp: 3.8, spd: 19, armor: 0.5, mres: 0.2, desc: '느리고 아주 단단하다.' },
+  imp: { name: '꼬마 악마', hp: 0.7, spd: 60, armor: 0, mres: 0.25, group: 2, desc: '둘씩 붙어 다니며 빠르다.' },
+  darkknight: { name: '마왕군 흑기사', hp: 2.4, spd: 30, armor: 0.45, mres: 0.3, guard: [6, 1.5], desc: '6초마다 1.5초 동안 방패를 들어 모든 피해를 막는다.' },
 
   // ── 정예 ──
   shieldlord: { name: '고블린 방패대장', hp: 9, spd: 26, armor: 0.6, mres: 0.1, elite: true, size: 32 },
   priestess: { name: '치유하는 마녀', hp: 6, spd: 32, armor: 0.1, mres: 0.4, elite: true, heal: [3, 0.06, 70], size: 32 },
   necro: { name: '고블린 주술사', hp: 6.5, spd: 30, armor: 0.1, mres: 0.35, elite: true, summon: [6, 'skel', 3], size: 32 },
   wolf: { name: '질주하는 늑대 기사', hp: 7, spd: 70, armor: 0.2, mres: 0.1, elite: true, enrage: 0.5, size: 32 },
+  boar: { name: '돌진 멧돼지 대장', hp: 8, spd: 28, armor: 0.3, mres: 0.05, elite: true, charge: [6, 70], size: 32, desc: '6초마다 앞으로 크게 돌진한다.' },
+  slimeking: { name: '왕방울 슬라임', hp: 8, spd: 24, armor: 0.1, mres: 0.1, elite: true, split: 4, splitType: 'slime', size: 32, desc: '쓰러지면 분열 슬라임 4마리로 갈라진다.' },
+  stormshaman: { name: '구름 주술사', hp: 6.5, spd: 32, armor: 0.1, mres: 0.4, elite: true, haste: [5, 2.5, 70], size: 32, desc: '5초마다 주변 적을 2.5초 동안 빠르게 만든다.' },
+  warder: { name: '마왕군 결계사', hp: 7, spd: 28, armor: 0.2, mres: 0.45, elite: true, ward: [7, 1.6, 70], size: 32, desc: '7초마다 주변 적에게 1.6초 동안 무적 결계를 씌운다.' },
 
   // ── 보스 (hp는 해당 지점 기본 체력의 배수) ──
   ogran: { name: '슬라임왕 퐁퐁', hp: 30, spd: 19, armor: 0.3, mres: 0.15, boss: true, gimmick: 'roar', title: '1막 보스 · 풀숲' },
@@ -70,12 +83,18 @@ export const WAVES = TRIAL_WAVES;
 export const BOSS_WAVE = 10;
 
 const POOL = [
-  ['skel', 'rat', 'bat', 'slime', 'corpse'],
-  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'toad'],
-  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'wraith', 'toad'],
-  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'wraith', 'toad', 'cultist'],
+  ['skel', 'rat', 'bat', 'slime', 'corpse', 'shellsnail', 'bunny'],
+  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'toad', 'crab', 'jelly'],
+  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'wraith', 'toad', 'cloudling', 'golem', 'jelly'],
+  ['skel', 'rat', 'bat', 'slime', 'corpse', 'ember', 'wraith', 'toad', 'cultist', 'imp', 'darkknight', 'golem'],
 ];
-const ELITES = ['shieldlord', 'priestess', 'necro', 'wolf'];
+// 막마다 나올 수 있는 정예 (새 정예는 그 막부터)
+const ELITES = [
+  ['shieldlord', 'priestess', 'necro', 'wolf', 'boar'],
+  ['shieldlord', 'priestess', 'necro', 'wolf', 'boar', 'slimeking'],
+  ['shieldlord', 'priestess', 'necro', 'wolf', 'slimeking', 'stormshaman'],
+  ['shieldlord', 'priestess', 'necro', 'wolf', 'stormshaman', 'warder'],
+];
 
 // 지도 칸 하나의 전투 구성
 export function makeBattle(rng, act, row, kind, boss) {
@@ -98,7 +117,7 @@ export function makeBattle(rng, act, row, kind, boss) {
     });
     waves.push(list);
   }
-  if (kind === 'elite') waves[nWaves - 1].push([rng.pick(ELITES), 1]);
+  if (kind === 'elite') waves[nWaves - 1].push([rng.pick(ELITES[act - 1]), 1]);
   if (kind === 'boss') waves[nWaves - 1].push([boss, 1]);
   return { L: L0, waves, kind, boss: kind === 'boss' ? boss : null };
 }

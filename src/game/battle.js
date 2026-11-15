@@ -16,11 +16,13 @@ const GAMBLE = [
 ];
 export const PITY_MAX = 10;
 // 협동 보정: 적 수 · 보스/정예 체력
-export const COOP_COUNT = 2;
-export const COOP_BOSS = 4;
-export const COOP_HP = 2.4;
+export const COOP_COUNT = 2.4;
+export const COOP_BOSS = 5;
+export const COOP_HP = 2.8;
 // 난이도: 일반 판 적 체력 배수 · 막이 깊어질수록 방어/저항 강화
-export const DIFF_HP = 1.05;
+export const DIFF_HP = 1.0;
+// 공명: 소환 · 진화 때 내 보드의 같은 등급 유닛이 다시 나올 확률 (유닛 종류가 늘어도 진화가 너무 어려워지지 않게)
+export const RESONANCE = 0.6;
 const DEF_UP = (L) => Math.max(0, Math.min(0.18, (L - 1.5) * 0.011));
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
 export const OWN = ['gold', 'stones', 'badLuck', 'upg', 'summons', 'celestial', 'maxCelestial', 'skillT', 'skillCd', 'cheerT', 'buff', 'buffT',
@@ -53,7 +55,7 @@ export class Battle {
     const c0 = pl[0].carry;
     if (c0) { this.wallMax = c0.wallMax; this.wall = c0.wall; }
     else {
-      this.wallMax = Math.round((100 + ((pl[0].royal || 'edric') === 'edric' ? 20 : 0)) * (this.coop ? 1.5 : 1));
+      this.wallMax = Math.round((100 + ((pl[0].royal || 'edric') === 'edric' ? 20 : 0)) * (this.coop ? 1.25 : 1));
       this.wall = this.wallMax;
     }
     for (let o = 0; o < this.nP; o++) {
@@ -215,6 +217,13 @@ export class Battle {
   pickUnit(tier, prefCls) {
     if (this.forceN > 0) { this.forceN--; return UNIT[this.forceUnit]; }
     const pool = BY_TIER[tier];
+    // 공명: 내 보드에 같은 등급 유닛이 있으면 가끔 그 유닛이 한 번 더 나온다 (진화를 돕는다)
+    if (tier < 4 && this.rng.chance(RESONANCE)) {
+      const b0 = this.cur * 18;
+      const mine = [];
+      for (let i = b0; i < b0 + 18; i++) { const u = this.units[i]; if (u && u.def.tier === tier) mine.push(u.def); }
+      if (mine.length) return this.rng.pick(mine);
+    }
     if (prefCls) {
       const same = pool.filter((u) => u.cls === prefCls);
       if (same.length) return this.rng.pick(same);
@@ -445,7 +454,7 @@ export class Battle {
       case 'fox': {
         // 여우불 길: 6초 동안 불타는 구간 (마법 피해)
         const t = this.randomEnemy();
-        if (t) this.zones.push({ s0: t.s - 220, s1: t.s + 20, t: 6, dur: 6, dps: this.powerUnit() * 2.4 * B, src: null, def: null, o: this.cur, dt: 'm', fox: true });
+        if (t) this.zones.push({ s0: t.s - 220, s1: t.s + 20, t: 6, dur: 6, dps: this.powerUnit() * 1.4 * B, src: null, def: null, o: this.cur, dt: 'm', fox: true });
         extra = { x: t ? t.x : 180, y: t ? t.y : 196 };
         break;
       }
@@ -558,7 +567,7 @@ export class Battle {
     }
   }
 
-  upgMul(def) { return 1 + 0.1 * this.upg[upgGroup(def.tier)]; }
+  upgMul(def) { return 1 + 0.1 * (this.upg[upgGroup(def.tier)] + (this.R.upgBonus || 0)); }
 
   // ───────────────────────── 웨이브 ─────────────────────────
   startWave(w) {
@@ -633,7 +642,7 @@ export class Battle {
     e.phaseT = def.phase ? this.rng.next() * def.phase[0] : 0; e.invis = false;
     e.flash = 0; e.numT = 0; e.alive = true; e.roarT = def.gimmick === 'roar' ? 9 : 0;
     e.abT = 2 + this.rng.next() * 2; e.raged = false; e.clone = false; e.splits = 0; e.elite = !!def.elite; e.shield = false;
-    e.walk = this.rng.next() * 10;
+    e.walk = this.rng.next() * 10; e.hasteT = 0; e.wardT = 0; e.gT = def.guard ? this.rng.next() * def.guard[0] : 0;
     this.L.path(e.s, TMP); e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
     this.enemies.push(e);
     if (e.boss) { this.boss = e; this.bossT = BOSS_TIME; this.gimT = 6; this.emit('boss', { id: type }); }
@@ -837,10 +846,19 @@ export class Battle {
         if (e.phaseT >= cyc) e.phaseT -= cyc;
         e.invis = e.phaseT < dur;
       }
+      if (e.def.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * e.def.regen * dt);
+      if (e.def.guard || e.wardT > 0) {
+        // 흑기사 방패 · 결계사 결계: 그동안 모든 피해 무효
+        let on = false;
+        if (e.def.guard) { e.gT += dt; if (e.gT >= e.def.guard[0]) e.gT -= e.def.guard[0]; on = e.gT < e.def.guard[1]; }
+        if (e.wardT > 0) { e.wardT -= dt; on = true; }
+        if (!e.clone) e.shield = on;
+      }
+      if (e.hasteT > 0) e.hasteT -= dt;
       if (e.slowT > 0) { e.slowT -= dt; if (e.slowT <= 0) e.slowAmt = 0; }
       if (stop) continue;
       if (e.stunT > 0) { e.stunT -= dt; continue; }
-      const v = e.spd * (1 - e.slowAmt) * gslow * dt;
+      const v = e.spd * (1 - e.slowAmt) * gslow * (e.hasteT > 0 ? 1.4 : 1) * dt;
       e.s += v; e.dist += v; e.walk += v * 0.08;
       if (e.s >= this.L.PERIM) {
         e.s -= this.L.PERIM;
@@ -878,6 +896,21 @@ export class Battle {
         if (dx * dx + dy * dy <= r2) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * d.heal[1]);
       }
       this.emit('heal', { x: e.x, y: e.y, r: d.heal[2] });
+    } else if (d.charge) {
+      e.abT = d.charge[0];
+      e.s += d.charge[1]; e.dist += d.charge[1];
+      this.emit('charge', { x: e.x, y: e.y });
+    } else if (d.haste || d.ward) {
+      const [cd, dur, rad] = d.haste || d.ward;
+      e.abT = cd;
+      const r2 = rad * rad;
+      for (const o of this.enemies) {
+        if (!o.alive || o.boss || o === e) continue;
+        const dx = o.x - e.x, dy = o.y - e.y;
+        if (dx * dx + dy * dy > r2) continue;
+        if (d.haste) o.hasteT = dur; else o.wardT = dur;
+      }
+      this.emit(d.haste ? 'haste' : 'ward', { x: e.x, y: e.y, r: rad });
     } else if (d.summon) {
       e.abT = d.summon[0];
       for (let k = 0; k < d.summon[2]; k++) this.spawn(d.summon[1], e.s - 14 - k * 10);
@@ -941,7 +974,7 @@ export class Battle {
     }
   }
 
-  unitDmg(u) { return u.def.dmg * (1 + 0.1 * this.P[u.o].upg[upgGroup(u.def.tier)]) * u.dmgMul; }
+  unitDmg(u) { return u.def.dmg * (1 + 0.1 * (this.P[u.o].upg[upgGroup(u.def.tier)] + (this.R.upgBonus || 0))) * u.dmgMul; }
 
   attack(u, tgt, x, y) {
     const d = u.def;
@@ -1120,7 +1153,7 @@ export class Battle {
     if (stunP && e.alive && this.rng.chance(stunP)) e.stunT = Math.max(e.stunT, def.stun ? def.stun[1] : 0.5);
     if (def.burn && e.alive) {
       e.burnT = def.burn[0]; e.burnDps = Math.max(e.burnDps, dmg * def.burn[1]); e.burnSrc = u; e.burnO = this.cur;
-      e.boomR = def.boom[0]; e.boomDmg = dmg * def.boom[1];
+      if (def.boom) { e.boomR = def.boom[0]; e.boomDmg = dmg * def.boom[1]; }
     }
     if (def.bossPct && e.boss && e.alive) this.damage(e, e.maxHp * def.bossPct, 't', u, true);
   }
@@ -1193,9 +1226,10 @@ export class Battle {
     }
     this.emit('kill', { x: e.x, y: e.y, type: e.type });
     if (e.def.split) {
+      const st = e.def.splitType || 'mini';
       for (let k = 0; k < e.def.split; k++) {
-        const m = this.spawn('mini', e.s - k * 8);
-        m.hp = m.maxHp = hpAt(this.curL()) * ENEMIES.mini.hp;
+        const m = this.spawn(st, e.s - k * 8);
+        m.hp = m.maxHp = hpAt(this.curL()) * ENEMIES[st].hp * (this.coop ? COOP_HP : 1);
         m.dist = e.dist - k * 8;
       }
     }

@@ -26,7 +26,7 @@ import { SOLO, COOP, W, H } from './layout.js';
 const TICK = 1 / 60;
 const SPEEDS = [1, 1.5, 2];
 // 협동에서 동료 보드 것이어도 내 화면에 그대로 보여줄 공용 이벤트
-const SHARED_EV = new Set(['wave', 'waveClear', 'wallHit', 'guarded', 'freeze', 'steal', 'ashrain', 'split', 'heal', 'raise', 'enrage', 'victory', 'defeat', 'combo', 'roar', 'corrupt', 'cleanse', 'icebreak', 'cloudBlock']);
+const SHARED_EV = new Set(['wave', 'waveClear', 'wallHit', 'guarded', 'freeze', 'steal', 'ashrain', 'split', 'heal', 'raise', 'enrage', 'victory', 'defeat', 'combo', 'roar', 'corrupt', 'cleanse', 'icebreak', 'cloudBlock', 'charge', 'haste', 'ward']);
 const tierCol = (t) => (t === 5 ? '#ff9ad9' : TIERS[t].color);
 const unitImg = (id, s = 3) => spriteURL(SPR.units[id].r, s);
 // 협동 신호: [말, 표정]
@@ -461,7 +461,10 @@ export function battleScene(app, params) {
       case 'split': audio.sfxPlay('boss'); toast('그림자가 분열했다! 분신을 먼저 쓰러뜨려야 본체에 피해가 들어간다.'); break;
       case 'heal': audio.sfxPlay('upgrade'); break;
       case 'raise': audio.sfxPlay('boss'); break;
-      case 'enrage': toast('늑대인간이 광폭화했다!'); break;
+      case 'enrage': toast('늑대 기사가 광폭화했다!'); break;
+      case 'charge': audio.sfxPlay('wall'); break;
+      case 'haste': audio.sfxPlay('zap'); break;
+      case 'ward': audio.sfxPlay('timestop'); break;
       case 'eliteDown': audio.sfxPlay('win'); toast('정예 처치! 금화 +30, 행운석 +1', 'good'); break;
       case 'delivered': toast('느릿: "등기… 도착…했습니다…"', 'good'); break;
       case 'summonZero': audio.sfxPlay('fail'); toast('무한 가챠 부적: 0명 소환. 금화만 사라졌다.', 'fail'); unlockAch('zero'); break;

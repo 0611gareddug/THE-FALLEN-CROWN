@@ -129,7 +129,7 @@ export function nodeOf(run, id) { return run.map.nodes[id]; }
 export function newCoopRun(players, seed) {
   const a = newRun({ royal: players[0].royal, mascot: players[0].mascot, seed });
   const b = newRun({ royal: players[1].royal, mascot: players[1].mascot, seed: a.seed });
-  const wallMax = Math.round(Math.max(a.carry.wallMax, b.carry.wallMax) * 1.5);
+  const wallMax = Math.round(Math.max(a.carry.wallMax, b.carry.wallMax) * 1.25);
   a.carry.wallMax = a.carry.wall = wallMax;
   a.coop = true;
   a.players = [
