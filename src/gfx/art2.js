@@ -40,7 +40,7 @@ export const ELITE_ART = {
       '....oWWo.oWWo...',
       '....oooo.oooo...',
     ],
-    pal: { w: '#b8c0d0', l: '#f4f6fa', W: '#7a8296', r: '#e0463a', a: '#6aa84a', A: '#4a8a32', g: '#ffd36b' },
+    pal: { w: '#9aa0b4', l: '#e8ecf4', W: '#5d6378', r: '#e0463a', a: '#4a4f62', A: '#2e3242', g: '#c9a85c' },
   },
   priestess: {
     rows: [
@@ -61,7 +61,7 @@ export const ELITE_ART = {
       '..oAAAAAAAAAAo..',
       '...oooooooooo...',
     ],
-    pal: { w: '#f4ecff', s: '#f0c8a8', e: '#5a2a4a', b: '#f08a8a', a: '#8a5ac8', A: '#6a3aa0', g: '#9be08a', y: '#9be08a' },
+    pal: { w: '#e8e0d0', s: '#e8c0a0', e: '#5a2a4a', b: '#f08a8a', a: '#5a8a7a', A: '#3a5a50', g: '#9be08a', y: '#9be08a' },
   },
   necro: {
     rows: [
@@ -82,7 +82,7 @@ export const ELITE_ART = {
       '..oAAAAAAAAAAo..',
       '...oooooooooo...',
     ],
-    pal: { a: '#7ac05a', A: '#4f8a3a', K: '#2a4a1a', g: '#ffd36b', p: '#ff9ac2', x: '#8a6a3a' },
+    pal: { a: '#3a2a4a', A: '#22182e', K: '#141018', g: '#9be08a', p: '#c99bff', x: '#5a4a3a' },
   },
   wolf: {
     rows: [
@@ -103,7 +103,7 @@ export const ELITE_ART = {
       '....oaao.oaao...',
       '....oooo.oooo...',
     ],
-    pal: { a: '#a89a8a', A: '#7a6e62', e: '#ffe36b', w: '#ffffff' },
+    pal: { a: '#6a6470', A: '#46404e', e: '#ffe36b', w: '#f0f0f0' },
   },
 };
 
@@ -223,7 +223,7 @@ export const BOSS_ART = {
       '........................',
       '........................',
     ],
-    pal: { r: '#7a52c0', R: '#55369a', k: '#2a1a3a', K: '#3a2a50', f: '#ffd36b', y: '#ffffff', x: '#c8c0d8' },
+    pal: { r: '#7a2a2a', R: '#4a1818', k: '#1a1018', K: '#2a2028', f: '#ff8a3a', y: '#ffe36b', x: '#9a9490' },
   },
   shadow: {
     rows: [
@@ -505,9 +505,9 @@ export function buildArt2(target, flipFn, silFn) {
 // 머리 모양 · 색 · 장신구를 조합해 그린다.
 export const CAST = {
   narr: null,
-  edric: { name: '레오', skin: '#f6d2b0', hair: '#8a5a2a', style: 'short', cloth: '#4a8ae0', cloth2: '#f0d27a', armor: true, hat: 'helmet', voice: [520, 'square'] },
-  seren: { name: '미나', skin: '#f8dccb', hair: '#ffb3cf', style: 'long', cloth: '#4a7fd0', cloth2: '#ffd36b', hat: 'witch', glasses: true, voice: [760, 'triangle'] },
-  kyle: { name: '피크', skin: '#e8b890', hair: '#5a3a1e', style: 'messy', cloth: '#5aa04a', cloth2: '#a8703e', hat: 'feather', voice: [440, 'square'] },
+  edric: { name: '레오', skin: '#f1c9a5', hair: '#e8c25a', style: 'short', cloth: '#c9a85c', cloth2: '#3a5fb0', crown: true, voice: [520, 'square'] },
+  seren: { name: '미나', skin: '#f6d6c0', hair: '#c9a8f0', style: 'long', cloth: '#6a4ab0', cloth2: '#c99bff', tiara: true, voice: [760, 'triangle'] },
+  kyle: { name: '피크', skin: '#e0b08a', hair: '#8a4a1a', style: 'messy', cloth: '#3a5a3a', cloth2: '#5a7a5a', crown: 'tilt', bandana: '#3a5a3a', voice: [440, 'square'] },
   bran: { name: '바르톨', skin: '#f0c8a0', hair: '#e8e8f0', style: 'bald', beard: '#f4f4f8', cloth: '#7a8aa8', cloth2: '#ffd36b', scar: true, armor: true, voice: [220, 'square'] },
   linette: { name: '리네트', skin: '#f6d0b0', hair: '#d0463b', style: 'long', hat: 'feather', cloth: '#4f9a4a', cloth2: '#e8c25a', voice: [880, 'triangle'] },
   bork: { name: '보르크', skin: '#a8704a', hair: '#1a1018', style: 'short', goggles: true, cloth: '#7a4b2a', cloth2: '#4e2f1a', voice: [300, 'sawtooth'] },
@@ -689,7 +689,7 @@ function drawPlace(id) {
       if (i) for (let x = (i % 2); x < W; x += 2) rect(x, i * band, 1, 1, cols[i - 1]);
     });
   };
-  const ridge = (y0, amp, col, step = 6) => {
+  const ridge = (y0, amp, col, step = 6, seedOff = 0) => {
     g.fillStyle = col;
     let y = y0;
     for (let x = 0; x < W; x += step) {
@@ -697,171 +697,166 @@ function drawPlace(id) {
       g.fillRect(x, Math.round(y), step, H - Math.round(y));
     }
   };
-  const cloud = (x, y, s = 1) => { rect(x, y + 3 * s, 24 * s, 5 * s, '#ffffff'); rect(x + 4 * s, y, 14 * s, 4 * s, '#ffffff'); rect(x + 2 * s, y + 8 * s, 20 * s, 1, '#d7ecfa'); };
-  const sun = (x, y) => { rect(x - 6, y - 6, 12, 12, '#fff3b0'); rect(x - 4, y - 8, 8, 16, '#fff3b0'); rect(x - 8, y - 4, 16, 8, '#fff3b0'); rect(x - 4, y - 4, 8, 8, '#fffbe0'); };
-  const flowers = (n, y0) => { const fl = ['#ff9ac2', '#fff1a8', '#ffffff', '#ffb36b']; for (let i = 0; i < n; i++) rect(r() * W, y0 + r() * (H - y0), 1, 1, fl[i % 4]); };
-  const petals = (n) => { for (let i = 0; i < n; i++) rect(r() * W, r() * H, 2, 1, r() < 0.5 ? '#ffd1e3' : '#ffffff'); };
+  const stars = (n, col) => { for (let i = 0; i < n; i++) rect(r() * W, r() * H * 0.5, 1, 1, col); };
+  const ash = (n) => { for (let i = 0; i < n; i++) rect(r() * W, r() * H, 1, 1, r() < 0.15 ? '#ff8a3a' : '#6a6470'); };
   switch (id) {
-    case 'ruins': { // 들판 마을
-      sky(['#7fcff8', '#a6defa', '#cdeeff', '#eef9ff']);
-      sun(36, 22); cloud(150, 16); cloud(90, 30, 0.7);
-      ridge(90, 5, '#a6d98a', 8);
-      for (let i = 0; i < 6; i++) {
-        const x = 8 + i * 40 + r() * 8, w = 22 + r() * 6, h = 18 + r() * 8, y = 108 - h;
-        rect(x, y, w, h, '#fff1d6'); rect(x, y + h - 2, w, 2, '#e8cfa0');
-        g.fillStyle = ['#e0564a', '#4a8ae0', '#e8a040', '#7ab05a'][i % 4]; g.beginPath(); g.moveTo(x - 3, y); g.lineTo(x + w / 2, y - 12); g.lineTo(x + w + 3, y); g.fill();
-        rect(x + w / 2 - 3, y + h - 9, 6, 9, '#a8703e'); rect(x + 3, y + 4, 5, 5, '#9fd8ff');
+    case 'ruins': {
+      sky(['#1a1420', '#2a1a24', '#4a2228', '#6a3028', '#7a3a2a']);
+      ridge(92, 6, '#2a2028', 8);
+      for (let i = 0; i < 9; i++) {
+        const x = i * 28 + r() * 10, w = 16 + r() * 10, h = 20 + r() * 26, y = 112 - h;
+        rect(x, y, w, h + 30, '#16121a');
+        rect(x + 2, y - 4 - r() * 6, 4, 8, '#16121a');
+        if (r() < 0.5) rect(x + w / 2, y + 6, 3, 4, '#e0663a');
+        rect(x + w - 3, y, 3, 2, '#2a2028');
       }
-      rect(0, 108, W, 27, '#86c862');
-      rect(96, 108, 48, 27, '#e9cf98');
-      flowers(60, 110); petals(14);
+      rect(0, 112, W, 23, '#100c12');
+      ash(70);
       break;
     }
-    case 'forest': { // 햇살 숲
-      sky(['#bfe8a8', '#a8dc8c', '#94d07a', '#86c66a']);
+    case 'forest': {
+      sky(['#0e1412', '#14201a', '#1a2a22', '#22322a']);
       for (let layer = 0; layer < 3; layer++) {
-        const col = ['#7cc35a', '#5fae48', '#4a9a3a'][layer];
+        const col = ['#1e2c24', '#16221c', '#0e1612'][layer];
         for (let i = 0; i < 16; i++) {
           const x = i * 16 + r() * 12 - 6, h = 50 + layer * 20 + r() * 20, base = 100 + layer * 12;
-          rect(x + 5, base - h, 4, h, '#8a5a2e');
+          rect(x + 5, base - h, 4, h, col);
           for (let k = 0; k < 4; k++) rect(x + 1 - k, base - h + 8 + k * 8, 12 + k * 2, 6, col);
         }
       }
-      for (let i = 0; i < 5; i++) { g.fillStyle = 'rgba(255,250,200,0.14)'; g.beginPath(); g.moveTo(40 + i * 40, 0); g.lineTo(52 + i * 40, 0); g.lineTo(30 + i * 40, H); g.lineTo(14 + i * 40, H); g.fill(); }
-      rect(0, 118, W, 17, '#6fb84e');
-      flowers(40, 118);
-      for (let i = 0; i < 14; i++) rect(r() * W, 30 + r() * 80, 1, 1, '#fff7a8');
+      for (let i = 0; i < 4; i++) rect(0, 70 + i * 12, W, 3, 'rgba(200,210,200,0.05)');
+      ash(30);
       break;
     }
-    case 'temple': { // 구름 신전
-      sky(['#8fd4fb', '#b0e2fc', '#d4f0ff', '#f0faff']);
-      cloud(10, 12); cloud(180, 20); cloud(100, 6, 0.6);
-      rect(0, 104, W, 31, '#ffffff'); for (let x = 0; x < W; x += 10) rect(x, 104 + (x % 20 ? 2 : 0), 8, 3, '#e8f4ff');
+    case 'temple': {
+      sky(['#14121e', '#1e1a2a', '#2a2436', '#352e42']);
+      rect(0, 104, W, 31, '#18141e');
       for (let i = 0; i < 6; i++) {
         const x = 18 + i * 38;
-        rect(x, 30, 12, 76, '#f4f8ff'); rect(x - 2, 28, 16, 4, '#dfe8f4'); rect(x - 2, 102, 16, 4, '#dfe8f4');
-        rect(x + 2, 30, 2, 76, '#ffffff'); rect(x + 9, 30, 2, 76, '#dbe6f2');
+        rect(x, 30, 12, 76, '#2a2436'); rect(x - 2, 28, 16, 4, '#3a3446'); rect(x - 2, 102, 16, 4, '#3a3446');
+        rect(x + 2, 30, 2, 76, '#3a3446');
+        if (i === 2) rect(x + 3, 60, 6, 10, '#16121a');
       }
-      rect(96, 84, 48, 20, '#dfe8f4'); rect(100, 80, 40, 4, '#ffffff');
-      for (let i = 0; i < 5; i++) { rect(104 + i * 8, 74, 2, 6, '#fff6d8'); rect(104 + i * 8, 71, 2, 3, '#ffd36b'); }
-      rect(114, 40, 12, 14, '#ffd36b'); rect(112, 38, 16, 3, '#e8b84a');
+      rect(96, 84, 48, 20, '#3a3446'); rect(100, 80, 40, 4, '#4a4456');
+      for (let i = 0; i < 5; i++) { rect(104 + i * 8, 74, 2, 6, '#e8e0d0'); rect(104 + i * 8, 71, 2, 3, '#ffe36b'); }
+      rect(80, 20, 80, 3, 'rgba(255,230,160,0.06)');
       break;
     }
-    case 'road': { // 갈림길
-      sky(['#7fcff8', '#a6defa', '#d4f0ff', '#f4fbff']);
-      sun(200, 20); cloud(30, 14); cloud(120, 26, 0.8);
-      ridge(80, 6, '#a6d98a', 10);
-      ridge(92, 4, '#8fcd6e', 6);
-      g.fillStyle = '#e9cf98';
+    case 'road': {
+      sky(['#1a1a26', '#2a2a36', '#3a3440', '#4a3a3a']);
+      ridge(80, 8, '#2a2630', 10);
+      ridge(92, 5, '#201c24', 6);
+      g.fillStyle = '#3a3036';
       g.beginPath(); g.moveTo(110, 92); g.lineTo(130, 92); g.lineTo(200, H); g.lineTo(40, H); g.fill();
+      g.fillStyle = '#3a3036';
       g.beginPath(); g.moveTo(118, 92); g.lineTo(124, 92); g.lineTo(240, 120); g.lineTo(240, 128); g.fill();
-      rect(150, 70, 3, 34, '#8a5a2e'); rect(136, 72, 22, 6, '#c58a50'); rect(152, 82, 20, 6, '#c58a50');
-      flowers(50, 96); petals(10);
+      rect(150, 70, 3, 34, '#4e2f1a'); rect(136, 72, 22, 6, '#7a4b2a'); rect(152, 82, 20, 6, '#7a4b2a');
+      stars(40, '#8a8696');
+      ash(20);
       break;
     }
-    case 'hall': { // 마왕성 홀 (보랏빛, 그래도 동화풍)
-      sky(['#4a3a7a', '#5a4690', '#6a52a0']);
-      rect(0, 100, W, 35, '#3e2e66');
-      for (let x = 0; x < W; x += 12) rect(x, 100, 1, 35, '#4e3c7a');
+    case 'hall': {
+      sky(['#1a1218', '#221820', '#2a1e26']);
+      rect(0, 100, W, 35, '#2a1e1e');
+      for (let x = 0; x < W; x += 12) rect(x, 100, 1, 35, '#221616');
       for (let i = 0; i < 5; i++) {
         const x = 12 + i * 52;
-        rect(x, 0, 14, 100, '#7a66b8'); rect(x + 2, 0, 2, 100, '#9a86d0');
-        rect(x + 20, 14, 16, 44, '#c0392b'); rect(x + 20, 14, 16, 3, '#ffd36b'); rect(x + 26, 30, 4, 6, '#ffd36b');
-        g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(x + 20, 58); g.lineTo(x + 28, 52); g.lineTo(x + 36, 58); g.fill();
+        rect(x, 0, 14, 100, '#2a2028'); rect(x + 2, 0, 2, 100, '#3a3038');
+        rect(x + 20, 14, 16, 44, '#6a2028'); rect(x + 20, 14, 16, 3, '#e8c25a'); rect(x + 26, 30, 4, 6, '#e8c25a');
+        g.fillStyle = '#6a2028'; g.beginPath(); g.moveTo(x + 20, 58); g.lineTo(x + 28, 52); g.lineTo(x + 36, 58); g.fill();
       }
-      rect(108, 66, 24, 34, '#2e1e4a'); rect(104, 62, 32, 6, '#ffd36b'); rect(112, 74, 16, 26, '#8a2a5a');
-      for (let i = 0; i < 20; i++) rect(r() * W, r() * 90, 1, 1, '#d8c8ff');
+      rect(108, 66, 24, 34, '#3a2a2a'); rect(104, 62, 32, 6, '#e8c25a'); rect(112, 74, 16, 26, '#5a2028');
       break;
     }
-    case 'camp': { // 야영지 (노을)
-      sky(['#6a8ad8', '#a88ad0', '#e89ab0', '#ffc08a']);
-      for (let i = 0; i < 30; i++) rect(r() * W, r() * 40, 1, 1, '#fff6d0');
-      ridge(96, 6, '#8a6aa8', 8);
-      rect(0, 108, W, 27, '#5a8a4a');
-      g.fillStyle = '#e8c27a'; g.beginPath(); g.moveTo(150, 108); g.lineTo(180, 76); g.lineTo(210, 108); g.fill();
-      g.fillStyle = '#c89a50'; g.beginPath(); g.moveTo(180, 76); g.lineTo(186, 108); g.lineTo(176, 108); g.fill();
-      for (let i = 0; i < 6; i++) rect(100 - i * 6, 112 - i * 4, 40 + i * 12, 3 + i * 2, `rgba(255,190,90,${0.08 - i * 0.01})`);
-      rect(112, 106, 16, 4, '#8a5a2e'); rect(116, 96, 8, 10, '#ff8a3a'); rect(118, 92, 4, 6, '#ffe36b');
+    case 'camp': {
+      sky(['#0a0c14', '#10121c', '#161824', '#1a1c28']);
+      stars(80, '#b8bcd0');
+      ridge(96, 6, '#12141c', 8);
+      rect(0, 108, W, 27, '#0e1016');
+      g.fillStyle = '#3a3036'; g.beginPath(); g.moveTo(150, 108); g.lineTo(180, 76); g.lineTo(210, 108); g.fill();
+      g.fillStyle = '#2a2028'; g.beginPath(); g.moveTo(180, 76); g.lineTo(186, 108); g.lineTo(176, 108); g.fill();
+      for (let i = 0; i < 6; i++) rect(100 - i * 6, 112 - i * 4, 40 + i * 12, 3 + i * 2, `rgba(255,138,58,${0.05 - i * 0.006})`);
+      rect(112, 106, 16, 4, '#4e2f1a'); rect(116, 96, 8, 10, '#ff8a3a'); rect(118, 92, 4, 6, '#ffe36b');
       break;
     }
-    case 'swamp': { // 안개 호수
-      sky(['#a8e0e8', '#c0eaf0', '#d8f4f6', '#eafaf8']);
-      ridge(84, 5, '#9fd0a0', 8);
-      rect(0, 96, W, 39, '#6ac0c8');
-      for (let y = 98; y < H; y += 4) for (let x = (y % 8); x < W; x += 16) rect(x, y, 6, 1, '#9ee0e8');
-      for (let i = 0; i < 7; i++) { const x = 8 + i * 34 + r() * 8, y = 104 + r() * 24; rect(x, y, 10, 4, '#5fae48'); rect(x + 4, y - 3, 3, 3, ['#ff9ac2', '#ffffff'][i % 2]); }
-      for (let i = 0; i < 5; i++) { const x = 20 + i * 50; rect(x, 70, 3, 28, '#6a8a4a'); rect(x - 2, 66, 7, 5, '#a8703e'); }
-      rect(0, 80, W, 10, 'rgba(255,255,255,0.35)');
+    case 'swamp': {
+      sky(['#101814', '#16201a', '#1c2820', '#22302a']);
+      rect(0, 96, W, 39, '#14201c');
+      for (let y = 98; y < H; y += 4) for (let x = (y % 8); x < W; x += 16) rect(x, y, 6, 1, '#1e2e28');
+      for (let i = 0; i < 6; i++) {
+        const x = 10 + i * 42 + r() * 10;
+        rect(x, 40 + r() * 20, 4, 60, '#0e1410');
+        rect(x - 8, 54, 10, 2, '#0e1410'); rect(x + 4, 62, 12, 2, '#0e1410');
+      }
+      for (let i = 0; i < 30; i++) rect(r() * W, 40 + r() * 70, 1, 1, '#c8f08a');
+      rect(0, 80, W, 8, 'rgba(200,220,210,0.05)');
       break;
     }
-    case 'mountain': { // 구름 산
-      sky(['#7fc8f4', '#a2d8f8', '#c6e8fc', '#e6f6ff']);
-      g.fillStyle = '#9ab8d8';
+    case 'mountain': {
+      sky(['#1a2030', '#24304a', '#30405a', '#3a4a66']);
+      g.fillStyle = '#4a5a76';
       for (let i = 0; i < 4; i++) { const x = i * 70 - 10; g.beginPath(); g.moveTo(x, 110); g.lineTo(x + 40, 30 + r() * 20); g.lineTo(x + 90, 110); g.fill(); }
-      g.fillStyle = '#ffffff';
+      g.fillStyle = '#e8f0ff';
       for (let i = 0; i < 4; i++) { const x = i * 70 - 10; g.beginPath(); g.moveTo(x + 30, 50); g.lineTo(x + 40, 34); g.lineTo(x + 52, 52); g.fill(); }
-      cloud(0, 70, 1.4); cloud(120, 80, 1.6); cloud(60, 92, 1.2); cloud(190, 64, 1.1);
-      rect(0, 108, W, 27, '#ffffff');
+      rect(0, 104, W, 31, '#c8d8ec');
+      for (let i = 0; i < 90; i++) rect(r() * W, r() * H, 1, 1, '#ffffff');
       break;
     }
-    case 'library': { // 마을 도서관
-      sky(['#f4e2c0', '#efd8b0']);
+    case 'library': {
+      sky(['#1a1410', '#221a14']);
       for (let s2 = 0; s2 < 4; s2++) {
         const x = 8 + s2 * 60;
-        rect(x, 10, 50, 100, '#b07a48');
+        rect(x, 10, 50, 100, '#3a2418');
         for (let sh = 0; sh < 5; sh++) {
-          rect(x, 12 + sh * 20, 50, 2, '#8a5a2e');
-          for (let b = 0; b < 10; b++) rect(x + 2 + b * 5, 14 + sh * 20 + (b % 3), 4, 16 - (b % 3), ['#e0564a', '#4a8ae0', '#7ab05a', '#e8b84a', '#9a6ad0'][(b + sh + s2) % 5]);
+          rect(x, 12 + sh * 20, 50, 2, '#2a1a10');
+          for (let b = 0; b < 10; b++) rect(x + 2 + b * 5, 14 + sh * 20 + (b % 3), 4, 16 - (b % 3), ['#6a2028', '#2a4a6a', '#4a6a2a', '#8a6a2a', '#4a2a5a'][(b + sh + s2) % 5]);
         }
       }
-      rect(0, 110, W, 25, '#c89a68');
-      rect(110, 96, 20, 14, '#8a5a2e'); rect(118, 86, 4, 10, '#ffe36b');
-      for (let i = 0; i < 4; i++) rect(100 - i * 8, 80 - i * 4, 40 + i * 16, 30 + i * 8, 'rgba(255,240,180,0.06)');
+      rect(0, 110, W, 25, '#2a1a10');
+      rect(110, 96, 20, 14, '#5a3a20'); rect(118, 86, 4, 10, '#ffe36b');
+      for (let i = 0; i < 4; i++) rect(100 - i * 8, 80 - i * 4, 40 + i * 16, 30 + i * 8, 'rgba(255,220,140,0.03)');
       break;
     }
-    case 'market': { // 항구 장터
-      sky(['#7fcff8', '#a6defa', '#d4f0ff']);
-      sun(30, 18); cloud(160, 12);
-      rect(0, 56, W, 20, '#4aa8e0'); for (let x = 0; x < W; x += 8) rect(x, 60 + (x % 16 ? 4 : 0), 5, 1, '#9ee0ff');
-      rect(200, 40, 8, 20, '#ffffff'); rect(200, 44, 8, 3, '#e0463a'); rect(200, 52, 8, 3, '#e0463a'); rect(198, 36, 12, 4, '#e0463a');
-      rect(0, 100, W, 35, '#e9cf98');
+    case 'market': {
+      sky(['#1e1622', '#2e2030', '#40283a', '#4e2e3a']);
+      rect(0, 100, W, 35, '#2a2026');
       for (let i = 0; i < 5; i++) {
-        const x = 6 + i * 48, col = ['#e0564a', '#4a8ae0', '#e8b84a', '#5aa04a', '#9a6ad0'][i];
-        rect(x, 62, 40, 4, col); for (let k = 0; k < 40; k += 8) { rect(x + k, 66, 4, 4, col); rect(x + k + 4, 66, 4, 4, '#ffffff'); }
-        rect(x + 2, 66, 2, 34, '#8a5a2e'); rect(x + 36, 66, 2, 34, '#8a5a2e');
-        rect(x + 4, 84, 32, 14, '#c58a50');
-        for (let k = 0; k < 5; k++) rect(x + 6 + k * 6, 80, 4, 4, ['#ffd36b', '#ff6b6b', '#7fd36b', '#c99bff', '#ffffff'][k]);
+        const x = 6 + i * 48, col = ['#8a2a2a', '#2a5a8a', '#8a7a2a', '#2a7a4a', '#6a2a7a'][i];
+        rect(x, 62, 40, 4, col); for (let k = 0; k < 40; k += 8) rect(x + k, 66, 4, 4, col);
+        rect(x + 2, 66, 2, 34, '#4e2f1a'); rect(x + 36, 66, 2, 34, '#4e2f1a');
+        rect(x + 4, 84, 32, 14, '#5a3a20');
+        for (let k = 0; k < 5; k++) rect(x + 6 + k * 6, 80, 4, 4, ['#e8c25a', '#d0463b', '#7fbf6a', '#c99bff', '#ffffff'][k]);
       }
+      for (let i = 0; i < 8; i++) rect(10 + i * 30, 30, 2, 2, '#ffe36b');
       break;
     }
-    case 'crypt': { // 수정 동굴
-      sky(['#3a4a7a', '#4a5a8e', '#5a6aa0']);
+    case 'crypt': {
+      sky(['#0c0a10', '#121018', '#18141e']);
       for (let i = 0; i < 4; i++) {
         const x = i * 64;
-        g.fillStyle = '#6a7ab0'; g.fillRect(x, 0, 64, 110);
-        g.fillStyle = '#3a4a7a'; g.beginPath(); g.arc(x + 32, 60, 24, Math.PI, 0); g.fill(); g.fillRect(x + 8, 60, 48, 50);
+        g.fillStyle = '#221c2a'; g.fillRect(x, 0, 64, 110);
+        g.fillStyle = '#100c14'; g.beginPath(); g.arc(x + 32, 60, 24, Math.PI, 0); g.fill(); g.fillRect(x + 8, 60, 48, 50);
       }
-      rect(0, 108, W, 27, '#4a5a8e');
-      for (let i = 0; i < 9; i++) { const x = 10 + i * 26 + r() * 6, h = 8 + r() * 12; g.fillStyle = ['#9ee6ff', '#c99bff', '#ff9ac2'][i % 3]; g.beginPath(); g.moveTo(x, 110); g.lineTo(x + 4, 110 - h); g.lineTo(x + 8, 110); g.fill(); }
-      for (let i = 0; i < 16; i++) rect(r() * W, 20 + r() * 80, 1, 1, '#e0f6ff');
+      rect(0, 108, W, 27, '#18141e');
+      rect(30, 98, 40, 12, '#3a3446'); rect(170, 98, 40, 12, '#3a3446');
+      for (let i = 0; i < 5; i++) rect(80 + i * 4, 60 - i * 2, 80 - i * 8, 40, 'rgba(155,95,214,0.04)');
+      for (let i = 0; i < 12; i++) rect(100 + r() * 40, 70 + r() * 30, 1, 1, '#c99bff');
       break;
     }
-    case 'office': { // 마을 사무소
-      sky(['#f4e6c8', '#efdcb4']);
-      rect(0, 0, W, 8, '#c89a68');
-      rect(20, 20, 60, 40, '#a8703e'); rect(24, 24, 52, 32, '#9fdcff'); rect(48, 24, 2, 32, '#a8703e'); rect(24, 38, 52, 2, '#a8703e');
-      rect(28, 44, 20, 8, '#86c862'); rect(52, 30, 10, 4, '#ffffff');
-      rect(0, 104, W, 31, '#c89a68');
-      rect(70, 84, 110, 20, '#8a5a2e'); rect(70, 82, 110, 3, '#b07a48');
-      for (let k = 0; k < 12; k++) rect(96 + (k % 2) * 2, 82 - k * 4, 26, 4, k % 2 ? '#ffffff' : '#f4ecd8');
-      for (let k = 0; k < 6; k++) rect(140, 82 - k * 4, 22, 4, k % 2 ? '#ffffff' : '#f0e6d0');
-      rect(150, 60, 4, 4, '#e0463a');
-      rect(196, 70, 14, 14, '#7ab05a'); rect(200, 84, 6, 20, '#c58a50');
+    case 'office': {
+      sky(['#1e1a16', '#262018']);
+      rect(0, 0, W, 8, '#140f0c');
+      rect(20, 20, 60, 40, '#2e2620'); rect(24, 24, 52, 32, '#3a3a50'); rect(48, 24, 2, 32, '#2e2620'); rect(24, 38, 52, 2, '#2e2620');
+      rect(0, 104, W, 31, '#2a2018');
+      rect(70, 84, 110, 20, '#5a3a20'); rect(70, 82, 110, 3, '#7a4b2a');
+      for (let k = 0; k < 12; k++) rect(96 + (k % 2) * 2, 82 - k * 4, 26, 4, k % 2 ? '#e8e0d0' : '#d8d0c0');
+      for (let k = 0; k < 6; k++) rect(140, 82 - k * 4, 22, 4, k % 2 ? '#e8e0d0' : '#d0c8b8');
+      rect(150, 60, 4, 4, '#d0463b');
       break;
     }
   }
-  // 하단 비네트 (아주 옅게)
-  for (let i = 0; i < 6; i++) rect(0, H - 6 + i, W, 1, `rgba(90,60,30,${0.03 * i})`);
+  // 하단 비네트
+  for (let i = 0; i < 6; i++) rect(0, H - 6 + i, W, 1, `rgba(0,0,0,${0.08 * i})`);
   return c;
 }
 
