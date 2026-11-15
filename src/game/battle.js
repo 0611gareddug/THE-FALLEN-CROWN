@@ -18,7 +18,7 @@ export const PITY_MAX = 10;
 // 협동 보정: 적 수 · 보스/정예 체력
 export const COOP_COUNT = 2;
 export const COOP_BOSS = 3.5;
-export const COOP_HP = 1.85;
+export const COOP_HP = 2;
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
 export const OWN = ['gold', 'stones', 'badLuck', 'upg', 'summons', 'celestial', 'maxCelestial', 'skillT', 'skillCd', 'cheerT', 'buff', 'buffT',
   'mascot', 'mdef', 'mlv', 'mboost', 'freeSummon', 'syn', 'mods', 'royal', 'deliver', 'eggKills', 'goldFrac', 'stoneWave', 'stats', 'metT'];
