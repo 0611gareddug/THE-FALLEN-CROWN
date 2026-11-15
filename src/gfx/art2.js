@@ -522,9 +522,14 @@ export const CAST = {
   box: { name: '상자', box: true, voice: [150, 'square'] },
   dragon: { name: '실바나', dragon: true, voice: [120, 'sawtooth'] },
   morven: { name: '먹물수염', skin: '#ff9aa8', hair: '#3a2a4a', style: 'tophat', beard: '#4a2a5a', cloth: '#3a2a4a', cloth2: '#ffd36b', voice: [240, 'sawtooth'] },
-  librarian: { name: '사서 오르웬', skin: '#d8e8f0', hair: '#c8d0e0', style: 'bald', beard: '#d8e0f0', cloth: '#5a6a8a', cloth2: '#c8b070', ghost: true, voice: [300, 'sine'] },
+  librarian: { name: '사서 할머니', skin: '#f0d0b0', hair: '#d8d8e0', style: 'long', cloth: '#7a5a9a', cloth2: '#ffd36b', glasses: true, voice: [380, 'sine'] },
   forger: { name: '위조범 핀', skin: '#e8c0a0', hair: '#5a4030', style: 'cap', mustache: true, cloth: '#6a5a3a', cloth2: '#c8c0a0', voice: [560, 'square'] },
   cousin: { name: '테오도르', skin: '#f4e0d4', hair: '#d8c08a', style: 'short', cloth: '#5a6a9a', cloth2: '#e8c25a', crownSmall: true, cold: true, voice: [600, 'triangle'] },
+  noah: { name: '노아', skin: '#f4dcc8', hair: '#8ab0e0', style: 'messy', cloth: '#5a8ad0', cloth2: '#ffd36b', voice: [600, 'triangle'] },
+  noahShadow: { name: '그림자 노아', skin: '#c8b8e0', hair: '#4a3a6a', style: 'messy', cloth: '#2e1a44', cloth2: '#9b5fd6', cold: true, voice: [480, 'sine'] },
+  nox: { name: '마왕 녹스', skin: '#b9a3e3', hair: '#2e1a44', style: 'short', cloth: '#4a2a6a', cloth2: '#c0392b', horns: true, crownSmall: true, voice: [150, 'sawtooth'] },
+  granny: { name: '어부 할머니', skin: '#f0c8a8', hair: '#e8e8e8', style: 'long', cloth: '#4aa8e0', cloth2: '#ffffff', voice: [420, 'triangle'] },
+  kid: { name: '마을 꼬마', skin: '#f6d2b0', hair: '#a86a3a', style: 'messy', cloth: '#e8a040', cloth2: '#ffffff', voice: [900, 'square'] },
   ghost: { name: '전설의 용사 아르딘', skin: '#d8f0ff', hair: '#f0f8ff', style: 'short', beard: '#f0f8ff', cloth: '#8ab8e0', cloth2: '#ffd36b', armor: true, ghost: true, voice: [200, 'sine'] },
 };
 
@@ -607,6 +612,7 @@ function drawPortrait(c, face) {
   if (c.goggles) { px(8, 8, O, 16, 3); px(10, 8, '#e8c25a', 4, 2); px(18, 8, '#e8c25a', 4, 2); px(11, 8, '#a8e4ff', 2, 1); px(19, 8, '#a8e4ff', 2, 1); }
   if (c.crown === true) { px(10, 2, O, 12, 5); px(11, 3, '#e8c25a', 10, 3); px(11, 2, '#e8c25a', 1, 1); px(15, 2, '#e8c25a', 2, 1); px(20, 2, '#e8c25a', 1, 1); px(15, 4, '#d0463b', 2, 1); }
   if (c.crown === 'tilt') { px(15, 2, O, 9, 4); px(16, 2, '#e8c25a', 7, 2); px(16, 1, '#e8c25a', 1, 1); px(19, 1, '#e8c25a', 1, 1); px(22, 1, '#e8c25a', 1, 1); }
+  if (c.horns) { px(5, 1, O, 4, 8); px(6, 2, '#f0e6d0', 2, 6); px(23, 1, O, 4, 8); px(24, 2, '#f0e6d0', 2, 6); }
   if (c.crownSmall) { px(13, 3, O, 6, 3); px(14, 3, '#e8c25a', 4, 2); }
   if (c.tiara) { px(10, 6, '#e8c25a', 12, 1); px(15, 4, '#c99bff', 2, 2); }
   // 표정

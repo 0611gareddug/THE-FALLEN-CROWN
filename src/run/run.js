@@ -14,7 +14,7 @@ export const ACTS = [
 export const LAST_ACT = ACTS.length;
 export const ROWS = 12;
 // 운명의 장: 막마다 모든 길이 모이는 두 줄
-export const FATE_ROWS = [[3, 7], [3, 7], [3, 8], []];
+export const FATE_ROWS = [[3, 7], [3, 7], [3, 8], [3, 8]];
 
 export const NODE_TYPES = {
   battle: { name: '전투', desc: '3~4웨이브 전투' },

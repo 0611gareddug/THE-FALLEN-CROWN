@@ -364,7 +364,7 @@ export function endingScene(app, { run, defeat, forced, noCoop }) {
       if (defeat) { audio.sfxPlay('defeat'); play('defeat'); }
       else if (queue) { audio.sfxPlay('victory'); audio.play('fate'); play(queue.shift()); }
       else if (forced) { audio.sfxPlay('victory'); play(forced); }
-      else if (royalId) { audio.sfxPlay('victory'); audio.play('fate'); play(royalId); } // 6장을 모두 봤으면 왕족 결말이 우선
+      else if (royalId) { audio.sfxPlay('victory'); audio.play('fate'); play(royalId); } // 8장을 모두 봤으면 용사 결말이 우선
       else { audio.sfxPlay('victory'); choose(); }
     },
     exit: () => { app.ui.querySelectorAll('.result').forEach((x) => x.remove()); if (el) el.remove(); },

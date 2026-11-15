@@ -148,13 +148,13 @@ export function mapScene(app, { run }) {
       const t = fateTally(run, r);
       const R = ROYALS.find((x) => x.id === r);
       const tilt = t.light - t.dark;
-      return h('div.fscale', { title: `${R.name} · ${FATE_TITLES[r]} — 빛 ${t.light} · 어둠 ${t.dark} (${t.n}/6장)` },
+      return h('div.fscale', { title: `${R.name} · ${FATE_TITLES[r]} — 빛 ${t.light} · 어둠 ${t.dark} (${t.n}/8장)` },
         h('span.fs-nm', { style: { color: R.color } }, R.name),
         h('div.fs-bar',
-          h('div.fs-side.l', [0, 1, 2, 3, 4, 5].map((i) => h('i' + (i < t.light ? '.on' : '')))),
+          h('div.fs-side.l', [0, 1, 2, 3, 4, 5, 6, 7].map((i) => h('i' + (i < t.light ? '.on' : '')))),
           h('img.fs-crown', { src: iconURL('fate', tilt > 0 ? '#fff2a8' : tilt < 0 ? '#b98aff' : '#c9a85c', 1), alt: '', style: { transform: `translateX(${Math.max(-3, Math.min(3, tilt)) * 3}px) rotate(${Math.max(-3, Math.min(3, -tilt)) * 6}deg)` } }),
-          h('div.fs-side.d', [0, 1, 2, 3, 4, 5].map((i) => h('i' + (i < t.dark ? '.on' : ''))))),
-        h('span.fs-n', `${t.n}/6`));
+          h('div.fs-side.d', [0, 1, 2, 3, 4, 5, 6, 7].map((i) => h('i' + (i < t.dark ? '.on' : ''))))),
+        h('span.fs-n', `${t.n}/8`));
     }));
   }
 
@@ -168,7 +168,7 @@ export function mapScene(app, { run }) {
     }
     if (nd.type === 'fate') {
       const royals = run.players ? run.players.map((p) => p.royal) : [run.royal];
-      title = `운명의 장 ${nd.fateN}/6`;
+      title = `운명의 장 ${nd.fateN}/8`;
       desc = royals.map((r) => `${ROYALS.find((x) => x.id === r).name} 「${FATE[fateId(r, nd.fateN)].title}」`).join(' · ') + ' — 모든 길이 이곳을 지난다';
     }
     info.replaceChildren(

@@ -58,7 +58,7 @@ for (const e of Object.values(EVENT_DATA)) if (!e.special) kinds[e.kind] = (kind
 console.log('사건 수:', Object.values(EVENT_DATA).filter((e) => !e.special).length, kinds);
 // 운명의 장: 왕족마다 1~6장, 선택지 빛/어둠 각 1개, 전용 유물 존재
 for (const r of ['edric', 'seren', 'kyle']) {
-  for (let n = 1; n <= 6; n++) {
+  for (let n = 1; n <= 8; n++) {
     const e = EVENT_DATA[`fate_${r}_${n}`];
     if (!e) { err(`운명의 장 없음: ${r} ${n}장`); continue; }
     const sides = e.choices.map((c) => c.side).sort().join(',');

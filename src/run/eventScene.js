@@ -12,7 +12,7 @@ import { unlockAch } from '../meta/achievements.js';
 import { FATE_TITLES } from '../data/fate.js';
 import { ROYALS } from '../data/text.js';
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
 function pickSpeaker(run, who) {
   if (who !== '@q') return who;
@@ -71,7 +71,7 @@ export function eventScene(app, { run, eventId }) {
     if (fate) {
       // 장 제목 카드
       const card = h('div.fate-card',
-        h('div.fc-eye', `CHAPTER ${ROMAN[ev.ch - 1]} OF VI`),
+        h('div.fc-eye', `CHAPTER ${ROMAN[ev.ch - 1]} OF VIII`),
         h('div.fc-royal', { style: { color: royalInfo.color } }, `${royalInfo.name} · ${FATE_TITLES[ev.royal]}`),
         h('div.fc-title', ev.title),
         h('div.fc-rule'));
