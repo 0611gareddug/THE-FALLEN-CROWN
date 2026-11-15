@@ -264,9 +264,9 @@ export function battleScene(app, params) {
           disabled: !partners,
           style: partners ? null : { opacity: 0.4 },
           onclick: () => { if (battle.merge(selected)) renderCard(); },
-        }, partners ? '진화 ▲' : `진화 (${countSame(d)}/3)`) : null,
+        }, partners ? '진화 ▲' : `진화 (${countSame(d)}/3)`, h('kbd', 'F')) : null,
         d.tier === 4 ? h('span', { style: { fontSize: '10.5px', color: 'var(--dim)', alignSelf: 'center' } }, '천상 조합 재료') : null,
-        d.tier < 5 ? h('button.btn', { onclick: () => { battle.sell(selected); select(-1); } }, `판매 +${refund}`) : null),
+        d.tier < 5 ? h('button.btn', { onclick: () => { battle.sell(selected); select(-1); } }, `판매 +${refund}`, h('kbd', 'S')) : null),
     );
     c.classList.add('show');
   }
@@ -344,6 +344,20 @@ export function battleScene(app, params) {
     const d = h('div' + (cls ? '.' + cls : ''), text);
     hud.toast.replaceChildren(d);
   }
+  // 천상 강림: 무지개 빛기둥 + 큰 초상 + 이름 (약 1.8초)
+  function descend(id, partner) {
+    const d = UNIT[id];
+    const ov = h('div.descend',
+      h('div.dc-beam'),
+      h('div.dc-body',
+        h('div.dc-eye', partner ? 'PARTNER · CELESTIAL DESCENT' : 'CELESTIAL DESCENT'),
+        h('img.dc-img', { src: unitImg(id, 6), alt: '' }),
+        h('div.dc-name', d.name),
+        h('div.dc-desc', d.desc)));
+    el.appendChild(ov);
+    setTimeout(() => ov.classList.add('out'), 1700);
+    setTimeout(() => ov.remove(), 2300);
+  }
   function announce(text, sub, cls = '') {
     const a = h('div.announce' + (cls ? '.' + cls : ''), text, sub ? h('small', sub) : null);
     el.appendChild(a);
@@ -383,8 +397,8 @@ export function battleScene(app, params) {
         break;
       case 'celestial':
         audio.sfxPlay('celestial');
-        slowmo = 0.9;
-        announce('CELESTIAL', UNIT[ev.id].name);
+        slowmo = 1.8;
+        descend(ev.id, false);
         break;
       case 'sell': audio.sfxPlay('sell'); break;
       case 'slash': case 'hit': audio.sfxPlay('hit'); break;
@@ -463,7 +477,7 @@ export function battleScene(app, params) {
       case 'boom': if (ev.kind === 'meteor' || ev.kind === 'flask') audio.sfxPlay('boom'); break;
       case 'judgment': audio.sfxPlay('judgment'); break;
       case 'timeStop': audio.sfxPlay('timestop'); break;
-      case 'celestial': audio.sfxPlay('celestial'); announce('CELESTIAL', `동료 · ${UNIT[ev.id].name}`); setFace('happy'); break;
+      case 'celestial': audio.sfxPlay('celestial'); descend(ev.id, true); setFace('happy'); break;
       case 'gambleWin': if (ev.tier >= 3) { audio.sfxPlay('rare', ev.tier); bubble(`${TIERS[ev.tier].name} 떴다!`); setFace('smug'); } break;
       case 'skill': audio.sfxPlay('skill'); bubble(`${(MASCOT_DEFS[partnerP.mascot] || MASCOT_DEFS.puru).skill.split(' / ')[0]}!`); break;
       case 'gift': audio.sfxPlay('rare', 2); toast(`동료가 ${UNIT[ev.id].name}을(를) 선물했다!`, 'good'); setFace('happy'); select(-1); break;
@@ -620,6 +634,34 @@ export function battleScene(app, params) {
     else if (k === ' ') { e.preventDefault(); cycleSpeed(); }
     else if (k === 'g' && coop) togglePop('partner');
     else if (k === 't') togglePop('recipe');
+    else if (k === 's') sellSel();
+    else if (k === 'f') mergeSel();
+  }
+  // 선택한 유닛: S 판매 (영웅 이상은 두 번), F 진화
+  let sellArm = null;
+  function sellSel() {
+    const u = selected >= 0 ? battle.units[selected] : null;
+    if (!u) { toast('먼저 유닛을 눌러 선택하세요. (S 판매 · F 진화)'); return; }
+    if (coop && selected >= 18) { audio.sfxPlay('deny'); toast('동료의 유닛은 팔 수 없어요.'); return; }
+    if (u.def.tier >= 5) { audio.sfxPlay('deny'); toast('천상 유닛은 팔 수 없어요.'); return; }
+    const refund = u.spent ? Math.floor(u.spent * 0.5) : TIERS[u.def.tier].sell;
+    if (u.def.tier >= 3 && !(sellArm && sellArm.uid === u.uid && performance.now() - sellArm.t < 2500)) {
+      sellArm = { uid: u.uid, t: performance.now() };
+      audio.sfxPlay('hover');
+      toast(`${TIERS[u.def.tier].name} ${u.def.name} — S를 한 번 더 누르면 판매 (+${refund})`);
+      return;
+    }
+    sellArm = null;
+    battle.sell(selected);
+    select(-1);
+  }
+  function mergeSel() {
+    const u = selected >= 0 ? battle.units[selected] : null;
+    if (!u) { toast('먼저 유닛을 눌러 선택하세요. (S 판매 · F 진화)'); return; }
+    if (coop && selected >= 18) { audio.sfxPlay('deny'); toast('동료의 유닛은 진화시킬 수 없어요. 신호로 부탁해 보세요.'); return; }
+    if (u.def.tier >= 4) { audio.sfxPlay('deny'); toast(u.def.tier === 4 ? '전설은 진화 대신 천상 조합 재료로 쓰여요. (T)' : '천상은 최고 등급이에요.'); return; }
+    if (!battle.mergePartners(selected)) { audio.sfxPlay('deny'); toast(`같은 유닛 ${countSame(u.def)}/3 — 3명이 모이면 진화할 수 있어요.`); return; }
+    if (battle.merge(selected)) renderCard();
   }
 
   // ───────── 일시정지 · 결과 ─────────

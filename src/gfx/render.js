@@ -285,14 +285,31 @@ export class Renderer {
         break;
       }
       case 'sell': this.burst(this.L.cx(ev.cell), this.L.cy(ev.cell), 10, ['#e8c25a', '#a87a2a'], 50, 0.5, 2, 60); break;
-      case 'slash': this.addFx({ k: 'slash', x: ev.x, y: ev.y, t: 0, d: 0.14, big: ev.big, col: ev.tier >= 4 ? '#ffe36b' : '#ffffff', a: Math.random() * 6 }); break;
+      case 'slash':
+        this.addFx({ k: 'slash', x: ev.x, y: ev.y, t: 0, d: ev.tier >= 4 ? 0.2 : 0.14, big: ev.big || ev.tier >= 4, col: ev.tier === 5 ? RAINBOW[(Math.random() * 6) | 0] : ev.tier >= 4 ? '#ffe36b' : '#ffffff', a: Math.random() * 6 });
+        if (ev.tier >= 4 && !this.settings.low) this.burst(ev.x, ev.y - 6, ev.tier === 5 ? 6 : 3, ev.tier === 5 ? RAINBOW : ['#ffe36b', '#ffffff'], 60, 0.3, 2);
+        if (ev.big && ev.tier === 5) { this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 70, t: 0, d: 0.3, col: '#ffe36b' }); this.doShake(3); }
+        break;
+      case 'dash': {
+        this.addFx({ k: 'beam', x: ev.x, y: ev.y, x2: ev.tx, y2: ev.ty, t: 0, d: 0.35, col: '#ff8a3a', w: 10 });
+        this.addFx({ k: 'ring', x: ev.tx, y: ev.ty, r0: 6, r1: 80, t: 0, d: 0.45, col: '#ff8a3a' });
+        this.burst(ev.tx, ev.ty, 30, ['#ff8a3a', '#ffe36b', '#e0463a'], 140, 0.7, 2, -30);
+        this.flash = { col: '#ff8a3a', t: 0, d: 0.25, a: 0.14 };
+        this.doShake(5);
+        break;
+      }
+      case 'rain': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 30, t: 0, d: 0.3, col: '#e0f0ff' }); break;
       case 'zap': this.addFx({ k: 'zap', pts: ev.pts, t: 0, d: 0.12 }); break;
-      case 'beam': this.addFx({ k: 'beam', x: ev.x, y: ev.y, x2: ev.x2, y2: ev.y2, t: 0, d: 0.28 }); this.doShake(2); break;
+      case 'beam': this.addFx({ k: 'beam', x: ev.x, y: ev.y, x2: ev.x2, y2: ev.y2, t: 0, d: 0.32, w: (ev.w || 8) * 0.8 }); this.burst(ev.x, ev.y, 6, ['#7ad0ff', '#ffffff'], 80, 0.3); this.doShake(4); break;
       case 'boom': {
         const cols = BOOM_COL[ev.kind] || ['#ffffff', '#c0c0c0'];
         this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 2, r1: ev.r, t: 0, d: 0.25, col: cols[0] });
         this.burst(ev.x, ev.y, Math.min(16, 4 + ev.r / 4), cols, ev.r * 2.2, 0.4);
-        if (ev.kind === 'meteor') this.doShake(3);
+        if (ev.kind === 'meteor') {
+          this.doShake(6);
+          this.addFx({ k: 'pillar', x: ev.x, y: ev.y, col: '#ff7a2a', t: 0, d: 0.45, w: 14 });
+          this.burst(ev.x, ev.y, 18, ['#ff7a2a', '#ffe36b', '#5a4a46'], ev.r * 3, 0.7, 3, 40);
+        }
         break;
       }
       case 'hit': if (!this.settings.low) this.burst(ev.x, ev.y, 2, [PCOL[ev.kind] || '#fff'], 40, 0.18, 1); break;
@@ -309,11 +326,19 @@ export class Renderer {
       case 'execute': this.num(ev.x, ev.y - 14, '!!', true); break;
       case 'stone': this.addFx({ k: 'stone', x: ev.x, y: ev.y, t: 0, d: 1 }); break;
       case 'judgment':
-        this.flash = { col: '#ffe36b', t: 0, d: 0.35, a: 0.35 };
-        this.doShake(6);
+        this.flash = { col: '#ffe36b', t: 0, d: 0.6, a: 0.5 };
+        this.doShake(12);
+        this.addFx({ k: 'pillar', x: ev.x, y: ev.y, col: '#ffe36b', t: 0, d: 1.1, w: 34 });
+        this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 8, r1: 340, t: 0, d: 0.8, col: '#ffe36b' });
+        this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 220, t: 0, d: 0.6, col: '#ffffff' });
         for (const e of battle.enemies) if (e.alive) this.addFx({ k: 'slash', x: e.x, y: e.y, t: 0, d: 0.25, big: true, col: '#ffe36b', a: 0 });
         break;
-      case 'timeStop': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 320, t: 0, d: 0.6, col: '#c99bff' }); break;
+      case 'timeStop':
+        this.flash = { col: '#7a5ad0', t: 0, d: 0.5, a: 0.35 };
+        for (let k = 0; k < 3; k++) this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 4, r1: 360 - k * 90, t: -k * 0.12, d: 0.8, col: k === 1 ? '#ffffff' : '#c99bff' });
+        this.addFx({ k: 'pillar', x: ev.x, y: ev.y, col: '#c99bff', t: 0, d: 0.9, w: 26 });
+        this.doShake(6);
+        break;
       case 'roar': this.addFx({ k: 'ring', x: ev.x, y: ev.y, r0: 6, r1: 70, t: 0, d: 0.4, col: '#ff8a3a' }); this.doShake(3); break;
       case 'wallHit': this.flash = { col: '#e0463a', t: 0, d: 0.4, a: ev.why === 'timeout' ? 0.35 : 0.22 }; this.doShake(ev.why ? 6 : 0); break;
       case 'skill': {
@@ -676,6 +701,7 @@ export class Renderer {
       f.t += dt;
       const k = f.t / f.d;
       if (k >= 1) { fx[i] = fx[fx.length - 1]; fx.pop(); continue; }
+      if (k < 0) continue; // 지연 시작
       switch (f.k) {
         case 'pillar': {
           const a = k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8;
@@ -725,8 +751,8 @@ export class Renderer {
         }
         case 'beam': {
           ctx.globalAlpha = 1 - k;
-          ctx.strokeStyle = '#7ad0ff';
-          ctx.lineWidth = 6 * (1 - k) + 1;
+          ctx.strokeStyle = f.col || '#7ad0ff';
+          ctx.lineWidth = (f.w || 6) * (1 - k) + 1;
           ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke();
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2;

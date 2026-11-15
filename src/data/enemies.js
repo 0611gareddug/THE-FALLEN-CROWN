@@ -74,7 +74,7 @@ const ELITES = ['shieldlord', 'priestess', 'necro', 'wolf'];
 
 // 지도 칸 하나의 전투 구성
 export function makeBattle(rng, act, row, kind, boss) {
-  const L0 = [1.5, 7, 12][act - 1] + row * 0.55;
+  const L0 = [1.5, 7, 17][act - 1] + row * 0.55;
   const pool = POOL[act - 1];
   const nWaves = kind === 'boss' ? 3 : kind === 'elite' ? 5 : row < 3 && act === 1 ? 3 : 4;
   const waves = [];

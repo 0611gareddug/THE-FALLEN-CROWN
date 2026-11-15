@@ -439,13 +439,13 @@ export class Battle {
     const counts = {};
     for (const k of CLASS_ORDER) seen[k] = new Set();
     const units = this.units;
-    let saint = false, witch = 0, nameless = false;
+    let saint = 0, witch = 0, nameless = false;
     for (let i = b0; i < b0 + 18; i++) {
       const u = units[i];
       if (!u) continue;
       seen[u.def.cls].add(u.def.id);
       counts[u.def.id] = (counts[u.def.id] || 0) + 1;
-      if (u.def.globalDmg) saint = true;
+      if (u.def.globalDmg) saint = Math.max(saint, u.def.globalDmg);
       if (u.def.globalSlow) witch = Math.max(witch, u.def.globalSlow);
       if (u.def.goldMul) nameless = true;
     }
@@ -471,7 +471,7 @@ export class Battle {
       if (!u) continue;
       const d = u.def;
       let spd = 1 + (s.priest >= 2 ? 0.05 : 0);
-      let dmg = 1 + (saint ? 0.25 : 0);
+      let dmg = 1 + saint;
       let range = d.range;
       let splash = 1;
       for (const n of NB[i]) {
@@ -1012,7 +1012,7 @@ export class Battle {
       const px = ex - dx * t, py = ey - dy * t;
       if (px * px + py * py <= w2) this.applyHit(e, dmg, d, u, x, y);
     }
-    this.emit('beam', { x, y: y - 8, x2: x + dx * L, y2: y + dy * L });
+    this.emit('beam', { x, y: y - 8, x2: x + dx * L, y2: y + dy * L, w: d.beam });
   }
 
   splash(cx, cy, r, dmg, def, u, primary) {

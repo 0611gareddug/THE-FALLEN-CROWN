@@ -25,6 +25,15 @@ export function h(sel, props, ...kids) {
   return el;
 }
 
+// 선택지 보호: 대사를 넘기다 실수로 고르지 않게 ms 동안 잠근다
+export function armChoices(box, ms = 2000) {
+  if (!box) return;
+  box.classList.remove('wait'); void box.offsetWidth;
+  box.style.setProperty('--wait', ms + 'ms');
+  box.classList.add('wait');
+  clearTimeout(box._armT);
+  box._armT = setTimeout(() => box.classList.remove('wait'), ms);
+}
 export const svg = (inner, vb = '0 0 16 16') => {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   s.setAttribute('viewBox', vb);

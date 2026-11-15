@@ -1,5 +1,5 @@
 // 사건 화면: 장소 배경 + 인물 초상 + 한 글자씩 대사 + 선택지 + 주사위 판정
-import { h } from '../ui/dom.js';
+import { h, armChoices } from '../ui/dom.js';
 import { audio } from '../core/audio.js';
 import { store, save } from '../core/storage.js';
 import { EVENTS, condOk, condText, rollChance, applyFx, applyFxAll, achQueue } from './events.js';
@@ -84,7 +84,7 @@ export function eventScene(app, { run, eventId }) {
   function onKey(e) {
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); }
     const n = +e.key;
-    if (n >= 1 && n <= 4) { const b = choicesEl.querySelectorAll('button:not(:disabled)')[n - 1]; if (b) b.click(); }
+    if (n >= 1 && n <= 4 && !choicesEl.classList.contains('wait')) { const b = choicesEl.querySelectorAll('button:not(:disabled)')[n - 1]; if (b) b.click(); }
   }
 
   // ── 대사 재생 ──
@@ -177,6 +177,7 @@ export function eventScene(app, { run, eventId }) {
             onclick: () => { audio.sfxPlay('click'); coop.vote(key, ev.choices.indexOf(c)); markVotes(key); },
           }, c.side ? h('i.side-tag', c.side === 'light' ? '빛' : '어둠') : null, h('span.t', c.t))),
           coop.voteBar(key, (i) => ev.choices[i].t));
+        armChoices(choicesEl);
         return;
       }
     }
@@ -194,6 +195,7 @@ export function eventScene(app, { run, eventId }) {
       c.sub || !ok ? h('small', ok ? c.sub.replace(/성공 \d+%(\s*\([^)]*\))?\s*·?\s*/g, '') : condText(c.cond)) : null);
     }));
     if (coop) choicesEl.append(coop.voteBar(`${base}:choose`, (i) => (ev.choices[i] ? ev.choices[i].t : '?')));
+    armChoices(choicesEl);
   }
   function markVotes(key) {
     const v = coop.votes[key] || [];
@@ -325,6 +327,7 @@ export function eventScene(app, { run, eventId }) {
       if (changes.length) choicesEl.append(h('div.ev-changes', changes.map((x) => h('span', x))));
       if (meta.needLeave) { leaveChoice(); return; }
       choicesEl.append(h('button.ev-choice.go', { onclick: done }, h('span.t', '계속')));
+      armChoices(choicesEl, 800);
     });
   }
 
