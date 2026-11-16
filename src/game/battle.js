@@ -16,11 +16,11 @@ const GAMBLE = [
 ];
 export const PITY_MAX = 10;
 // 협동 보정: 적 수 · 보스/정예 체력
-export const COOP_COUNT = 2.2;
-export const COOP_BOSS = 4.2;
-export const COOP_HP = 2.25;
+export const COOP_COUNT = 2.05;
+export const COOP_BOSS = 4.4;
+export const COOP_HP = 2.22;
 // 인원별 [적 수, 일반 체력, 정예·보스 체력] — 인원이 많을수록 조금 더 어렵게
-export const COOP_SCALE = { 2: [COOP_COUNT, COOP_HP, COOP_BOSS], 3: [3.7, 2.35, 6.3], 4: [4.9, 3.1, 8.5] };
+export const COOP_SCALE = { 2: [COOP_COUNT, COOP_HP, COOP_BOSS], 3: [3.7, 2.47, 6.3], 4: [4.7, 2.9, 8.5] };
 // 공용 성벽 배수
 export const coopWall = (n) => (n <= 1 ? 1 : 1 + 0.25 * (n - 1));
 // 난이도: 일반 판 적 체력 배수 · 막이 깊어질수록 방어/저항 강화
@@ -28,6 +28,9 @@ export const DIFF_HP = 0.8;
 // 공명: 소환 · 진화 때 내 보드의 같은 등급 유닛이 다시 나올 확률 (유닛 종류가 늘어도 진화가 너무 어려워지지 않게)
 export const RESONANCE = 0.6;
 // 막별 추가 강화 (1막은 그대로): [일반 체력, 정예 체력, 보스 체력, 방어·저항 추가]
+// 막별 적 수 · 이동 속도 배율 (3막부터)
+export const ACT_CNT = [1, 1, 1.15, 1.25];
+export const ACT_SPD = [1, 1, 1.1, 1.15];
 export const ACT_UP = [[1, 1, 1, 0], [1.25, 1.45, 1.25, 0.04], [1.25, 1.4, 1.12, 0.05], [0.9, 1.1, 0.92, 0.05]];
 const DEF_UP = (L) => Math.max(0, Math.min(0.18, (L - 1.5) * 0.011));
 const TMP = { x: 0, y: 0, dx: 0, dy: 0 };
@@ -54,6 +57,7 @@ export class Battle {
     this.zones = [];
     this.events = [];
     this.uid = 1;
+    this.portal = 0; // 다음 적이 나올 포탈 (고리) 번호
 
     this.R = opt.mods || {};
     // 지도 칸 구성 (없으면 1단계 시험 전투 10웨이브)
@@ -417,9 +421,7 @@ export class Battle {
         let eaten = 0;
         for (const e of this.enemies) {
           if (!e.alive || eaten >= Math.round(12 * B)) continue;
-          const PM = this.L.PERIM;
-          let rel = (e.s - s0) % PM; if (rel < 0) rel += PM;
-          if (rel > 244) continue;
+          if (!this.onSpan(e, t ? t.loop : 0, s0, 244)) continue;
           if (e.boss || e.elite) { this.damage(e, e.maxHp * 0.04, 't', null, false); continue; }
           this.kill(e, null, true); eaten++;
         }
@@ -440,7 +442,7 @@ export class Battle {
           for (const e of this.enemies) if (e.alive && !e.boss) { e.s = Math.max(0, e.s - 60); e.stunT = Math.max(e.stunT, 0.5); }
         } else {
           const t = this.randomEnemy();
-          if (t) this.zones.push({ s0: t.s - 160, s1: t.s + 20, t: 2, dur: 2, dps: this.powerUnit() * 10 * B, src: null, def: null, o: this.cur });
+          if (t) this.zones.push({ s0: t.s - 160, s1: t.s + 20, lp: t.loop, t: 2, dur: 2, dps: this.powerUnit() * 10 * B, src: null, def: null, o: this.cur });
         }
         extra.stage = stage;
         break;
@@ -448,12 +450,11 @@ export class Battle {
       case 'shroom': {
         // 꾸벅 포자: 길 한 구간의 적을 재운다
         const t = this.randomEnemy();
-        const s0 = t ? t.s - 90 : 0, PM = this.L.PERIM;
+        const s0 = t ? t.s - 90 : 0;
         let n = 0;
         for (const e of this.enemies) {
           if (!e.alive) continue;
-          let rel = (e.s - s0) % PM; if (rel < 0) rel += PM;
-          if (rel > 300) continue;
+          if (!this.onSpan(e, t ? t.loop : 0, s0, 300)) continue;
           e.stunT = Math.max(e.stunT, e.boss ? 0.8 : e.elite ? 1.5 : 3 * B);
           n++;
         }
@@ -463,7 +464,7 @@ export class Battle {
       case 'fox': {
         // 여우불 길: 6초 동안 불타는 구간 (마법 피해)
         const t = this.randomEnemy();
-        if (t) this.zones.push({ s0: t.s - 220, s1: t.s + 20, t: 6, dur: 6, dps: this.powerUnit() * 1.4 * B, src: null, def: null, o: this.cur, dt: 'm', fox: true });
+        if (t) this.zones.push({ s0: t.s - 220, s1: t.s + 20, lp: t.loop, t: 6, dur: 6, dps: this.powerUnit() * 1.4 * B, src: null, def: null, o: this.cur, dt: 'm', fox: true });
         extra = { x: t ? t.x : 180, y: t ? t.y : 196 };
         break;
       }
@@ -589,7 +590,8 @@ export class Battle {
     for (const [type, n] of this.node.waves[w - 1]) {
       const d = ENEMIES[type];
       if (d.boss || d.elite) { special.push(type); continue; }
-      const m = this.coop ? Math.round(n * this.sc[0]) : n;
+      const ac = this.node.trial ? 1 : ACT_CNT[this.actIdx()];
+      const m = Math.round(n * ac * (this.coop ? this.sc[0] : 1));
       for (let i = 0; i < m; i++) list.push(type);
     }
     this.rng.shuffle(list);
@@ -626,21 +628,24 @@ export class Battle {
     this.emit('waveClear', { wave: w, gold: g, stone, heal });
   }
 
-  spawn(type, sOff = 0) {
+  // loop: 어느 고리에서 나올지 (생략하면 포탈을 번갈아 쓴다). sOff는 그 고리 안의 거리.
+  spawn(type, sOff = 0, loop) {
     const def = ENEMIES[type];
     const e = this.epool.pop() || {};
     const L = this.curL();
     let hp;
     if (def.boss) hp = (this.node.trial ? BOSS_HP : hpAt(L) * def.hp) * (1 + (this.R.bossHp || 0)) * (type === 'morven' ? 1 - (this.R.morvenWeak || 0) : 1);
     else hp = hpAt(L) * def.hp * (1 + (this.R.enemyHp || 0));
-    const AU = this.node.trial ? null : ACT_UP[Math.min(3, Math.max(0, (this.node.act || 1) - 1))];
+    const AU = this.node.trial ? null : ACT_UP[this.actIdx()];
     if (!this.node.trial) hp *= DIFF_HP * AU[def.boss ? 2 : def.elite ? 1 : 0];
     if (this.coop) hp *= def.boss || def.elite ? this.sc[2] : this.sc[1];
     e.uid = this.uid++;
     e.type = type; e.def = def; e.boss = !!def.boss;
     e.hp = e.maxHp = hp;
+    if (loop === undefined) { loop = this.portal % this.L.nLoops; this.portal++; }
+    e.loop = loop;
     e.s = sOff; e.dist = 0; e.lap = 0;
-    e.spd = def.spd * (0.94 + this.rng.next() * 0.12);
+    e.spd = def.spd * (0.94 + this.rng.next() * 0.12) * (this.node.trial ? 1 : ACT_SPD[this.actIdx()]);
     e.armor = def.armor; e.mres = def.mres;
     if (!this.node.trial) {
       // 막이 깊을수록 방어 · 저항이 함께 오른다
@@ -654,7 +659,7 @@ export class Battle {
     e.flash = 0; e.numT = 0; e.alive = true; e.roarT = def.gimmick === 'roar' ? 9 : 0;
     e.abT = 2 + this.rng.next() * 2; e.raged = false; e.clone = false; e.splits = 0; e.elite = !!def.elite; e.shield = false;
     e.walk = this.rng.next() * 10; e.hasteT = 0; e.wardT = 0; e.gT = def.guard ? this.rng.next() * def.guard[0] : 0;
-    this.L.path(e.s, TMP); e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
+    this.L.path(e.s, TMP, loop); e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
     this.enemies.push(e);
     if (e.boss) { this.boss = e; this.bossT = BOSS_TIME; this.gimT = 6; this.emit('boss', { id: type }); }
     return e;
@@ -675,7 +680,9 @@ export class Battle {
       while (this.qi < this.queue.length && this.queue[this.qi].t <= this.waveT) {
         const q = this.queue[this.qi++];
         const g = ENEMIES[q.type].group || 1;
-        for (let k = 0; k < g; k++) this.spawn(q.type, -k * 9);
+        // 무리는 같은 포탈에서 함께 나온다
+        const lp = this.portal++ % this.L.nLoops;
+        for (let k = 0; k < g; k++) this.spawn(q.type, -k * 9, lp);
       }
       const hasBoss = this.boss && this.boss.alive;
       if (this.waveT >= WAVE_TIME && this.qi >= this.queue.length && !hasBoss) {
@@ -799,7 +806,7 @@ export class Battle {
       if ((b.splits === 0 && ratio < 0.66) || (b.splits === 1 && ratio < 0.33)) {
         b.splits++;
         for (let k = 0; k < 2; k++) {
-          const c = this.spawn('shadow', b.s - 30 - k * 30);
+          const c = this.spawn('shadow', b.s - 30 - k * 30, b.loop);
           c.boss = false; c.clone = true; c.elite = true;
           c.hp = c.maxHp = b.maxHp * 0.14;
           c.spd = b.spd * 1.3;
@@ -834,7 +841,7 @@ export class Battle {
     } else if (g === 'ashrain') {
       this.gimT = 11;
       this.ashT = 5;
-      for (let k = 0; k < 4; k++) this.spawn('cultist', b.s - 20 - k * 12);
+      for (let k = 0; k < 4; k++) this.spawn('cultist', b.s - 20 - k * 12, b.loop);
       this.emit('ashrain', {});
     } else this.gimT = 99;
   }
@@ -870,20 +877,23 @@ export class Battle {
       if (stop) continue;
       if (e.stunT > 0) { e.stunT -= dt; continue; }
       const v = e.spd * (1 - e.slowAmt) * gslow * (e.hasteT > 0 ? 1.4 : 1) * dt;
-      e.s += v; e.dist += v; e.walk += v * 0.08;
-      if (e.s >= this.L.PERIM) {
-        e.s -= this.L.PERIM;
+      e.s += v; e.dist += v; e.walk += v * 0.08; e.lap += v;
+      const LL = this.L.loopLen(e.loop);
+      if (e.s >= LL) e.s -= LL;
+      // 한 바퀴(예전 전장 한 바퀴 거리)를 걸을 때마다 성벽 피해
+      if (e.lap >= this.L.lapLen) {
+        e.lap -= this.L.lapLen;
         if (e.boss) this.hurtWall(20, 'bossLap');
         else if (e.elite && !e.clone) this.hurtWall(5, 'eliteLap');
       }
-      this.L.path(e.s, TMP);
+      this.L.path(e.s, TMP, e.loop);
       e.x = TMP.x; e.y = TMP.y; e.dx = TMP.dx; e.dy = TMP.dy;
       if (e.def.gimmick === 'roar' && e.boss) {
         e.roarT -= dt;
         if (e.roarT <= 0) {
           e.roarT = 9;
           for (let k = 0; k < 4; k++) {
-            const m = this.spawn('rat', e.s - 16 - k * 10);
+            const m = this.spawn('rat', e.s - 16 - k * 10, e.loop);
             m.hp = m.maxHp = hpAt(this.node.trial ? 10 : this.curL()) * 0.6;
           }
           this.emit('roar', { x: e.x, y: e.y });
@@ -924,7 +934,7 @@ export class Battle {
       this.emit(d.haste ? 'haste' : 'ward', { x: e.x, y: e.y, r: rad });
     } else if (d.summon) {
       e.abT = d.summon[0];
-      for (let k = 0; k < d.summon[2]; k++) this.spawn(d.summon[1], e.s - 14 - k * 10);
+      for (let k = 0; k < d.summon[2]; k++) this.spawn(d.summon[1], e.s - 14 - k * 10, e.loop);
       this.emit('raise', { x: e.x, y: e.y });
     } else e.abT = 99;
   }
@@ -1081,7 +1091,7 @@ export class Battle {
       if (!t) return;
       u.skT = 0;
       const [, len, dur, mul] = d.dash;
-      this.zones.push({ s0: t.s - len, s1: t.s + 10, t: dur, dur, dps: this.unitDmg(u) * mul, src: u, def: d, o: this.cur });
+      this.zones.push({ s0: t.s - len, s1: t.s + 10, lp: t.loop, t: dur, dur, dps: this.unitDmg(u) * mul, src: u, def: d, o: this.cur });
       this.emit('dash', { x, y, tx: t.x, ty: t.y });
     } else if (d.meteor && u.skT >= d.meteor[0]) {
       u.skT = 0;
@@ -1239,7 +1249,7 @@ export class Battle {
     if (e.def.split) {
       const st = e.def.splitType || 'mini';
       for (let k = 0; k < e.def.split; k++) {
-        const m = this.spawn(st, e.s - k * 8);
+        const m = this.spawn(st, e.s - k * 8, e.loop);
         m.hp = m.maxHp = hpAt(this.curL()) * ENEMIES[st].hp * (this.coop ? this.sc[1] : 1);
         m.dist = e.dist - k * 8;
       }
@@ -1340,16 +1350,24 @@ export class Battle {
       zn.t -= dt;
       if (zn.t <= 0) { z[i] = z[z.length - 1]; z.pop(); continue; }
       const span = zn.s1 - zn.s0;
-      const PM = this.L.PERIM;
       this.cur = zn.o || 0;
       for (const e of this.enemies) {
         if (!e.alive) continue;
-        // 순환 경로: 구간 시작점 기준 상대 위치
-        let rel = (e.s - zn.s0) % PM;
-        if (rel < 0) rel += PM;
-        if (rel <= span) this.damage(e, zn.dps * dt, zn.dt || 'p', zn.src, true);
+        if (this.onSpan(e, zn.lp || 0, zn.s0, span)) this.damage(e, zn.dps * dt, zn.dt || 'p', zn.src, true);
       }
     }
+  }
+
+  actIdx() { return Math.min(3, Math.max(0, (this.node.act || 1) - 1)); }
+
+  // 적 e가 고리 lp의 [s0, s0+span] 구간 위에 있는가 (순환 경로).
+  // 다른 고리의 적도 두 고리가 함께 쓰는 가운데 길 위라면 같은 자리이므로 포함한다.
+  onSpan(e, lp, s0, span) {
+    const L = this.L;
+    if (e.loop !== lp && !(L.shared && e.s >= L.shared[0] && e.s <= L.shared[1])) return false;
+    const PM = L.loopLen(lp);
+    let rel = (e.s - s0) % PM; if (rel < 0) rel += PM;
+    return rel <= span;
   }
 
   // HUD용

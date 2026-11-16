@@ -179,17 +179,22 @@ export class Renderer {
       }
     // 안쪽 가장자리 하이라이트 (각 고리 안쪽)
     g.fillStyle = '#4a4552';
-    const PLx = L.pts[0][0] / 2, PRx = L.pts[1][0] / 2;
+    const xs = L.pts.map((p) => p[0] / 2);
+    const PLx = Math.min(...xs), PRx = Math.max(...xs);
     const ys = [...new Set(L.pts.map((p) => p[1] / 2))].sort((a, b) => a - b);
     for (let k = 0; k < ys.length - 1; k++) {
       const t = ys[k] + 7, b = ys[k + 1] - 7;
       g.fillRect(PLx + 7, t, PRx - PLx - 14, 1); g.fillRect(PLx + 7, b - 1, PRx - PLx - 14, 1);
       g.fillRect(PLx + 7, t, 1, b - t); g.fillRect(PRx - 8, t, 1, b - t);
     }
-    // 가운데 교차로 문양
+    // 가운데 길: 적이 지나가는 방향 화살표 (참가자 화면이 좌우로 뒤집히면 화살표도 뒤집는다)
     const my = ys[1];
-    g.fillStyle = '#3e2a2a';
-    for (let x = PLx + 16; x < PRx - 12; x += 12) g.fillRect(x, my - 1, 4, 2);
+    const dir = this.V && this.V.fx ? -1 : 1;
+    g.fillStyle = '#4a2f2f';
+    for (let x = PLx + 18; x < PRx - 14; x += 14) {
+      const cx = x + 2;
+      g.fillRect(cx - dir * 2, my - 3, 2, 2); g.fillRect(cx, my - 1, 2, 2); g.fillRect(cx - dir * 2, my + 1, 2, 2);
+    }
     // 보드 칸: 나(0) 금빛, 동료는 자리마다 다른 색, 빈 자리는 어둡게
     const empty = this.emptyOwners || new Set();
     for (let i = 0; i < L.nCells; i++) {
@@ -219,16 +224,19 @@ export class Renderer {
       g.fillStyle = BAND[this.bandOf ? this.bandOf(o) : o] || BAND[1];
       g.fillRect(x, y - 1, 144, 1); g.fillRect(x, y + 72, 144, 1);
     }
-    // 시작 지점 (무너진 문): 길의 첫 점
+    // 시작 지점 (무너진 문 = 포탈): 고리마다 첫 점
     const V = this.V;
-    const [gx, gy] = V ? [V.tx(L.pts[0][0]), V.ty(L.pts[0][1])] : L.pts[0];
-    const l = gx / 2 - 7, t = gy / 2 - 7;
-    g.fillStyle = '#0a0a0e';
-    g.fillRect(l - 1, t - 4, 16, 18);
-    g.fillStyle = '#3a3542';
-    g.fillRect(l - 3, t - 6, 3, 20); g.fillRect(l + 14, t - 6, 3, 20); g.fillRect(l - 3, t - 7, 20, 3);
-    g.fillStyle = '#5a2a22';
-    g.fillRect(l + 2, t - 2, 10, 2);
+    for (const pt of L.portals) {
+      const [gx, gy] = V ? [V.tx(pt[0]), V.ty(pt[1])] : pt;
+      const l = gx / 2 - 7, t = gy / 2 - 7;
+      g.fillStyle = '#0a0a0e';
+      g.fillRect(l - 1, t - 4, 16, 18);
+      g.fillStyle = '#3a3542';
+      g.fillRect(l - 3, t - 6, 3, 20); g.fillRect(l + 14, t - 6, 3, 20); g.fillRect(l - 3, t - 7, 20, 3);
+      g.fillStyle = '#5a2a22';
+      g.fillRect(l + 2, t - 2, 10, 2);
+      if (L.nLoops > 1) { g.fillStyle = '#7a3ad0'; g.fillRect(l + 3, t + 2, 8, 6); g.fillStyle = '#c69aff'; g.fillRect(l + 5, t + 4, 4, 2); }
+    }
     this.bg = c;
   }
   // 참가자 화면 변환 (layout.viewOf) · 빈 자리 · 자리 색
@@ -494,7 +502,7 @@ export class Renderer {
       const a = Math.min(1, z.t / 0.5);
       const step = 8;
       for (let s = z.s0; s <= z.s1; s += step) {
-        this.L.path(s, TMP);
+        this.L.path(s, TMP, z.lp || 0);
         if (this.V) { TMP.x = this.V.tx(TMP.x); TMP.y = this.V.ty(TMP.y); }
         const f = ((this.t * 12 + s) | 0) % 3;
         ctx.globalAlpha = a * 0.9;

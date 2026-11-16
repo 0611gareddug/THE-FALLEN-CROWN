@@ -300,14 +300,16 @@ export function battleScene(app, params) {
     audio.sfxPlay('click');
     if (pop && pop.kind === kind) { closePop(); return; }
     closePop();
-    pop = { kind, el: h('div.pop') };
+    pop = { kind, el: h('div.pop' + (kind === 'recipe' ? '.recipe-pop' : '')) };
     hud.popHost.appendChild(pop.el);
+    el.classList.add('popopen');
     renderPop();
   }
   function closePop() {
     if (!pop) return;
     if (pop.kind === 'syn') hud.mid.prepend(hud.syn);
     pop.el.remove(); pop = null;
+    el.classList.remove('popopen');
   }
 
   function renderPop() {
@@ -364,15 +366,27 @@ export function battleScene(app, params) {
           h('button.opt', { disabled: battle.stones < cost || full, onclick: () => { battle.gamble(i); renderPop(); } },
             h('div.l', name, h('small', sub)), h('div.r', `행운석 ${cost}`))));
     } else if (pop.kind === 'recipe') {
+      // 재료를 많이 모은 천상부터 보여 준다 (조합 가능한 것이 맨 위)
+      const full = battle.celestial >= battle.maxCelestial;
+      const rows = RECIPES.map((r, i) => ({ r, i, s: battle.recipeState(r) }))
+        .map((x) => ({ ...x, n: x.s.have.filter((c) => c >= 0).length }))
+        .sort((a, b) => b.n - a.n || a.i - b.i);
       p.replaceChildren(x, h('h3', `천상 조합  ·  ${battle.celestial}/${battle.maxCelestial}`),
-        ...RECIPES.map((r, i) => {
-          const s = battle.recipeState(r);
+        h('div.rc-note', full ? '이번 전투의 천상 자리가 가득 찼습니다.' : '재료 3명이 모두 내 보드에 있으면 만들 수 있어요.'),
+        ...rows.map(({ r, i, s, n }) => {
           const res = UNIT[r.result];
-          return h('div.recipe',
-            h('img', { src: unitImg(r.result, 2), alt: '' }),
-            h('div.info', h('span', { style: { color: '#ff9ad9' } }, res.name), h('small', r.mats.map((m) => UNIT[m].name).join(' + '))),
-            h('div.mats', r.mats.map((m, j) => h('img' + (s.have[j] >= 0 ? '.have' : ''), { src: unitImg(m, 2), alt: '' }))),
-            h('button.btn' + (s.ok ? '.primary' : ''), { disabled: !s.ok, style: s.ok ? null : { opacity: 0.35 }, onclick: () => { if (battle.craft(i)) { closePop(); select(-1); } } }, '조합'));
+          return h('div.rc-card' + (s.ok ? '.ok' : ''),
+            h('div.rc-head',
+              h('img.rc-cel', { src: unitImg(r.result, 3), alt: '' }),
+              h('div.rc-info', h('b', res.name), h('small', res.desc)),
+              h('button.btn' + (s.ok ? '.primary' : ''), { disabled: !s.ok, onclick: () => { if (battle.craft(i)) { closePop(); select(-1); } } }, s.ok ? '조합' : `${n}/3`)),
+            h('div.rc-mats', r.mats.map((m, j) => {
+              const d = UNIT[m], have = s.have[j] >= 0;
+              return h('div.rc-mat' + (have ? '.have' : '.miss'), { style: { '--tc': tierCol(d.tier) } },
+                h('img', { src: unitImg(m, 3), alt: '' }),
+                h('span.nm', d.name),
+                h('span.st', have ? '✓ 있음' : `없음 · ${TIERS[d.tier].name} ${CLASSES[d.cls].name}`));
+            })));
         }));
     }
   }

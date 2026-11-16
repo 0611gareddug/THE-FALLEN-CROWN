@@ -35,7 +35,8 @@ function polyPath(pts) {
   return { segs, PERIM: total, path };
 }
 
-function makeLayout(kind, boards, pts, extra) {
+// loops: 고리 길 목록 (각각 닫힌 다각형). 적은 태어난 고리를 계속 돈다. 고리마다 첫 점이 포탈.
+function makeLayout(kind, boards, loops, extra) {
   const nCells = boards.length * 18;
   const cellRect = (i) => { const b = boards[(i / 18) | 0], j = i % 18; return [b.x + (j % COLS) * CELL, b.y + ((j / COLS) | 0) * CELL]; };
   const CX = new Float32Array(nCells), CY = new Float32Array(nCells);
@@ -59,29 +60,47 @@ function makeLayout(kind, boards, pts, extra) {
     }
     return out;
   });
-  return { kind, W: extra.W || W, boards, nCells, cellRect, CX, CY, cx, cy, cellAt, NB, ownerOf: (i) => (i / 18) | 0, pts, ...polyPath(pts), ...extra };
+  const LP = loops.map((pts) => ({ pts, ...polyPath(pts) }));
+  const path = LP.length === 1 ? LP[0].path : (s, out, k = 0) => LP[k].path(s, out);
+  const segs = LP.flatMap((l) => l.segs);
+  const pts = LP.flatMap((l) => l.pts);
+  return {
+    kind, W: extra.W || W, boards, nCells, cellRect, CX, CY, cx, cy, cellAt, NB, ownerOf: (i) => (i / 18) | 0,
+    loops: LP, nLoops: LP.length, path, segs, pts, PERIM: LP[0].PERIM, loopLen: (k) => LP[k || 0].PERIM,
+    portals: LP.map((l) => l.pts[0]),
+    // 여러 고리가 함께 쓰는 길 구간 (고리 안 거리 기준, 두 고리에서 같은 자리): 첫 구간 끝 ~ 둘째 구간 끝
+    shared: LP.length > 1 ? [LP[0].segs[0].len, LP[0].segs[0].len + LP[0].segs[1].len] : null,
+    // 한 바퀴로 치는 거리 (보스 · 정예가 이만큼 걸으면 성벽 피해)
+    lapLen: extra.lapLen || LP.reduce((a, l) => a + l.PERIM, 0),
+    ...extra,
+  };
 }
 
-export const SOLO = makeLayout('solo', [{ x: BX, y: BY }], [[PL, PT], [PR, PT], [PR, PB], [PL, PB]], {
+export const SOLO = makeLayout('solo', [{ x: BX, y: BY }], [[[PL, PT], [PR, PT], [PR, PB], [PL, PB]]], {
   view: { x: 0, y: 0, w: W, h: H }, landView: { x: 0, y: 80, w: W, h: 228 }, fieldLimit: 100,
 });
 
-// 협동: 위 보드(주인 1) · 아래 보드(주인 0), 8자 길
+// 협동: 위 보드(주인 1) · 아래 보드(주인 0)
+// 포탈 2개(왼쪽 위 · 왼쪽 아래)에서 적이 절반씩 나온다. 왼쪽 길로 가운데까지 와서 가운데 길을 오른쪽으로 지나고,
+// 오른쪽 끝에서 태어난 쪽으로 갈라져 그 보드 바깥을 돌아 포탈로 돌아온다 (가운데 길은 두 고리가 함께 쓴다).
 const CT = 74, CM = 246, CB = 418;
-export const COOP = makeLayout('coop', [{ x: BX, y: CM + 14 }, { x: BX, y: CT + 14 }],
-  [[PL, CT], [PR, CT], [PR, CM], [PL, CM], [PL, CB], [PR, CB], [PR, CM], [PL, CM]], {
+const twoLoops = (R) => [
+  [[PL, CT], [PL, CM], [R, CM], [R, CT]],
+  [[PL, CB], [PL, CM], [R, CM], [R, CB]],
+];
+export const COOP = makeLayout('coop', [{ x: BX, y: CM + 14 }, { x: BX, y: CT + 14 }], twoLoops(PR), {
     view: { x: 0, y: 56, w: W, h: 384 }, landView: { x: 0, y: 56, w: W, h: 384 }, fieldLimit: 150,
     mirrorY: CT + CB, // 참가자 화면: 위아래를 뒤집어 자기 보드가 아래로
   });
 
-// 3~4인: 8자 길을 가로로 두 배로 늘린 고리 길 + 보드 4칸 (왼쪽 아래 · 오른쪽 아래 · 왼쪽 위 · 오른쪽 위)
+// 3~4인: 2인 길을 가로로 두 배로 늘린 길 + 보드 4칸 (왼쪽 아래 · 오른쪽 아래 · 왼쪽 위 · 오른쪽 위)
+// 위 고리는 위쪽 보드 둘, 아래 고리는 아래쪽 보드 둘을 둘러 돈다.
 // 자리 0(방장)은 왼쪽 아래. 참가자 화면은 좌우/위아래를 뒤집어 자기 보드가 항상 왼쪽 아래에 온다.
 export const RW = 720;
 const PR2 = RW - PL;
 const RING_SLOTS = [{ x: BX, y: CM + 14 }, { x: RW / 2 + BX, y: CM + 14 }, { x: BX, y: CT + 14 }, { x: RW / 2 + BX, y: CT + 14 }];
 // 3인도 같은 4칸 고리를 쓰고 오른쪽 위 칸은 비워 둔다 (뒤집어 보여 줄 때 칸이 맞도록)
-const ringOf = (n) => makeLayout('ring', RING_SLOTS,
-  [[PL, CT], [PR2, CT], [PR2, CM], [PL, CM], [PL, CB], [PR2, CB], [PR2, CM], [PL, CM]], {
+const ringOf = (n) => makeLayout('ring', RING_SLOTS, twoLoops(PR2), {
     W: RW, view: { x: 0, y: 56, w: RW, h: 384 }, landView: { x: 0, y: 56, w: W, h: 384 }, fieldLimit: n === 3 ? 200 : 250,
     mirrorY: CT + CB, mirrorX: RW, slotFlip: [[0, 0], [1, 0], [0, 1], [1, 1]], seats: n,
   });

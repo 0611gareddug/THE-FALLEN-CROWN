@@ -1110,3 +1110,30 @@ body:not(.land) .room-mini { top: 2px; right: 8px; }
 /* 투표: 동료가 아직 이야기를 읽는 동안 (시간 멈춤) */
 .vote-bar.wait .vb-track i { background: #8f96a8; animation: vbwait 1.6s ease-in-out infinite; }
 @keyframes vbwait { 50% { opacity: .45; } }
+
+/* 천상 조합 창: 천상마다 카드 · 재료는 큰 그림 + 이름 + 있음/없음 */
+.pop.recipe-pop { max-height: 430px; overflow: auto; scrollbar-width: thin; }
+.hud.popopen .toast { opacity: 0; }
+.rc-note { font-size: 11px; color: var(--dim); margin: -2px 0 2px; }
+.rc-card { border: 1px solid var(--line2); background: #10121a; margin-top: 8px; padding: 8px; }
+.rc-card.ok { border-color: #ff9ad9; box-shadow: 0 0 0 1px rgba(255,154,217,.35), 0 0 14px rgba(255,154,217,.18); }
+.rc-head { display: flex; align-items: center; gap: 8px; }
+.rc-cel { width: 40px; height: 40px; image-rendering: pixelated; flex: none; }
+.rc-info { flex: 1; min-width: 0; }
+.rc-info b { display: block; color: #ff9ad9; font-size: 13.5px; font-weight: 700; word-break: keep-all; }
+.rc-info small { display: block; color: #c9c3d6; font-size: 10.5px; line-height: 1.4; margin-top: 2px; word-break: keep-all; }
+.rc-head .btn { height: 32px; min-width: 52px; padding: 0 10px; font-size: 12px; flex: none; }
+.rc-head .btn:disabled { opacity: .55; }
+.rc-mats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.rc-mat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 3px 5px; border: 1.5px solid var(--tc); background: #161924; text-align: center; min-width: 0; }
+.rc-mat img { width: 36px; height: 36px; image-rendering: pixelated; }
+.rc-mat .nm { font-size: 11.5px; font-weight: 700; color: #f0ebdf; line-height: 1.25; word-break: keep-all; }
+.rc-mat .st { font-size: 9.5px; line-height: 1.25; word-break: keep-all; }
+.rc-mat.have { background: #14241a; }
+.rc-mat.have .st { color: #7ee08a; font-weight: 700; }
+.rc-mat.miss { border-style: dashed; }
+.rc-mat.miss img { opacity: .5; }
+.rc-mat.miss .nm { color: #b8b2c4; }
+.rc-mat.miss .st { color: #ff7a7a; }
+.land .pop.recipe-pop { max-height: 360px; top: 100px; }
+.land .rc-mats { gap: 4px; }
